@@ -29,6 +29,27 @@ IPs can have the following states:
 * *provisioned* - IP is in use
 
 
+The state machine for this would be:
+
+                      +----------+                 +------------------+
+                      | free for |<--------------->| reserved for use |
+              +-------+   use    |<-------+        |  outside of SDC  |
+              |       +----------+        |        +------------------+
+              |                           |
+              |                           |
+              v                           |
+    +--------------------+      +---------+----------+
+    |    provisioned     |      | deprovisioning but |
+    | but not active yet |      |    still active    |
+    +---------+----------+      +--------------------+
+              |                           ^
+              |                           |
+              |                           |
+              |      +-------------+      |
+              |      | in use by a |      |
+              +----->|    SM /VM   +------+
+                     +-------------+
+
 ## Endpoints
 
 Get information about an IP:
