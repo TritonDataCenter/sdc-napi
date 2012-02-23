@@ -340,3 +340,8 @@ If it's not enough, we could Just use the same endpoints with /audit in front of
   * This would make it more accurate as to what you're creating - potentially a nic with 2 IPs (one IPv6, one IPv4)
 * Should we move from primary networks to primary nics? In practice, it's just one nic that's primary for a zone - the network being "primary" is not really helpful.  This also simplifies things significantly down the stack (eg: with vmadm)
 
+# TODO
+
+* Changing nic tags assigned to a CN should not require rebooting that CN
+  for them to actually change
+
