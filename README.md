@@ -12,8 +12,8 @@ The IP management service:
 * will provide the ability to create and manage "other" types of networks (ie keep in mind we'll do VL2 / OpenFlow / etc)
 * will need to do lazy creation (esp with IPv6 subnets)
 * provide the ability to create and manage network pools (groups of logical networks). (it's unclear whether or not pools need owners)
-* will need to manage nic tags (maybe)
-
+* will need to manage nic tags (maybe) (it must be possible to add a nic tag to
+  a machine without a reboot)
 
 
 # /ips
