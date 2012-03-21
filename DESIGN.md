@@ -1,6 +1,5 @@
 # NAPI - Network API Feedback
 
-
 ### The Model
 
 In the model the URI contains the IP address, but in theory there is no reason
@@ -61,20 +60,6 @@ have the hypervisor send out the gratuitous arps in behalf of the vm.
 
 The "provisioning an IP" parameters will probably need to include more
 information, like DNS servers, search domain, etc. Or will they?
-
-### Antispoof
-
-This is entirely personal preference, but I'm not entirely keen on a key that
-says "antispoof_disable" which then consists of the values you want to disable.
-I would rather use something explicit like 
-
-    { 
-      mac_antispoof: true,
-      ip_antispoof: true 
-    }
-
-That way, to change it, you just flip a true/false on a single value, not edit
-an array. 
 
 ### VIPS
 

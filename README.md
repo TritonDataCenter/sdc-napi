@@ -325,6 +325,24 @@ If it's not enough, we could Just use the same endpoints with /audit in front of
 * /audit/nics
 
 
+# Anti-Spoof
+
+* It must be possible to toggle anti-spoof on / off using an API call for a 
+  specific machine. For example, a put to a machine with "mac_antispoof=false",
+  would disable anti-spoofing on layer 2. The same must be in place for layer 3.
+
+* This is entirely personal preference, but I'm not entirely keen on a key that
+  says "antispoof_disable" which then consists of the values you want to disable.
+  I would rather use something explicit like 
+
+    { 
+      mac_antispoof: true,
+      ip_antispoof: true 
+    }
+
+  That way, to change it, you just flip a true/false on a single value, not edit
+  an array. 
+
 
 # Questions / Open Issues
 
@@ -339,6 +357,8 @@ If it's not enough, we could Just use the same endpoints with /audit in front of
 * Should the endpoint for creating IPs on a LN be *POST /networks/<uuid>/nics* (rather than /ips)?
   * This would make it more accurate as to what you're creating - potentially a nic with 2 IPs (one IPv6, one IPv4)
 * Should we move from primary networks to primary nics? In practice, it's just one nic that's primary for a zone - the network being "primary" is not really helpful.  This also simplifies things significantly down the stack (eg: with vmadm)
+
+
 
 # TODO
 
