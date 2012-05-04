@@ -16,7 +16,7 @@
 	<service_fmri value="svc:/system/filesystem/local" />
 </dependency>
 
-<exec_method type="method" name="start" exec="@@NODE@@ @@PREFIX@@/bin/napi &amp;" timeout_seconds="30" />
+<exec_method type="method" name="start" exec="/opt/smartdc/napi/bin/napi &amp;" timeout_seconds="30" />
 <exec_method type="method" name="stop" exec=":kill" timeout_seconds="30" />
 
 <instance name="default" enabled="true" />

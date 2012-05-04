@@ -1,1 +1,3 @@
 smf/manifests/napi.xml
+/build
+node_modules

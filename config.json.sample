@@ -1,0 +1,25 @@
+{
+  "port": 8080,
+  "initialNetworks": {
+    "admin": {
+      "vlan": 0,
+      "network": "10.99.99.0",
+      "netmask": "255.255.255.0",
+      "gateway": "10.99.99.7",
+      "startIP": "10.99.99.128",
+      "endIP": "10.99.99.250",
+      "resolvers": [ "8.8.4.4", "8.8.8.8" ]
+    },
+    "external": {
+      "vlan": 0,
+      "network": "10.88.88.0",
+      "netmask": "255.255.255.0",
+      "gateway": "10.88.88.2",
+      "startIP": "10.88.88.128",
+      "endIP": "10.88.88.250",
+      "resolvers": [ "8.8.4.4", "8.8.8.8" ]
+    }
+  },
+  "macOUI": "90b8d0",
+  "logLevel": "trace"
+}
