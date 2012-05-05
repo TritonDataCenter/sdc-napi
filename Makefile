@@ -95,7 +95,7 @@ publish: release
     exit 1; \
   fi
 	mkdir -p $(BITS_DIR)/napi
-	cp $(ROOT)/$(RELEASE_TARBALL) $(BITS_DIR)/napi/$(RELEASE_TARBALL)
+	cp $(TOP)/$(RELEASE_TARBALL) $(BITS_DIR)/napi/$(RELEASE_TARBALL)
 
 #
 # Includes
