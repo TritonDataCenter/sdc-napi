@@ -31,11 +31,11 @@ To bring up the server for development on your laptop:
 
     # Get the source and build.
     git clone git@git.joyent.com:napi.git
-    cd napi/
+    cd napi
     make all
 
     # Use the sample config.
-    cp config.json.sampl config.json
+    cp config.json.sample config.json
 
     # Start the server
     ./bin/napi
