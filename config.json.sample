@@ -1,5 +1,7 @@
 {
   "port": 8080,
+  "user": "admin",
+  "password": "admin",
   "initialNetworks": {
     "admin": {
       "vlan": 0,

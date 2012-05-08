@@ -1,3 +1,10 @@
 smf/manifests/napi.xml
 /build
 node_modules
+napi-pkg-*.tar.bz2
+config.json
+data.json
+# built docs (ignore for now)
+/docs/media
+/docs/*.html
+/docs/*.json
