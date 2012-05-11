@@ -43,7 +43,7 @@ INSTDIR         := $(PKGDIR)/root/opt/smartdc/napi
 # Repo-specific targets
 #
 .PHONY: all
-all: $(SMF_MANIFESTS) | $(TAP) $(REPO_DEPS)
+all: $(SMF_MANIFESTS) | $(TAP) $(REPO_DEPS) deps
 	$(NPM) rebuild
 
 $(TAP): | $(NPM_EXEC)
@@ -55,6 +55,10 @@ CLEAN_FILES += $(TAP) ./node_modules/tap
 test: $(TAP)
 	TAP=1 $(TAP) test/*.test.js
 
+.PHONY: deps
+deps: | $(NPM_EXEC) deps/node-sdc-clients/.git
+	$(NPM) install deps/node-sdc-clients
+
 #
 # Packaging targets
 #
@@ -62,7 +66,7 @@ test: $(TAP)
 release: $(RELEASE_TARBALL)
 
 .PHONY: pkg
-pkg: all deps $(SMF_MANIFESTS)
+pkg: all $(SMF_MANIFESTS)
 	@echo "Building $(RELEASE_TARBALL)"
 	@rm -rf $(PKGDIR)
 	@mkdir -p $(PKGDIR)/site

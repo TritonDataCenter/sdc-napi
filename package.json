@@ -8,13 +8,17 @@
     "restify": "1.4.1",
     "node-uuid": "1.2.0",
     "bunyan": "0.7",
-    "verror": "1.1.0"
+    "verror": "1.1.0",
+    "nopt": "1.0"
   },
+  "bundledDependences": [
+    "sdc-clients"
+  ],
   "devDependencies": {
     "tap": "0.2"
   },
   "scripts": {
-    "start": "node ./server.js",
+    "start": "./bin/napi",
     "test": "make test"
   },
   "engines": {

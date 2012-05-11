@@ -208,6 +208,32 @@ if it matches *all* of the input parameters.
     ]
 
 
+## POST /nics/:mac_address
+
+Creates a new nic.
+
+||**Field**||**Type**||**Description**||
+||mac||String||MAC address||
+||owner_uuid||UUID||Nic Owner||
+||belongs_to_uuid||UUID||The UUID of what this Nic belongs to||
+||belongs_to_type||String||The type that this belongs to (eg: 'zone', 'server')||
+
+### Example
+
+    POST /nics/
+        -d mac=00:50:56:34:60:4c
+        -d owner_uuid=00000000-0000-0000-0000-000000000000
+        -d belongs_to_uuid=564da1dd-cea7-9cc6-1059-cca75970c802
+        -d belongs_to_type=server
+    {
+      "mac": "00:50:56:34:60:4c",
+      "primary": false,
+      "owner_uuid": "00000000-0000-0000-0000-000000000000",
+      "belongs_to_uuid": "564da1dd-cea7-9cc6-1059-cca75970c802",
+      "belongs_to_type": "server"
+    }
+
+
 ## GET /nics/:mac_address
 
 Returns the nic with the given MAC address.
@@ -246,7 +272,7 @@ Changes properties of the nic with the given MAC address.
 
     PUT /nics/90b8d0575370
         -d belongs_to_uuid=27391a96-bbbb-bbbb-bbbb-888888888888
-        -d belongs_to_type=server 
+        -d belongs_to_type=server
 
     {
       "ip": "10.88.88.198",

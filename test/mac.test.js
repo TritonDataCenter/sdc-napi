@@ -29,6 +29,9 @@ test('macNumberToAddress - valid', function(t) {
   };
   for (var m in macs) {
     t.equal(MAC.macNumberToAddress(m), macs[m], "MAC address '" + macs[m] + "' is valid");
+    t.equal(MAC.macAddressToNumber(macs[m]), Number(m), "MAC number '" + m + "' is valid");
+    t.equal(MAC.macAddressToNumber(macs[m].replace(/:/g, '-')), Number(m), "MAC number '" + m + "' is valid (with dashes)");
   }
   t.end();
 });
+
