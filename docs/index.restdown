@@ -51,6 +51,11 @@ These endpoints manage logical networks.
 
 Returns a list of all logical networks.
 
+### Inputs
+
+||**Field**||**Type**||**Description**||
+||name||String||Only list the network matching this name||
+
 ### Example
 
     GET /networks
