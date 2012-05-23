@@ -213,7 +213,7 @@ if it matches *all* of the input parameters.
     ]
 
 
-## POST /nics/:mac_address
+## POST /nics
 
 Creates a new nic.
 
@@ -222,10 +222,16 @@ Creates a new nic.
 ||owner_uuid||UUID||Nic Owner||
 ||belongs_to_uuid||UUID||The UUID of what this Nic belongs to||
 ||belongs_to_type||String||The type that this belongs to (eg: 'zone', 'server')||
+||ip||String||IP address to assign to the nic||
+||gateway||String||Gateway IP address (required if IP specified)||
+||netmask||String||Netmask (required if IP specified)||
+||nic_tag||String||Nic tag (required if IP specified)||
+||vlan_id||Number||VLAN ID (required if IP specified)||
+
 
 ### Example
 
-    POST /nics/
+    POST /nics
         -d mac=00:50:56:34:60:4c
         -d owner_uuid=00000000-0000-0000-0000-000000000000
         -d belongs_to_uuid=564da1dd-cea7-9cc6-1059-cca75970c802
