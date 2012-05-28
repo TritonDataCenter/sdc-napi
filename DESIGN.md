@@ -81,6 +81,13 @@ the logical network has them". But, a LN will run out of IPV4 addresses long
 before it runs out of IPV6 addresses. How will it work then? Just assign an
 IPv6, or fail if the reservation can't continue if you requested IPv4?
 
+### DNS Names
+
+It should be possible to associate a DNS name with an IP address. Each "address"
+resource in NAPI should also have an optional `dnsName` (or similar) key that
+can contain a valid hostname. This is so we can display an IP address in
+hostname format. 
+
 ### Bridges / Networks / TAGS
 
 Tags arent really bridges. Tags are just telling CNs what physical link a
