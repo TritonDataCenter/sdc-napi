@@ -104,7 +104,7 @@ Creates a new nic, provisioning an IP and MAC address in the process.
 
 ### Example
 
-    POST /networks/1275886f-3fdf-456e-bba6-28e0e2eab58f/nics 
+    POST /networks/1275886f-3fdf-456e-bba6-28e0e2eab58f/nics
         -d owner_uuid=00000000-0000-0000-0000-000000000000
         -d belongs_to_uuid=a112b8aa-eb39-4f84-8257-17a705880773
         -d belongs_to_type=zone
@@ -134,23 +134,46 @@ Gets all of the IPs in use on that Logical Network.
 
     GET /networks/1275886f-3fdf-456e-bba6-28e0e2eab58f/ips
 
-    {
-      "reserved": {
-        "174285787": {
-          "nic": 159123447941108,
-          "owner_uuid": "00000000-0000-0000-0000-000000000000",
-          "belongs_to_uuid": "00000000-0000-0000-0000-000000000000",
-          "belongs_to_type": "zone"
-        },
-        "174285808": {
-          "nic": 159123454032011,
-          "owner_uuid": "00000000-0000-0000-0000-000000000000",
-          "belongs_to_uuid": "a112b8aa-eb39-4f84-8257-17a705880773",
-          "belongs_to_type": "zone"
-        }
+    [
+      {
+        "ip": "10.99.99.9",
+        "owner_uuid": "930896af-bf8c-48d4-885c-6573a94b1853",
+        "belongs_to_uuid": "d66d8047-5c23-42a1-a26a-60ee806f7edb",
+        "belongs_to_type": "zone",
+        "netmask": "255.255.255.0",
+        "gateway": "10.99.99.7",
+        "nic": "c2:df:ef:11:48:48"
+      },
+      {
+        "ip": "10.99.99.10",
+        "owner_uuid": "930896af-bf8c-48d4-885c-6573a94b1853",
+        "belongs_to_uuid": "671819b2-5017-4337-8c85-e5658e632955",
+        "belongs_to_type": "zone",
+        "netmask": "255.255.255.0",
+        "gateway": "10.99.99.7",
+        "nic": "c2:e0:04:1e:c7:8a"
       }
-    }
+    ]
 
+
+
+## GET /networks/:network_uuid/ips/:ip_address
+
+Gets a specific IP on a Logical Network.
+
+### Example
+
+    GET /networks/b330e2a1-6260-41a8-8567-a8a011f202f1/ips/10.88.88.106
+
+    {
+      "ip": "10.88.88.106",
+      "owner_uuid": "930896af-bf8c-48d4-885c-6573a94b1853",
+      "belongs_to_uuid": "0e56fe34-39a3-42d5-86c7-d719487f892b",
+      "belongs_to_type": "zone",
+      "netmask": "255.255.255.0",
+      "gateway": "10.88.88.2",
+      "nic": "90:b8:d0:55:57:2f"
+    }
 
 
 # Nics
@@ -302,3 +325,31 @@ Changes properties of the nic with the given MAC address.
       ]
     }
 
+
+## DELETE /nics/:mac_address
+
+Deletes the nic with the given MAC address, freeing any IPs that belong to
+that nic in the process
+
+**Note: this is the MAC address with all colons removed.**
+
+### Example
+
+    DELETE /nics/90b8d0575370
+
+    {
+      "ip": "10.88.88.198",
+      "netmask": "255.255.255.0",
+      "vlan_id": 0,
+      "nic_tag": "external",
+      "mac": "90:b8:d0:57:53:70",
+      "primary": false,
+      "owner_uuid": "aaaaaaaf-bf8c-48d4-885c-6573a94b1853",
+      "belongs_to_uuid": "27391a96-bbbb-bbbb-bbbb-85f948d9c509",
+      "belongs_to_type": "zone",
+      "gateway": "10.88.88.2",
+      "resolvers": [
+        "8.8.4.4",
+        "8.8.8.8"
+      ]
+    }
