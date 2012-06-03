@@ -20,8 +20,10 @@ var log = bunyan.createLogger({
     }
 });
 
+var server;
+
 try {
-  var napi = napi.createServer({
+  server = napi.createServer({
     log: log,
     configFile: __dirname + '/config.json'
   });
@@ -33,4 +35,4 @@ try {
   process.exit(1);
 }
 
-napi.start();
+server.start();

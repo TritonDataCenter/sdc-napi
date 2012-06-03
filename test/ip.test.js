@@ -18,8 +18,8 @@ test('addressToNumber / numberToAddress - valid', function (t) {
     '10.88.88.0': 173561856
   };
   for (var i in ips) {
-    t.equal(IP.addressToNumber(i), ips[i], "IP number '" + i + "' is valid");
-    t.equal(IP.numberToAddress(ips[i]), i, "IP address '" + i + "' is valid");
+    t.equal(IP.addressToNumber(i), ips[i], 'IP number "' + i + '" is valid');
+    t.equal(IP.numberToAddress(ips[i]), i, 'IP address "' + i + '" is valid');
   }
   t.end();
 });
@@ -28,7 +28,7 @@ test('addressToNumber / numberToAddress - valid', function (t) {
 test('addressToNumber - invalid', function (t) {
   var ips = ['1.2.3.4.5', 'asdf', null, '256.0.0.1', '1.2.3.300', '1.2'];
   for (var i in ips) {
-    t.equal(IP.addressToNumber(ips[i]), null, "IP '" + ips[i] + "' is invalid");
+    t.equal(IP.addressToNumber(ips[i]), null, 'IP "' + ips[i] + '" is invalid');
   }
   t.end();
 });
