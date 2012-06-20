@@ -31,8 +31,11 @@ JSSTYLE_FLAGS    = -o indent=2,doxygen,unparenthesized-return=0
 SMF_MANIFESTS_IN = smf/manifests/napi.xml.in
 BASH_FILES	:= bin/napi
 
+NODE_PREBUILT_VERSION := v0.6.19
+NODE_PREBUILT_TAG := zone
+
 include ./tools/mk/Makefile.defs
-include ./tools/mk/Makefile.node.defs
+include ./tools/mk/Makefile.node_prebuilt.defs
 include ./tools/mk/Makefile.node_deps.defs
 include ./tools/mk/Makefile.smf.defs
 
@@ -106,7 +109,7 @@ publish: release
 # Includes
 #
 include ./tools/mk/Makefile.deps
-include ./tools/mk/Makefile.node.targ
+include ./tools/mk/Makefile.node_prebuilt.targ
 include ./tools/mk/Makefile.node_deps.targ
 include ./tools/mk/Makefile.smf.targ
 include ./tools/mk/Makefile.targ
