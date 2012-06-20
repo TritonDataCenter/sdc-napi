@@ -13,11 +13,7 @@ var bunyan = require('bunyan');
 var log = bunyan.createLogger({
     name: 'napi',
     level: 'debug',
-    serializers: {
-        err: bunyan.stdSerializers.err,
-        req: bunyan.stdSerializers.req,
-        res: restify.bunyan.serializers.response
-    }
+    serializers: restify.bunyan.serializers
 });
 
 var server;
