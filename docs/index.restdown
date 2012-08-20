@@ -103,6 +103,7 @@ Creates a new nic, provisioning an IP and MAC address in the process.
 ||belongs_to_type||String||The type that this belongs to (eg: 'zone', 'server')||
 ||ip||String||IP address to assign to the nic||
 ||reserved||Boolean||Whether the IP address should be reserved||
+||nic_tags_provided||Array of nic tag names||Nic tags this nic provides||
 
 ### Example
 
@@ -294,11 +295,10 @@ Creates a new nic.
 ||belongs_to_uuid||UUID||The UUID of what this Nic belongs to||
 ||belongs_to_type||String||The type that this belongs to (eg: 'zone', 'server')||
 ||ip||String||IP address to assign to the nic||
-||gateway||String||Gateway IP address (required if IP specified)||
-||netmask||String||Netmask (required if IP specified)||
 ||nic_tag||String||Nic tag (required if IP specified)||
 ||vlan_id||Number||VLAN ID (required if IP specified)||
 ||reserved||Boolean||Whether the IP address should be reserved||
+||nic_tags_provided||Array of nic tag names||Nic tags this nic provides||
 
 
 ### Example
@@ -412,3 +412,9 @@ that nic in the process
   * Can now pass reserved to POST /nics and POST /networks/:network_uuid/nics
   * Can now do a PUT /networks/:network_uuid/ips/:ip_addr to change the IP's
     reserved property
+
+## 2012-08-20
+
+  * gateway and netmask no longer required when POSTING to /nics with an IP
+    address
+  * Adding and updating nics now takes an optional nic_tags_provided parameter
