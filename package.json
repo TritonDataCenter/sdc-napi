@@ -7,7 +7,7 @@
   "dependencies": {
     "restify": "1.4.1",
     "node-uuid": "1.2.0",
-    "bunyan": "0.7",
+    "bunyan": "0.13",
     "verror": "1.1.0",
     "nopt": "1.0"
   },
