@@ -21,7 +21,7 @@ The Networking API allows for administering the following:
 
 * Logical Networks
 * IPs
-* Nics (and therefore their MAC addresses)
+* Nics
 
 NAPI itself is just a directory of the above - it does not handle communicating these changes to servers, which is the domain of [ZAPI][https://mo.joyent.com/zapi] and [CNAPI][https://mo.joyent.com/cnapi].
 
@@ -53,8 +53,13 @@ Returns a list of all logical networks.
 
 ### Inputs
 
+All parameters are optional filters on the list. A network is output in the
+list if it matches *all* of the input parameters.
+
 ||**Field**||**Type**||**Description**||
-||name||String||Only list the network matching this name||
+||name||String||network name||
+||vlan||Integer||VLAN ID||
+||nic_tag||String||Nic Tag name||
 
 ### Example
 
@@ -190,7 +195,7 @@ Returns a list of all nics.
 
 ### Inputs
 
-All inputs are optional filters on the list of nics. A nic is output in the list
+All parameters are optional filters on the list. A nic is output in the list
 if it matches *all* of the input parameters.
 
 ||**Field**||**Type**||**Description**||
@@ -378,7 +383,8 @@ Changes properties of the nic with the given MAC address.
 ## DELETE /nics/:mac_address
 
 Deletes the nic with the given MAC address, freeing any IPs that belong to
-that nic in the process
+that nic in the process. If the IP address is reserved, its reserved and
+owner_uuid properties will be preserved.
 
 **Note: this is the MAC address with all colons removed.**
 
@@ -418,3 +424,7 @@ that nic in the process
   * gateway and netmask no longer required when POSTING to /nics with an IP
     address
   * Adding and updating nics now takes an optional nic_tags_provided parameter
+
+## 2012-09-12
+
+  * GET /networks: added vlan and nic_tag filters

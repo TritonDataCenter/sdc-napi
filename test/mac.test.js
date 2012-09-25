@@ -39,3 +39,16 @@ test('macNumberToAddress - valid', function (t) {
   }
   t.end();
 });
+
+
+test('macAddressToNumber - invalid', function (t) {
+  var macs = [
+    'asdf', 'ff:ff:ff:ff:ff:fg', 'ff:ff:ff:ff:ff:ff1', 'ff:ff:ff:ff:ff:ff:11'
+  ];
+
+  for (var m in macs) {
+    t.equal(MAC.macAddressToNumber(macs[m]), null,
+      'MAC address "' + macs[m] + '" is invalid');
+  }
+  t.end();
+});
