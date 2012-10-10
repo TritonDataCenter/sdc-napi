@@ -59,7 +59,7 @@ function createNicTag(t, napi, state, targetName) {
           state.nicTag = res;
         }
       }
-      t.end();
+      return t.end();
   });
 }
 
@@ -72,7 +72,7 @@ function deleteNicTag(t, napi, state, name) {
 
   napi.deleteNicTag(tagName, function (err) {
     t.ifErr(err, 'delete test nic tag: ' + tagName);
-    t.end();
+    return t.end();
   });
 }
 
@@ -83,7 +83,7 @@ function deleteNicTag(t, napi, state, name) {
 function createNetwork(t, napi, state, extraParams, targetName) {
   var params = {
     name: 'network-integration-' + process.pid,
-    vlan: 0,
+    vlan_id: 0,
     subnet: '10.99.99.0/24',
     provision_start_ip: '10.99.99.5',
     provision_end_ip: '10.99.99.250',
@@ -101,7 +101,7 @@ function createNetwork(t, napi, state, extraParams, targetName) {
   napi.createNetwork(params, function (err, res) {
     t.ifErr(err, 'create network');
     if (err) {
-      t.end();
+      return t.end();
     }
 
     t.ok(res.uuid, 'test network uuid: ' + res.uuid);
@@ -116,7 +116,7 @@ function createNetwork(t, napi, state, extraParams, targetName) {
       state.network = res;
     }
 
-    t.end();
+    return t.end();
   });
 }
 
@@ -127,7 +127,7 @@ function createNetwork(t, napi, state, extraParams, targetName) {
 function deleteNetwork(t, napi, state) {
   napi.deleteNetwork(state.network.uuid, { force: true }, function (err) {
     t.ifErr(err, 'delete network');
-    t.end();
+    return t.end();
   });
 }
 

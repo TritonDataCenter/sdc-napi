@@ -76,7 +76,7 @@ test('Create UFDS client', function (t) {
 test('POST /networks (invalid nic tag)', function (t) {
   var params = {
     name: 'networks-integration-' + process.pid + '-invalid',
-    vlan: 2,
+    vlan_id: 2,
     subnet: '10.77.77.0/24',
     provision_start_ip: '10.77.77.5',
     provision_end_ip: '10.77.77.250',
@@ -102,7 +102,7 @@ test('POST /networks (invalid nic tag)', function (t) {
 test('POST /networks', function (t) {
   var params = {
     name: 'networks-integration-' + process.pid,
-    vlan: 0,
+    vlan_id: 0,
     subnet: '10.99.99.0/24',
     provision_start_ip: '10.99.99.5',
     provision_end_ip: '10.99.99.250',

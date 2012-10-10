@@ -36,7 +36,7 @@ var uuids = {
 
 
 function addNetworkParams(params) {
-  var netParams = ['netmask', 'vlan', 'nic_tag', 'resolvers'];
+  var netParams = ['netmask', 'vlan_id', 'nic_tag', 'resolvers'];
   for (var n in netParams) {
     params[netParams[n]] = state.network[netParams[n]];
   }
@@ -142,7 +142,7 @@ test('POST /nics (with IP but no network)', function (t) {
     belongs_to_type: 'server',
     ip: '10.99.99.79',
     nic_tag: state.network.nic_tag,
-    vlan: state.network.vlan,
+    vlan_id: state.network.vlan_id,
     nic_tags_provided: [ 'external' ]
   };
   var mac = helpers.randomMAC();

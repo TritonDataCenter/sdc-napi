@@ -58,7 +58,7 @@ list if it matches *all* of the input parameters.
 
 ||**Field**||**Type**||**Description**||
 ||name||String||network name||
-||vlan||Integer||VLAN ID||
+||vlan_id||Integer||VLAN ID||
 ||nic_tag||String||Nic Tag name||
 
 ### Example
@@ -68,7 +68,7 @@ list if it matches *all* of the input parameters.
       {
         "uuid": "1275886f-3fdf-456e-bba6-28e0e2eab58f",
         "name": "admin",
-        "vlan": 0,
+        "vlan_id": 0,
         "network": "10.99.99.0",
         "netmask": "255.255.255.0",
         "start_ip": "10.99.99.189",
@@ -82,7 +82,7 @@ list if it matches *all* of the input parameters.
       {
         "uuid": "c9306c59-f0d6-4aa0-aa0c-17d22a6a3f0f",
         "name": "external",
-        "vlan": 0,
+        "vlan_id": 0,
         "network": "10.88.88.0",
         "netmask": "255.255.255.0",
         "start_ip": "10.88.88.189",
@@ -427,4 +427,4 @@ owner_uuid properties will be preserved.
 
 ## 2012-09-12
 
-  * GET /networks: added vlan and nic_tag filters
+  * GET /networks: added vlan_id and nic_tag filters
