@@ -75,6 +75,7 @@ pkg: all $(SMF_MANIFESTS)
 	@rm -rf $(PKGDIR)
 	@mkdir -p $(PKGDIR)/site
 	@mkdir -p $(INSTDIR)/smf/manifests
+	@mkdir -p $(INSTDIR)/test/integration
 	@touch $(PKGDIR)/site/.do-not-delete-me
 	cp -r $(TOP)/server.js \
 		$(TOP)/bin \
@@ -82,6 +83,7 @@ pkg: all $(SMF_MANIFESTS)
 		$(TOP)/node_modules \
 		$(INSTDIR)/
 	cp -P smf/manifests/*.xml $(INSTDIR)/smf/manifests
+	cp -r $(TOP)/test/integration/* $(INSTDIR)/test/integration/
 	cp -PR $(NODE_INSTALL) $(INSTDIR)/node
 	# Clean up some dev / build bits
 	find $(INSTDIR) -name "*.pyc" | xargs rm -f
@@ -90,8 +92,6 @@ pkg: all $(SMF_MANIFESTS)
 	find $(INSTDIR) -name .wafpickle* | xargs rm -rf   # waf build file
 	find $(INSTDIR) -name .lock-wscript | xargs rm -rf   # waf build file
 	find $(INSTDIR) -name config.log | xargs rm -rf   # waf build file
-	find $(INSTDIR) -name test | xargs rm -rf   # waf build file
-	rm -rf $(INSTDIR)/node_modules/tap	# we don't need to run tests
 
 $(RELEASE_TARBALL): pkg
 	(cd $(PKGDIR) && $(TAR) -jcf $(TOP)/$(RELEASE_TARBALL) root site)
