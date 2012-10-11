@@ -124,8 +124,10 @@ function createNetwork(t, napi, state, extraParams, targetName) {
 /*
  * Deletes the testing network stored in state.network
  */
-function deleteNetwork(t, napi, state) {
-  napi.deleteNetwork(state.network.uuid, { force: true }, function (err) {
+function deleteNetwork(t, napi, state, name) {
+  var net = name ? state[name]: state.network;
+
+  napi.deleteNetwork(net.uuid, { force: true }, function (err) {
     t.ifErr(err, 'delete network');
     return t.end();
   });

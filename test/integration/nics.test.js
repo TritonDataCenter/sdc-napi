@@ -74,6 +74,16 @@ test('create test network', function (t) {
 });
 
 
+test('create second test nic tag', function (t) {
+  helpers.createNicTag(t, napi, state, 'nicTag2');
+});
+
+
+test('create third test nic tag', function (t) {
+  helpers.createNicTag(t, napi, state, 'nicTag3');
+});
+
+
 
 // --- Tests
 
@@ -512,15 +522,84 @@ test('GET /nics (filtered)', function (t) {
 });
 
 
+test('POST /nics (nic_tags_provided)', function (t) {
+  var params1 = {
+    owner_uuid: uuids.b,
+    belongs_to_uuid: '564de095-df3c-43a5-a55c-d33c68c7af5e',
+    belongs_to_type: 'server',
+    nic_tags_provided: [state.nicTag2.name]
+  };
+  var params2 = {
+    owner_uuid: uuids.b,
+    belongs_to_uuid: '564de095-df3c-43a5-a55c-d33c68c7af5e',
+    belongs_to_type: 'server',
+    nic_tags_provided: [state.nicTag3.name]
+  };
+
+  napi.createNic(helpers.randomMAC(), params1, function (err, res) {
+    t.ifErr(err, 'create nic 1');
+    if (err) {
+      return t.end();
+    }
+    state.nic.f = res;
+    state.desc.f = util.format(' [%s: nic_tags_provided nic 1]', res.mac);
+    t.deepEqual(res.nic_tags_provided, params1.nic_tags_provided,
+      'nic 1 nic_tags_provided');
+
+    napi.createNic(helpers.randomMAC(), params2, function (err2, res2) {
+      t.ifErr(err2, 'create nic 2');
+      if (err2) {
+        return t.end();
+      }
+
+      state.nic.g = res2;
+      state.desc.g = util.format(' [%s: nic_tags_provided nic 2]', res2.mac);
+      t.deepEqual(res.nic_tags_provided, params1.nic_tags_provided,
+        'nic 2 nic_tags_provided');
+
+      return t.end();
+    });
+  });
+});
+
+
+test('GET /nics (filter: nic_tags_provided)', function (t) {
+  var filter = {
+    nic_tags_provided: [state.nicTag2.name, state.nicTag3.name]
+  };
+
+  napi.listNics(filter, function (err, res) {
+    t.ifErr(err, 'get nics: ' + JSON.stringify(filter));
+    if (err) {
+      return t.end();
+    }
+    t.equal(res.length, 2, '2 nics returned');
+
+    if (res.length === 0) {
+      return t.end();
+    }
+
+    var macs = res.reduce(function (arr, x) {
+      arr.push(x.mac);
+      return arr;
+    }, []).sort();
+
+    t.deepEqual(macs, [state.nic.f.mac, state.nic.g.mac].sort(),
+      'both nics returned');
+    return t.end();
+  });
+});
+
+
 test('DELETE /nics/:mac', function (t) {
-  var nics = ['a', 'b', 'c', 'd', 'e'];
+  var nics = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
 
   var delNic = function (nicNum, cb) {
     var nic = state.nic[nicNum];
     var desc = state.desc[nicNum];
 
     return napi.deleteNic(nic.mac, function (err, res) {
-      t.ifErr(err, 'delete nic ' + nic.mac + ' ' + desc);
+      t.ifErr(err, 'delete nic ' + nic.mac + desc);
       if (err) {
         return cb();
       }
@@ -641,4 +720,14 @@ test('remove test network', function (t) {
 
 test('remove test nic tag', function (t) {
   helpers.deleteNicTag(t, napi, state);
+});
+
+
+test('remove second test nic tag', function (t) {
+  helpers.deleteNicTag(t, napi, state, 'nicTag2');
+});
+
+
+test('remove third test nic tag', function (t) {
+  helpers.deleteNicTag(t, napi, state, 'nicTag3');
 });

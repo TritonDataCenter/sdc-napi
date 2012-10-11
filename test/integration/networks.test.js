@@ -390,7 +390,11 @@ test('remove test nic tag', function (t) {
 });
 
 
-// XXX: delete other network too!
+test('remove test nic tag', function (t) {
+  helpers.deleteNetwork(t, napi, state, 'network2');
+});
+
+
 test('remove second test nic tag', function (t) {
   helpers.deleteNicTag(t, napi, state, 'nicTag2');
 });
