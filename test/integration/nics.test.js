@@ -36,7 +36,7 @@ var uuids = {
 
 
 function addNetworkParams(params) {
-  var netParams = ['netmask', 'vlan_id', 'nic_tag', 'resolvers'];
+  var netParams = ['gateway', 'netmask', 'vlan_id', 'nic_tag', 'resolvers'];
   for (var n in netParams) {
     params[netParams[n]] = state.network[netParams[n]];
   }
@@ -70,7 +70,7 @@ test('create test nic tag', function (t) {
 
 
 test('create test network', function (t) {
-  helpers.createNetwork(t, napi, state);
+  helpers.createNetwork(t, napi, state, { gateway: '10.99.99.4' });
 });
 
 
@@ -173,6 +173,53 @@ test('POST /nics (with IP but no network)', function (t) {
     state.ip.c = params.ip;
 
     return t.end();
+  });
+});
+
+
+test('POST /nics (with IP already reserved)', function (t) {
+  var params = {
+    owner_uuid: uuids.b,
+    belongs_to_uuid: uuids.a,
+    belongs_to_type: 'server',
+    ip: state.network.gateway,
+    nic_tag: state.network.nic_tag,
+    vlan_id: state.network.vlan_id
+  };
+  var mac = helpers.randomMAC();
+
+  napi.createNic(mac, params, function (err, res) {
+    var desc = util.format(' [%s: with IP already reserved]', mac);
+    t.ifErr(err, 'provision nic' + desc);
+    if (err) {
+      return t.end();
+    }
+
+    params.primary = false;
+    params.mac = mac;
+    addNetworkParams(params);
+    t.deepEqual(res, params, 'nic params returned' + desc);
+    state.resNic1 = params;
+    state.desc.resNic1 = desc;
+
+    return napi.getIP(state.network.uuid, params.ip, function (err2, res2) {
+      t.ifErr(err2, 'get IP ' + params.ip + desc);
+      if (err2) {
+        return t.end();
+      }
+
+      var exp = {
+        ip: params.ip,
+        owner_uuid: params.owner_uuid,
+        belongs_to_type: params.belongs_to_type,
+        belongs_to_uuid: params.belongs_to_uuid,
+        reserved: true,
+        free: false
+      };
+      t.deepEqual(res2, exp, 'IP params correct: ' + params.ip + desc);
+
+      return t.end();
+    });
   });
 });
 
@@ -289,7 +336,8 @@ test('POST /nics (with reserved IP)', function (t) {
     params.ip = res.ip;
     addNetworkParams(params);
     t.deepEqual(res, params, 'nic params returned' + desc);
-    state.reservedNic = res;
+    state.resNic2 = res;
+    state.desc.resNic2 = desc;
 
     // IP should be reserved
     return napi.getIP(state.network.uuid, params.ip, function (err2, res2) {
@@ -307,7 +355,6 @@ test('POST /nics (with reserved IP)', function (t) {
         free: false
       };
       t.deepEqual(res2, exp, 'IP params correct: ' + params.ip + desc);
-      state.reservedIP = res2;
 
       return t.end();
     });
@@ -316,35 +363,40 @@ test('POST /nics (with reserved IP)', function (t) {
 
 
 test('DELETE /nics/:mac (with reserved IP)', function (t) {
-  if (!state.reservedNic) {
-    t.ok(false, 'state.reservedNic not populated');
-    return t.end();
-  }
-  var nic = state.reservedNic;
-  var desc = util.format(' [%s: reserved IP]', state.reservedNic.mac);
+  var delNic = function(name, cb) {
+    var nic = state[name];
+    //var desc = util.format(' [%s: reserved IP]', nic.mac);
+    var desc = state.desc[name];
+    return napi.deleteNic(nic.mac, function (err) {
+      t.ifErr(err, 'delete nic' + desc);
+      if (err) {
+        return cb(err);
+      }
 
-  return napi.deleteNic(nic.mac, function (err) {
-    t.ifErr(err, 'delete nic' + desc);
-    if (err) {
-      return t.end();
-    }
+      return napi.getIP(state.network.uuid, nic.ip,
+        function (err2, res2) {
+        t.ifErr(err2, 'get IP ' + nic.ip + desc);
 
-    return napi.getIP(state.network.uuid, state.reservedIP.ip,
-      function (err2, res2) {
-      t.ifErr(err2, 'get IP ' + state.reservedIP.ip + desc);
+        // A reserved IP should keep its owner information
+        var exp = {
+          ip: nic.ip,
+          owner_uuid: nic.owner_uuid,
+          reserved: true,
+          free: false
+        };
+        t.deepEqual(res2, exp, 'IP params correct: ' + nic.ip
+          + desc);
 
-      // A reserved IP should keep its owner information
-      var exp = {
-        ip: state.reservedIP.ip,
-        owner_uuid: state.reservedIP.owner_uuid,
-        reserved: true,
-        free: false
-      };
-      t.deepEqual(res2, exp, 'IP params correct: ' + state.reservedIP.ip
-        + desc);
-
-      return t.end();
+        return cb();
+      });
     });
+  };
+
+  vasync.forEachParallel({
+    func: delNic,
+    inputs: ['resNic1', 'resNic2']
+  }, function (err) {
+    return t.end();
   });
 });
 
@@ -592,7 +644,7 @@ test('GET /nics (filter: nic_tags_provided)', function (t) {
 
 
 test('DELETE /nics/:mac', function (t) {
-  var nics = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+  var nics = Object.keys(state.nic);
 
   var delNic = function (nicNum, cb) {
     var nic = state.nic[nicNum];
@@ -626,7 +678,7 @@ test('DELETE /nics/:mac', function (t) {
 
 
 test('Check IPs are freed along with nics', function (t) {
-  var ips = ['b', 'c', 'd', 'e'];
+  var ips = Object.keys(state.ip);
 
   var checkIP = function (ipNum, cb) {
     var ip = state.ip[ipNum];
