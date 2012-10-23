@@ -367,6 +367,34 @@ test('UFDS validation', function (t) {
 });
 
 
+test('POST /networks (empty gateway)', function (t) {
+  var params = {
+    name: 'networks-integration-' + process.pid + '-3',
+    vlan_id: 0,
+    subnet: '10.99.99.0/24',
+    provision_start_ip: '10.99.99.5',
+    provision_end_ip: '10.99.99.250',
+    nic_tag: state.nicTag.name,
+    gateway: '',
+    resolvers: ['1.2.3.4', '10.99.99.2']
+  };
+
+  napi.createNetwork(params, function (err, res) {
+    t.ifErr(err, 'create network');
+    if (err) {
+      return t.end();
+    }
+
+    params.uuid = res.uuid;
+    params.netmask = '255.255.255.0';
+    delete params.gateway;
+    t.deepEqual(res, params, 'parameters returned for network ' + res.uuid);
+    state.network3 = res;
+
+    return t.end();
+  });
+});
+
 
 // --- Teardown
 
@@ -379,6 +407,13 @@ test('Tear down UFDS client', function (t) {
 
 test('DELETE /networks/:uuid', function (t) {
   napi.deleteNetwork(state.network.uuid, { force: true }, function (err) {
+    t.ifErr(err, 'delete network');
+    t.end();
+  });
+});
+
+test('DELETE /networks/:uuid (net3)', function (t) {
+  napi.deleteNetwork(state.network3.uuid, { force: true }, function (err) {
     t.ifErr(err, 'delete network');
     t.end();
   });
