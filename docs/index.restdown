@@ -19,11 +19,15 @@ markdown2extras: wiki-tables, code-friendly
 
 The Networking API allows for administering the following:
 
+* Nic Tags
 * Logical Networks
 * IPs
 * Nics
 
-NAPI itself is just a directory of the above - it does not handle communicating these changes to servers, which is the domain of [ZAPI][https://mo.joyent.com/zapi] and [CNAPI][https://mo.joyent.com/cnapi].
+NAPI itself is just a directory of the above - it does not handle communicating
+these changes to servers, which is the domain of
+[VMAPI](https://mo.joyent.com/docs/vmapi/master) and
+[CNAPI](https://mo.joyent.com/docs/cnapi/master).
 
 ## Getting Started
 
@@ -39,6 +43,63 @@ To bring up the server for development on your laptop:
 
     # Start the server
     ./bin/napi
+
+
+
+# Nic Tags
+
+These endpoints manage nic tags.
+
+
+## GET /nic_tags
+
+Returns a list of all nic tags.
+
+### Example
+
+    GET /nic_tags
+    [
+      {
+        "uuid": "bc7e140a-f1fe-49fd-8b70-26379fa04492",
+        "name": "admin"
+      },
+      {
+        "uuid": "99ec3b5a-4291-4a40-ba0d-abf7ba1e6e4f",
+        "name": "external"
+      }
+    ]
+
+
+## GET /nic_tags/:name
+
+Returns the named nic tag.
+
+### Example
+
+    GET /nic_tags/admin
+    {
+      "uuid": "bc7e140a-f1fe-49fd-8b70-26379fa04492",
+      "name": "admin"
+    }
+
+
+## POST /nic_tags
+
+Creates a nic tag.
+
+### Inputs
+
+||**Field**||**Type**||**Description**||
+||name||String||nic tag name||
+
+### Example
+
+    POST /nic_tags
+        -d name=internal
+    {
+      "uuid": "856e77b0-c0b2-4a6a-8c17-4ec1017360af",
+      "name": "internal"
+    }
 
 
 
@@ -69,10 +130,10 @@ list if it matches *all* of the input parameters.
         "uuid": "1275886f-3fdf-456e-bba6-28e0e2eab58f",
         "name": "admin",
         "vlan_id": 0,
-        "network": "10.99.99.0",
+        "subnet": "10.99.99.0/24",
         "netmask": "255.255.255.0",
-        "start_ip": "10.99.99.189",
-        "end_ip": "10.99.99.250",
+        "provision_start_ip": "10.99.99.189",
+        "provision_end_ip": "10.99.99.250",
         "resolvers": [
           "8.8.4.4",
           "8.8.8.8"
@@ -82,11 +143,11 @@ list if it matches *all* of the input parameters.
       {
         "uuid": "c9306c59-f0d6-4aa0-aa0c-17d22a6a3f0f",
         "name": "external",
-        "vlan_id": 0,
-        "network": "10.88.88.0",
+        "vlan_id": 128,
+        "subnet": "10.88.88.0/24",
         "netmask": "255.255.255.0",
-        "start_ip": "10.88.88.189",
-        "end_ip": "10.88.88.250",
+        "provision_start_ip": "10.88.88.189",
+        "provision_end_ip": "10.88.88.250",
         "resolvers": [
           "8.8.4.4",
           "8.8.8.8"
@@ -94,6 +155,67 @@ list if it matches *all* of the input parameters.
         "gateway": "10.88.88.2"
       }
     ]
+
+
+## POST /networks
+
+Creates a new logical network
+
+### Inputs
+
+||**Field**||**Type**||**Description**||
+||name||String||network name||
+||vlan_id||Number||VLAN ID (0 if no VLAN ID)||
+||subnet||CIDR||Subnet||
+||provision_start_ip||IP||First IP address to allow provisioning on||
+||provision_end_ip||IP||Last IP address to allow provisioning on||
+||nic_tag||String||Name of the nic tag that this logical network is over||
+||gateway||IP||Gateway IP address (Optional)||
+||resolvers||Array of IPs||Resolver IP addresses (Optional)||
+
+### Example
+
+    POST /networks
+        -d name=internal
+        -d vlan_id=401
+        -d subnet=10.0.2.0/24
+        -d provision_start_ip=10.0.2.5
+        -d provision_end_ip=10.0.2.250
+        -d nic_tag=internal
+        -d gateway=10.0.2.1
+    {
+      "uuid": "dcb499bd-1caf-4ff6-8d70-4e6d5c02dff3",
+      "name": "internal",
+      "vlan_id": 401,
+      "subnet": "10.0.2.0/24",
+      "netmask": "255.255.255.0",
+      "provision_start_ip": "10.0.2.5",
+      "provision_end_ip": "10.0.2.250",
+      "nic_tag": "internal",
+      "resolvers": [],
+      "gateway": "10.0.2.1"
+    }
+
+
+## GET /networks/:network_uuid
+
+Gets a logical network by UUID.
+
+### Example
+
+    GET /networks/dcb499bd-1caf-4ff6-8d70-4e6d5c02dff3
+    {
+      "uuid": "dcb499bd-1caf-4ff6-8d70-4e6d5c02dff3",
+      "name": "internal",
+      "vlan_id": 401,
+      "subnet": "10.0.2.0/24",
+      "netmask": "255.255.255.0",
+      "provision_start_ip": "10.0.2.5",
+      "provision_end_ip": "10.0.2.250",
+      "nic_tag": "internal",
+      "resolvers": [],
+      "gateway": "10.0.2.1"
+    }
 
 
 ## POST /networks/:network_uuid/nics
