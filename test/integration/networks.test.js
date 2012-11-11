@@ -119,8 +119,8 @@ test('POST /networks', function (t) {
 
     params.uuid = res.uuid;
     params.netmask = '255.255.255.0';
-    t.deepEqual(res, params, 'parameters returned for network ' + res.uuid);
     state.network = res;
+    t.deepEqual(res, params, 'parameters returned for network ' + res.uuid);
 
     return t.end();
   });
@@ -396,6 +396,42 @@ test('POST /networks (empty gateway)', function (t) {
 });
 
 
+test('POST /networks (single resolver)', function (t) {
+  var params = {
+    name: 'networks-integration-single-resolver-' + process.pid,
+    vlan_id: 104,
+    subnet: '192.168.0.0/16',
+    provision_start_ip: '192.168.0.5',
+    provision_end_ip: '192.168.255.250',
+    nic_tag: state.nicTag.name,
+    gateway: '192.168.0.1',
+    resolvers: ['8.8.4.4']
+  };
+
+  napi.createNetwork(params, function (err, res) {
+    t.ifErr(err, 'create network');
+    if (err) {
+      return t.end();
+    }
+
+    params.uuid = res.uuid;
+    params.netmask = '255.255.0.0';
+    state.singleResolver = res;
+    t.deepEqual(res, params, 'parameters returned for network ' + res.uuid);
+
+    napi.getNetwork(res.uuid, function (err2, res2) {
+      t.ifErr(err2, 'create network');
+      if (err2) {
+        return t.end();
+      }
+
+      t.deepEqual(res2, params, 'get parameters for network ' + res.uuid);
+      return t.end();
+    });
+  });
+});
+
+
 // --- Teardown
 
 
@@ -406,27 +442,29 @@ test('Tear down UFDS client', function (t) {
 
 
 test('DELETE /networks/:uuid', function (t) {
-  napi.deleteNetwork(state.network.uuid, { force: true }, function (err) {
-    t.ifErr(err, 'delete network');
-    t.end();
-  });
-});
+  var names = ['network', 'network2', 'network3', 'singleResolver'];
 
-test('DELETE /networks/:uuid (net3)', function (t) {
-  napi.deleteNetwork(state.network3.uuid, { force: true }, function (err) {
-    t.ifErr(err, 'delete network');
-    t.end();
+  var deleteNet = function (n, cb) {
+    if (!state.hasOwnProperty(n)) {
+      return cb();
+    }
+    napi.deleteNetwork(state[n].uuid, { force: true }, function (err) {
+      t.ifErr(err, 'delete network ' + n);
+      return cb();
+    });
+  };
+
+  vasync.forEachParallel({
+    func: deleteNet,
+    inputs: names
+  }, function (err) {
+    return t.end();
   });
 });
 
 
 test('remove test nic tag', function (t) {
   helpers.deleteNicTag(t, napi, state);
-});
-
-
-test('remove test nic tag', function (t) {
-  helpers.deleteNetwork(t, napi, state, 'network2');
 });
 
 
