@@ -84,6 +84,16 @@ test('create third test nic tag', function (t) {
 });
 
 
+test('create fourth test nic tag', function (t) {
+  helpers.createNicTag(t, napi, state, 'nicTag4');
+});
+
+
+test('create fifth test nic tag', function (t) {
+  helpers.createNicTag(t, napi, state, 'nicTag5');
+});
+
+
 
 // --- Tests
 
@@ -615,6 +625,57 @@ test('POST /nics (nic_tags_provided)', function (t) {
 });
 
 
+test('POST /nics (nic_tags_provided scalar)', function (t) {
+  vasync.pipeline({
+    funcs: [
+    function (_, cb) {
+      var params1 = {
+        owner_uuid: uuids.b,
+        belongs_to_uuid: '564de095-df3c-43a5-a55c-d33c68c7af5e',
+        belongs_to_type: 'server',
+        nic_tags_provided: util.format("%s,%s", state.nicTag4.name,
+          state.nicTag5.name)
+      };
+
+      napi.createNic(helpers.randomMAC(), params1, function (err, res) {
+        t.ifErr(err, 'create nic 1');
+        if (err) {
+          return cb(err);
+        }
+
+        state.nic.ntps1 = res;
+        state.desc.ntps1 = util.format(
+          ' [%s: nic_tags_provided scalar nic 1]', res.mac);
+        t.deepEqual(res.nic_tags_provided, [state.nicTag4.name,
+          state.nicTag5.name], 'nic 1 nic_tags_provided');
+
+        return cb();
+      });
+
+    }, function (_, cb) {
+      var updateParams = {
+        nic_tags_provided: util.format("%s,%s", state.nicTag5.name,
+          state.nicTag4.name)
+      };
+
+      napi.updateNic(state.nic.ntps1.mac, updateParams, function (err, res) {
+        t.ifErr(err, 'update nic 1');
+        if (err) {
+          return cb(err);
+        }
+
+        t.deepEqual(res.nic_tags_provided, [state.nicTag5.name,
+          state.nicTag4.name], 'nic 1 nic_tags_provided');
+
+        return cb();
+      });
+    }]
+  }, function () {
+    return t.end();
+  });
+});
+
+
 test('GET /nics (filter: nic_tags_provided)', function (t) {
   var filter = {
     nic_tags_provided: [state.nicTag2.name, state.nicTag3.name]
@@ -782,4 +843,12 @@ test('remove second test nic tag', function (t) {
 
 test('remove third test nic tag', function (t) {
   helpers.deleteNicTag(t, napi, state, 'nicTag3');
+});
+
+test('remove fourth test nic tag', function (t) {
+  helpers.deleteNicTag(t, napi, state, 'nicTag4');
+});
+
+test('remove fifth test nic tag', function (t) {
+  helpers.deleteNicTag(t, napi, state, 'nicTag5');
 });

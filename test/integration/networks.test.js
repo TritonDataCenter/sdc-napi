@@ -432,6 +432,43 @@ test('POST /networks (single resolver)', function (t) {
 });
 
 
+test('POST /networks (comma-separated resolvers)', function (t) {
+  var params = {
+    name: 'networks-integration-comma-resolver-' + process.pid,
+    vlan_id: 105,
+    subnet: '192.168.0.0/16',
+    provision_start_ip: '192.168.0.5',
+    provision_end_ip: '192.168.255.250',
+    nic_tag: state.nicTag.name,
+    gateway: '192.168.0.1',
+    resolvers: '8.8.4.4,192.168.0.1'
+  };
+
+  napi.createNetwork(params, function (err, res) {
+    t.ifErr(err, 'create network');
+    if (err) {
+      return t.end();
+    }
+
+    params.uuid = res.uuid;
+    params.netmask = '255.255.0.0';
+    params.resolvers = ['8.8.4.4', '192.168.0.1'];
+    state.commaResolvers = res;
+    t.deepEqual(res, params, 'parameters returned for network ' + res.uuid);
+
+    napi.getNetwork(res.uuid, function (err2, res2) {
+      t.ifErr(err2, 'create network');
+      if (err2) {
+        return t.end();
+      }
+
+      t.deepEqual(res2, params, 'get parameters for network ' + res.uuid);
+      return t.end();
+    });
+  });
+});
+
+
 // --- Teardown
 
 
@@ -442,7 +479,8 @@ test('Tear down UFDS client', function (t) {
 
 
 test('DELETE /networks/:uuid', function (t) {
-  var names = ['network', 'network2', 'network3', 'singleResolver'];
+  var names = ['network', 'network2', 'network3', 'singleResolver',
+    'commaResolvers'];
 
   var deleteNet = function (n, cb) {
     if (!state.hasOwnProperty(n)) {

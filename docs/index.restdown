@@ -1,6 +1,6 @@
 ---
-title: Networking  API (NAPI)
-apisections: Networks, Nics
+title: Networking API (NAPI)
+apisections: Nic Tags, Networks, Nics
 markdown2extras: wiki-tables, code-friendly
 ---
 
@@ -514,22 +514,7 @@ owner_uuid properties will be preserved.
 
     DELETE /nics/90b8d0575370
 
-    {
-      "ip": "10.88.88.198",
-      "netmask": "255.255.255.0",
-      "vlan_id": 0,
-      "nic_tag": "external",
-      "mac": "90:b8:d0:57:53:70",
-      "primary": false,
-      "owner_uuid": "aaaaaaaf-bf8c-48d4-885c-6573a94b1853",
-      "belongs_to_uuid": "27391a96-bbbb-bbbb-bbbb-85f948d9c509",
-      "belongs_to_type": "zone",
-      "gateway": "10.88.88.2",
-      "resolvers": [
-        "8.8.4.4",
-        "8.8.8.8"
-      ]
-    }
+    {}
 
 
 
