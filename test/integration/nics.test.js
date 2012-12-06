@@ -16,6 +16,7 @@ var vasync = require('vasync');
 // --- Globals
 
 var napi = helpers.createNAPIclient();
+var netParams = ['gateway', 'netmask', 'vlan_id', 'nic_tag', 'resolvers'];
 var state = {
   nic: {},
   ip: {},
@@ -36,7 +37,6 @@ var uuids = {
 
 
 function addNetworkParams(params) {
-  var netParams = ['gateway', 'netmask', 'vlan_id', 'nic_tag', 'resolvers'];
   for (var n in netParams) {
     params[netParams[n]] = state.network[netParams[n]];
   }
@@ -511,6 +511,179 @@ test('Check IPs are updated along with nics', function (t) {
 });
 
 
+test('PUT /nics (with network_uuid)', function (t) {
+  var params = {
+    owner_uuid: uuids.b,
+    belongs_to_uuid: uuids.a,
+    belongs_to_type: 'server'
+  };
+  var mac = helpers.randomMAC();
+
+  napi.createNic(mac, params, function (err, res) {
+    var desc = util.format(' [%s: with network_uuid]', mac);
+    t.ifErr(err, 'provision nic' + desc);
+    if (err) {
+      return t.end();
+    }
+
+    state.nic.putIPnetUUID = params;
+    state.desc.putIPnetUUID = desc;
+
+    var updateParams = { network_uuid: state.network.uuid };
+    napi.updateNic(mac, updateParams, function (err, res2) {
+      t.ifErr(err, 'update nic' + desc);
+      if (err) {
+        return t.end();
+      }
+
+      params.primary = false;
+      params.mac = mac;
+      params.ip = res2.ip;
+      addNetworkParams(params);
+      t.deepEqual(res2, params, 'nic params returned' + desc);
+      state.nic.putIPnetUUID = params;
+      state.ip.putIPnetUUID = res2.ip;
+
+      napi.getIP(state.network.uuid, res2.ip, function (err3, res3) {
+        t.ifErr(err3, 'get IP' + desc);
+        if (err) {
+          return cb();
+        }
+
+        var exp = {
+          ip: res2.ip,
+          owner_uuid: uuids.b,
+          belongs_to_type: 'server',
+          belongs_to_uuid: uuids.a,
+          reserved: false,
+          free: false
+        };
+        t.deepEqual(res3, exp, 'IP params correct' + desc);
+
+        return t.end();
+      });
+    });
+  });
+});
+
+
+test('GET /networks/admin', function (t) {
+  napi.getNetwork('admin', function (err, res) {
+    t.ifErr(err, 'get admin network');
+    if (err) {
+      return t.end();
+    }
+
+    t.equal(res.name, 'admin', 'admin network found');
+    state.adminNet = res;
+    return t.end();
+  });
+});
+
+
+// Note that this is the only test in this entire suite that affects
+// networks used in production. This functionality is absolutely
+// necessary for booter, so we should still make sure to test it
+test('PUT /nics (with network_uuid set to admin)', function (t) {
+  var params = {
+    owner_uuid: uuids.b,
+    belongs_to_uuid: uuids.a,
+    belongs_to_type: 'server'
+  };
+  var mac = helpers.randomMAC();
+
+  napi.createNic(mac, params, function (err, res) {
+    var desc = util.format(' [%s: with network_uuid set to admin]', mac);
+    t.ifErr(err, 'provision nic' + desc);
+    if (err) {
+      return t.end();
+    }
+
+    state.nic.putIPwithName = params;
+    state.desc.putIPwithName = desc;
+
+    var updateParams = { network_uuid: 'admin' };
+    napi.updateNic(mac, updateParams, function (err, res2) {
+      t.ifErr(err, 'update nic' + desc);
+      if (err) {
+        return t.end();
+      }
+
+      params.primary = false;
+      params.mac = mac;
+      params.ip = res2.ip;
+
+      for (var n in netParams) {
+        if (state.adminNet.hasOwnProperty(netParams[n])) {
+          params[netParams[n]] = state.adminNet[netParams[n]];
+        }
+      }
+      params.network_uuid = state.adminNet.uuid;
+
+      t.deepEqual(res2, params, 'nic params returned' + desc);
+      state.nic.putIPwithName = params;
+      state.ip.putIPwithName = res2.ip;
+
+      napi.getIP(state.adminNet.uuid, res2.ip, function (err3, res3) {
+        t.ifErr(err3, 'get IP' + desc);
+        if (err) {
+          return cb();
+        }
+
+        var exp = {
+          ip: res2.ip,
+          owner_uuid: uuids.b,
+          belongs_to_type: 'server',
+          belongs_to_uuid: uuids.a,
+          reserved: false,
+          free: false
+        };
+        t.deepEqual(res3, exp, 'IP params correct' + desc);
+
+        return t.end();
+      });
+    });
+  });
+});
+
+
+test('PUT /nics (with network_uuid set to invalid name)', function (t) {
+  // Only network_uuid=admin is allowed
+  var params = {
+    owner_uuid: uuids.b,
+    belongs_to_uuid: uuids.a,
+    belongs_to_type: 'server'
+  };
+  var mac = helpers.randomMAC();
+
+  napi.createNic(mac, params, function (err, res) {
+    var desc = util.format(' [%s: with network_uuid set to name]', mac);
+    t.ifErr(err, 'provision nic' + desc);
+    if (err) {
+      return t.end();
+    }
+
+    state.nic.putIPwithInvalidName = params;
+    state.desc.putIPwithInvalidName = desc;
+
+    var updateParams = { network_uuid: state.network.name };
+    napi.updateNic(mac, updateParams, function (err, res2) {
+      t.ok(err, 'expected error');
+      if (!err) {
+        return t.end();
+      }
+
+      // XXX: we end up with a stringified JSON object here, which is
+      // definitely a bug somewhere.
+      t.notEqual(err.message,
+        util.format('Unknown network "%s"', state.network.name),
+        'Error message correct');
+      return t.end();
+    });
+  });
+});
+
+
 test('GET /nics (filtered by belongs_to_uuid)', function (t) {
   var filter = { belongs_to_uuid: uuids.d };
   var nics = ['a', 'b', 'd'].reduce(function (r, n) {
@@ -745,6 +918,12 @@ test('Check IPs are freed along with nics', function (t) {
     var ip = state.ip[ipNum];
     var desc = util.format(' %s/%s%s',
       state.network.uuid, ip, state.desc[ipNum]);
+
+    if (!ip) {
+      t.ok(false, 'IP "' + ipNum + '" does not exist:' + desc);
+      return cb();
+    }
+
     napi.getIP(state.network.uuid, ip, function (err, res) {
       t.ifErr(err, 'get updated IP' + desc);
       if (err) {
