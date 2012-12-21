@@ -372,6 +372,75 @@ test('POST /nics (with reserved IP)', function (t) {
 });
 
 
+test('POST /nics (with model)', function (t) {
+  var desc;
+  var mac = helpers.randomMAC();
+  var params = {
+    owner_uuid: uuids.b,
+    belongs_to_uuid: uuids.a,
+    belongs_to_type: 'server',
+    model: 'virtio'
+  };
+
+  vasync.pipeline({
+  funcs: [
+    function (_, cb) {
+      napi.createNic(mac, params, function (err, res) {
+        desc = util.format(' [%s: with model]', mac);
+        t.ifErr(err, 'provision nic' + desc);
+        if (err) {
+          return t.end();
+        }
+
+        params.primary = false;
+        params.mac = mac;
+        t.deepEqual(res, params, 'nic params returned' + desc);
+        state.nic.model = params;
+        state.desc.model = desc;
+
+        return cb();
+      });
+
+    }, function (_, cb) {
+      napi.getNic(mac, function (err, res) {
+        t.ifErr(err, 'get nic' + desc);
+        if (err) {
+          return cb(err);
+        }
+
+        t.deepEqual(res, params, 'nic params returned' + desc);
+        return cb();
+      });
+
+    }, function (_, cb) {
+      napi.updateNic(mac, { model: 'e1000' }, function (err, res) {
+        t.ifErr(err, 'update nic' + desc);
+        if (err) {
+          return t.end();
+        }
+
+        params.model = 'e1000';
+        t.deepEqual(res, params, 'updated nic params returned' + desc);
+        return cb();
+      });
+
+    }, function (_, cb) {
+      napi.getNic(mac, function (err, res) {
+        t.ifErr(err, 'get nic' + desc);
+        if (err) {
+          return cb(err);
+        }
+
+        t.deepEqual(res, params, 'nic params returned' + desc);
+        return cb();
+      });
+    }
+  ]}, function () {
+    return t.end();
+  });
+});
+
+
 test('DELETE /nics/:mac (with reserved IP)', function (t) {
   var delNic = function(name, cb) {
     var nic = state[name];
