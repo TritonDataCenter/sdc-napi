@@ -426,6 +426,7 @@ Creates a new nic.
 ||vlan_id||Number||VLAN ID (required if IP specified)||
 ||reserved||Boolean||Whether the IP address should be reserved||
 ||nic_tags_provided||Array of nic tag names||Nic tags this nic provides||
+||model||String||Nic model for KVM VMs (optional for other VM types)||
 
 
 ### Example
