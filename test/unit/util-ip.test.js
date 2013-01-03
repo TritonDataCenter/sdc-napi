@@ -1,13 +1,13 @@
 /*
- * Copyright (c) 2012, Joyent, Inc. All rights reserved.
+ * Copyright (c) 2013, Joyent, Inc. All rights reserved.
+ *
+ * IP address utility unit tests
  */
 
-/* Test the IP address utility functions */
 
-var util = require('util');
-
+var IP = require('../../lib/util/ip');
 var test = require('tap').test;
-var IP = require('../lib/util/ip');
+var util = require('util');
 
 
 test('addressToNumber / numberToAddress - valid', function (t) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Joyent, Inc. All rights reserved.
+ * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  *
  * Main entry-point for the Networking API.
  */
@@ -12,11 +12,7 @@ var restify = require('restify');
 var log = bunyan.createLogger({
     name: 'napi',
     level: 'debug',
-    serializers: {
-        err: bunyan.stdSerializers.err,
-        req: bunyan.stdSerializers.req,
-        res: restify.bunyan.serializers.response
-    }
+    serializers: restify.bunyan.serializers
 });
 
 
@@ -37,8 +33,11 @@ napi.createServer({
 }, function _onCreate(err, server) {
   exitOnError(err);
 
-  server.loadConfigData(function (err2) {
+  server.loadInitialData(function (err2) {
     exitOnError(err2);
-    server.start();
+    server.start(function _afterStart() {
+      var serverInfo = server.info();
+      log.info('%s listening at %s', serverInfo.name, serverInfo.url);
+    });
   });
 });

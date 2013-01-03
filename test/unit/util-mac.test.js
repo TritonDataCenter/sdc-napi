@@ -1,11 +1,13 @@
 /*
- * Copyright (c) 2012, Joyent, Inc. All rights reserved.
+ * Copyright (c) 2013, Joyent, Inc. All rights reserved.
+ *
+ * MAC address utility unit tests
  */
 
-/* Test the MAC address utility functions */
 
+var MAC = require('../../lib/util/mac');
 var test = require('tap').test;
-var MAC = require('../lib/util/mac');
+
 
 
 test('macOUItoNumber - valid', function (t) {
