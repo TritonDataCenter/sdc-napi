@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Joyent, Inc. All rights reserved.
+ * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  *
  * Test helpers for NAPI integration tests
  */
@@ -139,9 +139,9 @@ function deleteNetwork(t, napi, state, name) {
  * administered bit set)
  */
 function randomMAC() {
-  var data = [(Math.floor(Math.random() * 15) + 1).toString(16) + 2];
+  var data = [((Math.floor(Math.random() * 16) | 0x2) & 0xfe).toString(16)];
   for (var i = 0; i < 5; i++) {
-     var oct = (Math.floor(Math.random() * 255) + 1).toString(16);
+     var oct = (Math.floor(Math.random() * 255)).toString(16);
      if (oct.length == 1) {
         oct = '0' + oct;
      }

@@ -442,10 +442,10 @@ test('POST /nics (with model)', function (t) {
 
 
 test('DELETE /nics/:mac (with reserved IP)', function (t) {
-  var delNic = function(name, cb) {
+  var delNic = function (name, cb) {
     var nic = state[name];
-    //var desc = util.format(' [%s: reserved IP]', nic.mac);
     var desc = state.desc[name];
+
     return napi.deleteNic(nic.mac, function (err) {
       t.ifErr(err, 'delete nic' + desc);
       if (err) {
@@ -599,9 +599,9 @@ test('PUT /nics (with network_uuid)', function (t) {
     state.desc.putIPnetUUID = desc;
 
     var updateParams = { network_uuid: state.network.uuid };
-    napi.updateNic(mac, updateParams, function (err, res2) {
-      t.ifErr(err, 'update nic' + desc);
-      if (err) {
+    napi.updateNic(mac, updateParams, function (err2, res2) {
+      t.ifErr(err2, 'update nic' + desc);
+      if (err2) {
         return t.end();
       }
 
@@ -616,7 +616,7 @@ test('PUT /nics (with network_uuid)', function (t) {
       napi.getIP(state.network.uuid, res2.ip, function (err3, res3) {
         t.ifErr(err3, 'get IP' + desc);
         if (err) {
-          return cb();
+          return t.end();
         }
 
         var exp = {
@@ -672,9 +672,9 @@ test('PUT /nics (with network_uuid set to admin)', function (t) {
     state.desc.putIPwithName = desc;
 
     var updateParams = { network_uuid: 'admin' };
-    napi.updateNic(mac, updateParams, function (err, res2) {
-      t.ifErr(err, 'update nic' + desc);
-      if (err) {
+    napi.updateNic(mac, updateParams, function (err2, res2) {
+      t.ifErr(err2, 'update nic' + desc);
+      if (err2) {
         return t.end();
       }
 
@@ -696,7 +696,7 @@ test('PUT /nics (with network_uuid set to admin)', function (t) {
       napi.getIP(state.adminNet.uuid, res2.ip, function (err3, res3) {
         t.ifErr(err3, 'get IP' + desc);
         if (err) {
-          return cb();
+          return t.end();
         }
 
         var exp = {
@@ -736,15 +736,15 @@ test('PUT /nics (with network_uuid set to invalid name)', function (t) {
     state.desc.putIPwithInvalidName = desc;
 
     var updateParams = { network_uuid: state.network.name };
-    napi.updateNic(mac, updateParams, function (err, res2) {
-      t.ok(err, 'expected error');
-      if (!err) {
+    napi.updateNic(mac, updateParams, function (err2, res2) {
+      t.ok(err2, 'expected error');
+      if (!err2) {
         return t.end();
       }
 
       // XXX: we end up with a stringified JSON object here, which is
       // definitely a bug somewhere.
-      t.notEqual(err.message,
+      t.notEqual(err2.message,
         util.format('Unknown network "%s"', state.network.name),
         'Error message correct');
       return t.end();
@@ -875,7 +875,7 @@ test('POST /nics (nic_tags_provided scalar)', function (t) {
         owner_uuid: uuids.b,
         belongs_to_uuid: '564de095-df3c-43a5-a55c-d33c68c7af5e',
         belongs_to_type: 'server',
-        nic_tags_provided: util.format("%s,%s", state.nicTag4.name,
+        nic_tags_provided: util.format('%s,%s', state.nicTag4.name,
           state.nicTag5.name)
       };
 
@@ -896,7 +896,7 @@ test('POST /nics (nic_tags_provided scalar)', function (t) {
 
     }, function (_, cb) {
       var updateParams = {
-        nic_tags_provided: util.format("%s,%s", state.nicTag5.name,
+        nic_tags_provided: util.format('%s,%s', state.nicTag5.name,
           state.nicTag4.name)
       };
 
