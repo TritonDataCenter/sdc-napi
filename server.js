@@ -27,17 +27,23 @@ function exitOnError(err) {
 }
 
 
-napi.createServer({
-  log: log,
-  configFile: __dirname + '/config.json'
-}, function _onCreate(err, server) {
-  exitOnError(err);
-
-  server.loadInitialData(function (err2) {
-    exitOnError(err2);
-    server.start(function _afterStart() {
-      var serverInfo = server.info();
-      log.info('%s listening at %s', serverInfo.name, serverInfo.url);
-    });
+var server;
+try {
+  server = napi.createServer({
+    configFile: __dirname + '/config.json',
+    log: log
   });
+} catch (err) {
+  exitOnError(err);
+}
+
+server.on('ready', function _afterReady() {
+  server.loadInitialData(function () {
+    log.info('Initial data loaded');
+  });
+});
+
+server.start(function _afterStart() {
+  var serverInfo = server.info();
+  log.info('%s listening at %s', serverInfo.name, serverInfo.url);
 });

@@ -90,7 +90,8 @@ test('POST /networks (invalid nic tag)', function (t) {
     if (!err) {
       return t.end();
     }
-    t.equal(err.code, 'ResourceNotFound', 'Correct error code');
+
+    t.equal(err.restCode, 'ResourceNotFound', 'Correct error code');
     t.equal(err.message, 'Unknown nic tag "invalid_tag"',
       'Message is correct');
 

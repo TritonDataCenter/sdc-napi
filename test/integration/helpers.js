@@ -43,9 +43,9 @@ function createNAPIclient() {
  * Creates a nic tag for testing; stores the result in nicTag
  */
 function createNicTag(t, napi, state, targetName) {
-  var name = 'nictag-integration-' + process.pid;
+  var name = 'nictag_integration_' + process.pid;
   if (targetName) {
-    name = name + '-' + targetName;
+    name = name + '_' + targetName;
   }
 
   napi.createNicTag(name, function (err, res) {
@@ -139,7 +139,7 @@ function deleteNetwork(t, napi, state, name) {
  * administered bit set)
  */
 function randomMAC() {
-  var data = [((Math.floor(Math.random() * 16) | 0x2) & 0xfe).toString(16)];
+  var data = [(Math.floor(Math.random() * 15) + 1).toString(16) + 2];
   for (var i = 0; i < 5; i++) {
      var oct = (Math.floor(Math.random() * 255)).toString(16);
      if (oct.length == 1) {

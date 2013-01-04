@@ -54,8 +54,8 @@ test('POST /nic_tags', function (t) {
     });
   };
 
-  var tagNames = ['networks-integration-' + process.pid + '-1',
-    'networks-integration-' + process.pid + '-2'];
+  var tagNames = ['networks_integration_' + process.pid + '_1',
+    'networks_integration_' + process.pid + '_2'];
 
   vasync.forEachParallel({
     inputs: tagNames,
@@ -111,7 +111,7 @@ test('DELETE /nic_tags', function (t) {
 
 test('UFDS validation', function (t) {
   var params = {
-    nictag: 'mytag-' + process.pid,
+    nictag: 'mytag_' + process.pid,
     objectclass: 'nicTag',
     uuid: 'foo'
   };

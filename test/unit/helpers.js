@@ -58,7 +58,7 @@ function createClientAndServer(callback) {
     log: log
   });
 
-  // XXX: replace with proper mock
+  server.initialDataLoaded = true;
   server.ufds = {
     add: function (model, cb) {
       assert.object(UFDS_RETURN.add, 'UFDS_RETURN.add');

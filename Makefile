@@ -85,6 +85,7 @@ pkg: all $(SMF_MANIFESTS)
 		$(TOP)/node_modules \
 		$(INSTDIR)/
 	cp -P smf/manifests/*.xml $(INSTDIR)/smf/manifests
+	cp $(TOP)/test/runtests $(INSTDIR)/test/
 	cp -r $(TOP)/test/integration/* $(INSTDIR)/test/integration/
 	cp -PR $(NODE_INSTALL) $(INSTDIR)/node
 	# Clean up some dev / build bits
