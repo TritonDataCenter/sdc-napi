@@ -74,6 +74,7 @@ pkg: all $(SMF_MANIFESTS)
 		$(TOP)/bin \
 		$(TOP)/lib \
 		$(TOP)/node_modules \
+		$(TOP)/sbin \
 		$(INSTDIR)/
 	cp -P smf/manifests/*.xml $(INSTDIR)/smf/manifests
 	cp $(TOP)/test/runtests $(INSTDIR)/test/
