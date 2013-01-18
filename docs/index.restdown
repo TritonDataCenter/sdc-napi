@@ -256,6 +256,13 @@ Creates a new nic, provisioning an IP and MAC address in the process.
       ]
     }
 
+
+
+# IPs
+
+These endpoints manage IPs on a logical network.
+
+
 ## GET /networks/:network_uuid/ips
 
 Gets all of the IPs in use on that Logical Network.
@@ -304,6 +311,23 @@ Gets a specific IP on a Logical Network.
       "gateway": "10.88.88.2",
       "nic": "90:b8:d0:55:57:2f"
     }
+
+
+## PUT /networks/:network_uuid/ips/:ip_address
+
+Modifies a specific IP on a Logical Network.
+
+### Inputs
+
+||**Field**||**Type**||**Description**||
+||owner_uuid||UUID||IP Owner||
+||belongs_to_uuid||UUID||The UUID of what this IP belongs to||
+||belongs_to_type||String||The type that this belongs to (eg: 'zone', 'server')||
+||reserved||Boolean||Whether the IP address should be reserved||
+||unassign||Boolean||When set, removes belongs_to_uuid and belongs_to_type, ignoring all other parameters in the request||
+
+### Example
+
 
 
 # Nics

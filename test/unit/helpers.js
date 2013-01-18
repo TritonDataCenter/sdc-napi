@@ -1,10 +1,11 @@
 /*
- * Copyright (c) 2012, Joyent, Inc. All rights reserved.
+ * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  *
  * Test helpers for NAPI unit tests
  */
 
 var assert = require('assert-plus');
+var clone = require('clone');
 var NAPI = require('../../lib/napi').NAPI;
 var napiClient = require('sdc-clients/lib/napi');
 var restify = require('restify');
@@ -19,10 +20,33 @@ var restify = require('restify');
 var LOG = false;
 var SERVER;
 var UFDS_RETURN;
+var SENT_TO_UFDS;
 
 
 
-// --- Globals
+// --- Internal helpers
+
+
+
+function ufdsEntry(action, obj) {
+  assert.arrayOfObject(UFDS_RETURN[action], 'UFDS_RETURN.' + action);
+  assert.ok(UFDS_RETURN[action].length !== 0,
+    'UFDS_RETURN.' + action + ': no more elements');
+
+  if (!SENT_TO_UFDS) {
+    SENT_TO_UFDS = {};
+  }
+
+  if (!SENT_TO_UFDS[action]) {
+    SENT_TO_UFDS[action] = [];
+  }
+
+  SENT_TO_UFDS[action].push(obj);
+}
+
+
+
+// --- Exports
 
 
 
@@ -61,27 +85,33 @@ function createClientAndServer(callback) {
   server.initialDataLoaded = true;
   server.ufds = {
     add: function (model, cb) {
-      assert.object(UFDS_RETURN.add, 'UFDS_RETURN.add');
-      return cb.apply(null, UFDS_RETURN.add);
+      ufdsEntry('add', model);
+      var next = UFDS_RETURN.add.shift();
+      if (next[0]) {
+        return cb(next[0]);
+      }
+      return cb(null, model);
     },
     del: function (opts, cb) {
-      assert.object(UFDS_RETURN.del, 'UFDS_RETURN.del');
-      return cb.apply(null, UFDS_RETURN.del);
+      ufdsEntry('del', opts);
+      return cb(UFDS_RETURN.del.shift());
     },
     get: function (opts, cb) {
-      assert.object(UFDS_RETURN.get, 'UFDS_RETURN.get');
-      return cb.apply(null, UFDS_RETURN.get);
+      ufdsEntry('get', opts);
+      return cb.apply(null, UFDS_RETURN.get.shift());
     },
     list: function (opts, cb) {
-      assert.object(UFDS_RETURN.list, 'UFDS_RETURN.list');
-      return cb.apply(null, UFDS_RETURN.list);
+      ufdsEntry('list', opts);
+      return cb.apply(null, UFDS_RETURN.list.shift());
     },
     update: function (opts, cb) {
-      assert.object(UFDS_RETURN.update, 'UFDS_RETURN.update');
-      return cb.apply(null, UFDS_RETURN.update);
+      ufdsEntry('update', opts);
+      return cb.apply(null, UFDS_RETURN.update.shift());
     }
   };
+
   UFDS_RETURN = {};
+  SENT_TO_UFDS = null;
 
   server.start(function (err) {
     if (err) {
@@ -97,11 +127,41 @@ function createClientAndServer(callback) {
 
 
 /**
- * Sets mock UFDS return values
+ * Sorts an error array by field
  */
-function ufdsReturnValues(vals) {
-  UFDS_RETURN = vals;
+function fieldSort(a, b) {
+  return (a.field > b.field);
 }
+
+
+/**
+ * Returns an invalid parameter error array element
+ */
+function invalidParam(field, message) {
+  assert.string(field);
+  assert.string(message);
+
+  return {
+    code: 'InvalidParameter',
+    field: field,
+    message: message
+  };
+}
+
+
+/**
+ * Returns a missing parameter error array element
+ */
+function missingParam(field, message) {
+  assert.string(field);
+
+  return {
+    code: 'MissingParameter',
+    field: field,
+    message: 'Missing parameter'
+  };
+}
+
 
 /**
  * Stops the test NAPI server
@@ -115,9 +175,98 @@ function stopServer(callback) {
 }
 
 
+/**
+ * Sets mock UFDS return values
+ */
+function ufdsReturnValues(vals) {
+  if (!vals) {
+    return UFDS_RETURN;
+  }
+
+  UFDS_RETURN = clone(vals);
+  SENT_TO_UFDS = null;
+}
+
+
+/**
+ * Gets values that UFDS mock was called with
+ */
+function ufdsCallValues(vals) {
+  return clone(SENT_TO_UFDS);
+}
+
+
+/**
+ * Returns the parameters for a valid IP, potentially overriding with any
+ * values in override
+ */
+function validIPparams(override) {
+  var newIP = {
+    belongs_to_type: 'zone',
+    belongs_to_uuid: '3c7f5393-7c69-4c7c-bc81-cb7aca031ff1',
+    owner_uuid: '00000000-0000-0000-0000-000000000000'
+  };
+
+  for (var o in override) {
+    newIP[o] = override[o];
+  }
+
+  return newIP;
+}
+
+
+/**
+ * Returns the parameters for a valid IP, potentially overriding with any
+ * values in override
+ */
+function validNicparams(override) {
+  var newNic = {
+    belongs_to_type: 'zone',
+    belongs_to_uuid: '3c7f5393-7c69-4c7c-bc81-cb7aca031ff1',
+    owner_uuid: '00000000-0000-0000-0000-000000000000'
+  };
+
+  for (var o in override) {
+    newNic[o] = override[o];
+  }
+
+  return newNic;
+}
+
+
+/**
+ * Returns the parameters for a valid network, potentially overriding with any
+ * values in override
+ */
+function validNetworkParams(override) {
+  var newNet = {
+    name: 'myname',
+    nic_tag: 'nic_tag',
+    provision_end_ip: '10.0.2.254',
+    provision_start_ip: '10.0.2.1',
+    resolvers: ['8.8.8.8', '8.8.4.4'],
+    subnet: '10.0.2.0/24',
+    vlan_id: '0'
+  };
+
+  for (var o in override) {
+    newNet[o] = override[o];
+  }
+
+  return newNet;
+}
+
+
 
 module.exports = {
   createClientAndServer: createClientAndServer,
+  fieldSort: fieldSort,
+  invalidParam: invalidParam,
+  missingParam: missingParam,
   stopServer: stopServer,
-  ufdsReturnValues: ufdsReturnValues
+  ufdsCallValues: ufdsCallValues,
+  ufdsReturnValues: ufdsReturnValues,
+  validIPparams: validIPparams,
+  validNicparams: validNicparams,
+  validNetworkParams: validNetworkParams
 };

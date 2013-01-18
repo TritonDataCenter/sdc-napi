@@ -49,7 +49,7 @@ function createNicTag(t, napi, state, targetName) {
   }
 
   napi.createNicTag(name, function (err, res) {
-      t.ifErr(err, 'create test nic tag "' + name + '"');
+      t.ifError(err, 'create test nic tag "' + name + '"');
       if (res) {
         t.ok(res.uuid,
           util.format('test nic tag: uuid=%s, name=%s', res.uuid, res.name));
@@ -59,7 +59,7 @@ function createNicTag(t, napi, state, targetName) {
           state.nicTag = res;
         }
       }
-      return t.end();
+      return t.done();
   });
 }
 
@@ -71,8 +71,8 @@ function deleteNicTag(t, napi, state, name) {
   var tagName = name ? state[name].name : state.nicTag.name;
 
   napi.deleteNicTag(tagName, function (err) {
-    t.ifErr(err, 'delete test nic tag: ' + tagName);
-    return t.end();
+    t.ifError(err, 'delete test nic tag: ' + tagName);
+    return t.done();
   });
 }
 
@@ -99,9 +99,9 @@ function createNetwork(t, napi, state, extraParams, targetName) {
   }
 
   napi.createNetwork(params, function (err, res) {
-    t.ifErr(err, 'create network');
+    t.ifError(err, 'create network');
     if (err) {
-      return t.end();
+      return t.done();
     }
 
     t.ok(res.uuid, 'test network uuid: ' + res.uuid);
@@ -116,7 +116,7 @@ function createNetwork(t, napi, state, extraParams, targetName) {
       state.network = res;
     }
 
-    return t.end();
+    return t.done();
   });
 }
 
@@ -128,9 +128,31 @@ function deleteNetwork(t, napi, state, name) {
   var net = name ? state[name]: state.network;
 
   napi.deleteNetwork(net.uuid, { force: true }, function (err) {
-    t.ifErr(err, 'delete network');
-    return t.end();
+    t.ifError(err, 'delete network');
+    return t.done();
   });
+}
+
+
+/**
+ * Logs relevant information about the error, and ends the test
+ */
+function doneWithError(t, err, desc) {
+  t.ifError(err, desc);
+
+  if (err.body.hasOwnProperty('errors')) {
+    t.deepEqual(err.body.errors, {}, 'display body errors');
+  }
+  return t.done();
+}
+
+
+/**
+ * Asserts that substr is a substring or match for str. Similar to tap's
+ * similar() (that's a little test humour for you).
+ */
+function similar(t, str, substr, message) {
+  t.ok((str.indexOf(substr) !== -1) || (str == substr), message);
 }
 
 
@@ -193,8 +215,8 @@ function destroyUFDSclient(t, state, callback) {
     return callback(null);
   }
   return state.ufds.close(function (err) {
-    t.ifErr(err, 'UFDS client close');
-    return t.end();
+    t.ifError(err, 'UFDS client close');
+    return t.done();
   });
 }
 
@@ -207,6 +229,8 @@ module.exports = {
   deleteNetwork: deleteNetwork,
   deleteNicTag: deleteNicTag,
   destroyUFDSclient: destroyUFDSclient,
+  doneWithError: doneWithError,
   randomMAC: randomMAC,
+  similar: similar,
   ufdsAdd: ufdsAdd
 };

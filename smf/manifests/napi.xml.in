@@ -3,7 +3,7 @@
 <!--
     Networking API SMF manifest
 
-	Copyright (c) 2012, Joyent, Inc. All rights reserved.
+	Copyright (c) 2013, Joyent, Inc. All rights reserved.
  -->
 
 <service_bundle type="manifest" name="napi">
@@ -16,7 +16,7 @@
 	<service_fmri value="svc:/system/filesystem/local" />
 </dependency>
 
-<exec_method type="method" name="start" exec="/opt/smartdc/napi/bin/napi &amp;" timeout_seconds="30" />
+<exec_method type="method" name="start" exec="/opt/smartdc/napi/sbin/napid &amp;" timeout_seconds="30" />
 <exec_method type="method" name="stop" exec=":kill" timeout_seconds="30" />
 
 <instance name="default" enabled="true" />

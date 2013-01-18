@@ -1,11 +1,10 @@
 /*
- * Copyright (c) 2012, Joyent, Inc. All rights reserved.
+ * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  *
- * Integration tests for /networks/:uuid/ips endpoints
+ * Integration tests for /nics and /networks/:uuid/nics endpoints
  */
 
 var helpers = require('./helpers');
-var test = require('tap').test;
 var util = require('util');
 var util_mac = require('../../lib/util/mac');
 var UUID = require('node-uuid');
@@ -14,6 +13,8 @@ var vasync = require('vasync');
 
 
 // --- Globals
+
+
 
 var napi = helpers.createNAPIclient();
 var netParams = ['gateway', 'netmask', 'vlan_id', 'nic_tag', 'resolvers'];
@@ -57,41 +58,41 @@ function validUFDSparams() {
 
 
 
-test('Create UFDS client', function (t) {
+exports['Create UFDS client'] = function (t) {
   helpers.createUFDSclient(t, state, function (err) {
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('create test nic tag', function (t) {
+exports['create test nic tag'] = function (t) {
   helpers.createNicTag(t, napi, state);
-});
+};
 
 
-test('create test network', function (t) {
+exports['create test network'] = function (t) {
   helpers.createNetwork(t, napi, state, { gateway: '10.99.99.4' });
-});
+};
 
 
-test('create second test nic tag', function (t) {
+exports['create second test nic tag'] = function (t) {
   helpers.createNicTag(t, napi, state, 'nicTag2');
-});
+};
 
 
-test('create third test nic tag', function (t) {
+exports['create third test nic tag'] = function (t) {
   helpers.createNicTag(t, napi, state, 'nicTag3');
-});
+};
 
 
-test('create fourth test nic tag', function (t) {
+exports['create fourth test nic tag'] = function (t) {
   helpers.createNicTag(t, napi, state, 'nicTag4');
-});
+};
 
 
-test('create fifth test nic tag', function (t) {
+exports['create fifth test nic tag'] = function (t) {
   helpers.createNicTag(t, napi, state, 'nicTag5');
-});
+};
 
 
 
@@ -99,7 +100,7 @@ test('create fifth test nic tag', function (t) {
 
 
 
-test('POST /nics (basic)', function (t) {
+exports['POST /nics (basic)'] = function (t) {
   var params = {
     owner_uuid: uuids.b,
     belongs_to_uuid: uuids.a,
@@ -109,9 +110,9 @@ test('POST /nics (basic)', function (t) {
 
   napi.createNic(mac, params, function (err, res) {
     var desc = util.format(' [%s: basic: no IP]', mac);
-    t.ifErr(err, 'provision nic' + desc);
+    t.ifError(err, 'provision nic' + desc);
     if (err) {
-      return t.end();
+      return t.done();
     }
 
     params.primary = false;
@@ -120,12 +121,12 @@ test('POST /nics (basic)', function (t) {
     state.nic.a = params;
     state.desc.a = desc;
 
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('POST /nics (with IP and network)', function (t) {
+exports['POST /nics (with IP and network)'] = function (t) {
   var params = {
     owner_uuid: uuids.b,
     belongs_to_uuid: uuids.a,
@@ -137,9 +138,9 @@ test('POST /nics (with IP and network)', function (t) {
 
   napi.createNic(mac, params, function (err, res) {
     var desc = util.format(' [%s: with IP and network]', mac);
-    t.ifErr(err, 'provision nic' + desc);
+    t.ifError(err, 'provision nic' + desc);
     if (err) {
-      return t.end();
+      return t.done();
     }
 
     params.primary = false;
@@ -150,12 +151,12 @@ test('POST /nics (with IP and network)', function (t) {
     state.desc.b = desc;
     state.ip.b = params.ip;
 
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('POST /nics (with IP but no network)', function (t) {
+exports['POST /nics (with IP but no network)'] = function (t) {
   var params = {
     owner_uuid: uuids.b,
     belongs_to_uuid: uuids.a,
@@ -169,9 +170,9 @@ test('POST /nics (with IP but no network)', function (t) {
 
   napi.createNic(mac, params, function (err, res) {
     var desc = util.format(' [%s: with IP but no network]', mac);
-    t.ifErr(err, 'provision nic' + desc);
+    t.ifError(err, 'provision nic' + desc);
     if (err) {
-      return t.end();
+      return t.done();
     }
 
     params.primary = false;
@@ -182,12 +183,12 @@ test('POST /nics (with IP but no network)', function (t) {
     state.desc.c = desc;
     state.ip.c = params.ip;
 
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('POST /nics (with IP already reserved)', function (t) {
+exports['POST /nics (with IP already reserved)'] = function (t) {
   var params = {
     owner_uuid: uuids.b,
     belongs_to_uuid: uuids.a,
@@ -200,9 +201,9 @@ test('POST /nics (with IP already reserved)', function (t) {
 
   napi.createNic(mac, params, function (err, res) {
     var desc = util.format(' [%s: with IP already reserved]', mac);
-    t.ifErr(err, 'provision nic' + desc);
+    t.ifError(err, 'provision nic' + desc);
     if (err) {
-      return t.end();
+      return t.done();
     }
 
     params.primary = false;
@@ -213,9 +214,9 @@ test('POST /nics (with IP already reserved)', function (t) {
     state.desc.resNic1 = desc;
 
     return napi.getIP(state.network.uuid, params.ip, function (err2, res2) {
-      t.ifErr(err2, 'get IP ' + params.ip + desc);
+      t.ifError(err2, 'get IP ' + params.ip + desc);
       if (err2) {
-        return t.end();
+        return t.done();
       }
 
       var exp = {
@@ -228,22 +229,22 @@ test('POST /nics (with IP already reserved)', function (t) {
       };
       t.deepEqual(res2, exp, 'IP params correct: ' + params.ip + desc);
 
-      return t.end();
+      return t.done();
     });
   });
-});
+};
 
 
-test('POST /networks/:uuid/nics (basic)', function (t) {
+exports['POST /networks/:uuid/nics (basic)'] = function (t) {
   var params = {
     owner_uuid: uuids.b,
     belongs_to_uuid: uuids.a,
     belongs_to_type: 'server'
   };
   napi.provisionNic(state.network.uuid, params, function (err, res) {
-    t.ifErr(err, 'provision nic [network nic - no IP]');
     if (err) {
-      return t.end();
+      return helpers.doneWithError(t, err,
+        'provision nic [network nic - no IP]');
     }
     var desc = util.format(' [%s: network nic - no IP]', res.mac);
 
@@ -256,12 +257,12 @@ test('POST /networks/:uuid/nics (basic)', function (t) {
     state.nic.d = params;
     state.desc.d = desc;
     state.ip.d = params.ip;
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('POST /networks/:uuid/nics (with IP)', function (t) {
+exports['POST /networks/:uuid/nics (with IP)'] = function (t) {
   var params = {
     owner_uuid: uuids.b,
     belongs_to_uuid: uuids.a,
@@ -269,9 +270,9 @@ test('POST /networks/:uuid/nics (with IP)', function (t) {
     ip: '10.99.99.201'
   };
   napi.provisionNic(state.network.uuid, params, function (err, res) {
-    t.ifErr(err, 'provision nic [network nic - with IP]');
+    t.ifError(err, 'provision nic [network nic - with IP]');
     if (err) {
-      return t.end();
+      return t.done();
     }
     var desc = util.format(' [%s: network nic - with IP]', res.mac);
 
@@ -283,12 +284,12 @@ test('POST /networks/:uuid/nics (with IP)', function (t) {
     state.nic.e = params;
     state.desc.e = desc;
     state.ip.e = params.ip;
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('Check IPs are created along with nics', function (t) {
+exports['Check IPs are created along with nics'] = function (t) {
   var ips = ['b', 'c', 'd', 'e'];
 
   var checkIP = function (ipNum, cb) {
@@ -296,7 +297,7 @@ test('Check IPs are created along with nics', function (t) {
     napi.getIP(state.network.uuid, ip, function (err, res) {
       var desc = util.format(' %s/%s%s',
         state.network.uuid, ip, state.desc[ipNum]);
-      t.ifErr(err, 'get IP' + desc);
+      t.ifError(err, 'get IP' + desc);
       if (err) {
         return cb();
       }
@@ -318,12 +319,12 @@ test('Check IPs are created along with nics', function (t) {
     func: checkIP,
     inputs: ips
   }, function (err) {
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('POST /nics (with reserved IP)', function (t) {
+exports['POST /nics (with reserved IP)'] = function (t) {
   var params = {
     owner_uuid: uuids.b,
     belongs_to_uuid: uuids.a,
@@ -335,9 +336,9 @@ test('POST /nics (with reserved IP)', function (t) {
 
   napi.createNic(mac, params, function (err, res) {
     var desc = util.format(' [%s: with reserved IP]', mac);
-    t.ifErr(err, 'provision nic' + desc);
+    t.ifError(err, 'provision nic' + desc);
     if (err) {
-      return t.end();
+      return t.done();
     }
 
     delete params.reserved;
@@ -351,9 +352,9 @@ test('POST /nics (with reserved IP)', function (t) {
 
     // IP should be reserved
     return napi.getIP(state.network.uuid, params.ip, function (err2, res2) {
-      t.ifErr(err2, 'get IP ' + params.ip + desc);
+      t.ifError(err2, 'get IP ' + params.ip + desc);
       if (err2) {
-        return t.end();
+        return t.done();
       }
 
       var exp = {
@@ -366,13 +367,13 @@ test('POST /nics (with reserved IP)', function (t) {
       };
       t.deepEqual(res2, exp, 'IP params correct: ' + params.ip + desc);
 
-      return t.end();
+      return t.done();
     });
   });
-});
+};
 
 
-test('POST /nics (with model)', function (t) {
+exports['POST /nics (with model)'] = function (t) {
   var desc;
   var mac = helpers.randomMAC();
   var params = {
@@ -387,9 +388,9 @@ test('POST /nics (with model)', function (t) {
     function (_, cb) {
       napi.createNic(mac, params, function (err, res) {
         desc = util.format(' [%s: with model]', mac);
-        t.ifErr(err, 'provision nic' + desc);
+        t.ifError(err, 'provision nic' + desc);
         if (err) {
-          return t.end();
+          return t.done();
         }
 
         params.primary = false;
@@ -403,7 +404,7 @@ test('POST /nics (with model)', function (t) {
 
     }, function (_, cb) {
       napi.getNic(mac, function (err, res) {
-        t.ifErr(err, 'get nic' + desc);
+        t.ifError(err, 'get nic' + desc);
         if (err) {
           return cb(err);
         }
@@ -414,9 +415,9 @@ test('POST /nics (with model)', function (t) {
 
     }, function (_, cb) {
       napi.updateNic(mac, { model: 'e1000' }, function (err, res) {
-        t.ifErr(err, 'update nic' + desc);
+        t.ifError(err, 'update nic' + desc);
         if (err) {
-          return t.end();
+          return t.done();
         }
 
         params.model = 'e1000';
@@ -426,7 +427,7 @@ test('POST /nics (with model)', function (t) {
 
     }, function (_, cb) {
       napi.getNic(mac, function (err, res) {
-        t.ifErr(err, 'get nic' + desc);
+        t.ifError(err, 'get nic' + desc);
         if (err) {
           return cb(err);
         }
@@ -436,25 +437,25 @@ test('POST /nics (with model)', function (t) {
       });
     }
   ]}, function () {
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('DELETE /nics/:mac (with reserved IP)', function (t) {
+exports['DELETE /nics/:mac (with reserved IP)'] = function (t) {
   var delNic = function (name, cb) {
     var nic = state[name];
     var desc = state.desc[name];
 
     return napi.deleteNic(nic.mac, function (err) {
-      t.ifErr(err, 'delete nic' + desc);
+      t.ifError(err, 'delete nic' + desc);
       if (err) {
         return cb(err);
       }
 
       return napi.getIP(state.network.uuid, nic.ip,
         function (err2, res2) {
-        t.ifErr(err2, 'get IP ' + nic.ip + desc);
+        t.ifError(err2, 'get IP ' + nic.ip + desc);
 
         // A reserved IP should keep its owner information
         var exp = {
@@ -475,19 +476,19 @@ test('DELETE /nics/:mac (with reserved IP)', function (t) {
     func: delNic,
     inputs: ['resNic1', 'resNic2']
   }, function (err) {
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('GET /nics/:mac', function (t) {
+exports['GET /nics/:mac'] = function (t) {
   var nics = ['a', 'b', 'c', 'd', 'e'];
 
   var checkNic = function (nicNum, cb) {
     var nic = state.nic[nicNum];
     var desc = state.desc[nicNum];
     napi.getNic(nic.mac, function (err, res) {
-      t.ifErr(err, 'get nic' + desc);
+      t.ifError(err, 'get nic' + desc);
       if (err) {
         return cb(err);
       }
@@ -500,12 +501,12 @@ test('GET /nics/:mac', function (t) {
     func: checkNic,
     inputs: nics
   }, function (err) {
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('PUT /nics/:mac', function (t) {
+exports['PUT /nics/:mac'] = function (t) {
   var nics = ['a', 'b', 'd'];
   var params = {
     owner_uuid: uuids.c,
@@ -519,14 +520,14 @@ test('PUT /nics/:mac', function (t) {
     var desc = state.desc[nicNum];
 
     napi.updateNic(nic.mac, params, function (err, res) {
-      t.ifErr(err, 'update nic' + desc);
+      t.ifError(err, 'update nic' + desc);
       for (var p in params) {
         nic[p] = params[p];
       }
       t.deepEqual(res, nic, 'updated params' + desc);
 
       napi.getNic(nic.mac, function (err2, res2) {
-        t.ifErr(err2, 'get updated nic' + desc);
+        t.ifError(err2, 'get updated nic' + desc);
         if (err2) {
           return cb(err2);
         }
@@ -540,12 +541,12 @@ test('PUT /nics/:mac', function (t) {
     func: updateNic,
     inputs: nics
   }, function (err) {
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('Check IPs are updated along with nics', function (t) {
+exports['Check IPs are updated along with nics'] = function (t) {
   var ips = ['b', 'd'];
 
   var checkIP = function (ipNum, cb) {
@@ -553,7 +554,7 @@ test('Check IPs are updated along with nics', function (t) {
     var desc = util.format(' %s/%s%s',
       state.network.uuid, ip, state.desc[ipNum]);
     napi.getIP(state.network.uuid, ip, function (err, res) {
-      t.ifErr(err, 'get updated IP' + desc);
+      t.ifError(err, 'get updated IP' + desc);
       if (err) {
         return cb();
       }
@@ -575,12 +576,12 @@ test('Check IPs are updated along with nics', function (t) {
     func: checkIP,
     inputs: ips
   }, function (err) {
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('PUT /nics (with network_uuid)', function (t) {
+exports['PUT /nics (with network_uuid)'] = function (t) {
   var params = {
     owner_uuid: uuids.b,
     belongs_to_uuid: uuids.a,
@@ -590,9 +591,9 @@ test('PUT /nics (with network_uuid)', function (t) {
 
   napi.createNic(mac, params, function (err, res) {
     var desc = util.format(' [%s: with network_uuid]', mac);
-    t.ifErr(err, 'provision nic' + desc);
+    t.ifError(err, 'provision nic' + desc);
     if (err) {
-      return t.end();
+      return t.done();
     }
 
     state.nic.putIPnetUUID = params;
@@ -600,9 +601,9 @@ test('PUT /nics (with network_uuid)', function (t) {
 
     var updateParams = { network_uuid: state.network.uuid };
     napi.updateNic(mac, updateParams, function (err2, res2) {
-      t.ifErr(err2, 'update nic' + desc);
+      t.ifError(err2, 'update nic' + desc);
       if (err2) {
-        return t.end();
+        return t.done();
       }
 
       params.primary = false;
@@ -614,9 +615,9 @@ test('PUT /nics (with network_uuid)', function (t) {
       state.ip.putIPnetUUID = res2.ip;
 
       napi.getIP(state.network.uuid, res2.ip, function (err3, res3) {
-        t.ifErr(err3, 'get IP' + desc);
+        t.ifError(err3, 'get IP' + desc);
         if (err) {
-          return t.end();
+          return t.done();
         }
 
         var exp = {
@@ -629,31 +630,31 @@ test('PUT /nics (with network_uuid)', function (t) {
         };
         t.deepEqual(res3, exp, 'IP params correct' + desc);
 
-        return t.end();
+        return t.done();
       });
     });
   });
-});
+};
 
 
-test('GET /networks/admin', function (t) {
+exports['GET /networks/admin'] = function (t) {
   napi.getNetwork('admin', function (err, res) {
-    t.ifErr(err, 'get admin network');
+    t.ifError(err, 'get admin network');
     if (err) {
-      return t.end();
+      return t.done();
     }
 
     t.equal(res.name, 'admin', 'admin network found');
     state.adminNet = res;
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
 // Note that this is the only test in this entire suite that affects
 // networks used in production. This functionality is absolutely
 // necessary for booter, so we should still make sure to test it
-test('PUT /nics (with network_uuid set to admin)', function (t) {
+exports['PUT /nics (with network_uuid set to admin)'] = function (t) {
   var params = {
     owner_uuid: uuids.b,
     belongs_to_uuid: uuids.a,
@@ -663,9 +664,9 @@ test('PUT /nics (with network_uuid set to admin)', function (t) {
 
   napi.createNic(mac, params, function (err, res) {
     var desc = util.format(' [%s: with network_uuid set to admin]', mac);
-    t.ifErr(err, 'provision nic' + desc);
+    t.ifError(err, 'provision nic' + desc);
     if (err) {
-      return t.end();
+      return t.done();
     }
 
     state.nic.putIPwithName = params;
@@ -673,9 +674,9 @@ test('PUT /nics (with network_uuid set to admin)', function (t) {
 
     var updateParams = { network_uuid: 'admin' };
     napi.updateNic(mac, updateParams, function (err2, res2) {
-      t.ifErr(err2, 'update nic' + desc);
+      t.ifError(err2, 'update nic' + desc);
       if (err2) {
-        return t.end();
+        return t.done();
       }
 
       params.primary = false;
@@ -694,9 +695,9 @@ test('PUT /nics (with network_uuid set to admin)', function (t) {
       state.ip.putIPwithName = res2.ip;
 
       napi.getIP(state.adminNet.uuid, res2.ip, function (err3, res3) {
-        t.ifErr(err3, 'get IP' + desc);
+        t.ifError(err3, 'get IP' + desc);
         if (err) {
-          return t.end();
+          return t.done();
         }
 
         var exp = {
@@ -709,14 +710,14 @@ test('PUT /nics (with network_uuid set to admin)', function (t) {
         };
         t.deepEqual(res3, exp, 'IP params correct' + desc);
 
-        return t.end();
+        return t.done();
       });
     });
   });
-});
+};
 
 
-test('PUT /nics (with network_uuid set to invalid name)', function (t) {
+exports['PUT /nics (with network_uuid set to invalid name)'] = function (t) {
   // Only network_uuid=admin is allowed
   var params = {
     owner_uuid: uuids.b,
@@ -727,9 +728,9 @@ test('PUT /nics (with network_uuid set to invalid name)', function (t) {
 
   napi.createNic(mac, params, function (err, res) {
     var desc = util.format(' [%s: with network_uuid set to name]', mac);
-    t.ifErr(err, 'provision nic' + desc);
+    t.ifError(err, 'provision nic' + desc);
     if (err) {
-      return t.end();
+      return t.done();
     }
 
     state.nic.putIPwithInvalidName = params;
@@ -739,7 +740,7 @@ test('PUT /nics (with network_uuid set to invalid name)', function (t) {
     napi.updateNic(mac, updateParams, function (err2, res2) {
       t.ok(err2, 'expected error');
       if (!err2) {
-        return t.end();
+        return t.done();
       }
 
       // XXX: we end up with a stringified JSON object here, which is
@@ -747,13 +748,13 @@ test('PUT /nics (with network_uuid set to invalid name)', function (t) {
       t.notEqual(err2.message,
         util.format('Unknown network "%s"', state.network.name),
         'Error message correct');
-      return t.end();
+      return t.done();
     });
   });
-});
+};
 
 
-test('GET /nics (filtered by belongs_to_uuid)', function (t) {
+exports['GET /nics (filtered by belongs_to_uuid)'] = function (t) {
   var filter = { belongs_to_uuid: uuids.d };
   var nics = ['a', 'b', 'd'].reduce(function (r, n) {
     r[state.nic[n].mac] = n;
@@ -761,7 +762,7 @@ test('GET /nics (filtered by belongs_to_uuid)', function (t) {
   }, {});
 
   napi.listNics(filter, function (err, res) {
-    t.ifErr(err, 'get nics');
+    t.ifError(err, 'get nics');
 
     // Since we generated this UUID at the beginning of this test, only
     // the updated nics should be in the list
@@ -783,12 +784,12 @@ test('GET /nics (filtered by belongs_to_uuid)', function (t) {
     }
 
     t.equal(found, res.length, 'all nics found in list');
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('GET /nics (filtered)', function (t) {
+exports['GET /nics (filtered)'] = function (t) {
   var filters = [
     { belongs_to_type: 'other' },
     { owner_uuid: uuids.b },
@@ -797,7 +798,7 @@ test('GET /nics (filtered)', function (t) {
 
   var listNics = function (filter, cb) {
     napi.listNics(filter, function (err, res) {
-      t.ifErr(err, 'get nics: ' + JSON.stringify(filter));
+      t.ifError(err, 'get nics: ' + JSON.stringify(filter));
 
       t.ok(res.length !== 0, 'nics in list: ' + JSON.stringify(filter));
 
@@ -821,12 +822,12 @@ test('GET /nics (filtered)', function (t) {
     func: listNics,
     inputs: filters
   }, function (err) {
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('POST /nics (nic_tags_provided)', function (t) {
+exports['POST /nics (nic_tags_provided)'] = function (t) {
   var params1 = {
     owner_uuid: uuids.b,
     belongs_to_uuid: '564de095-df3c-43a5-a55c-d33c68c7af5e',
@@ -841,9 +842,9 @@ test('POST /nics (nic_tags_provided)', function (t) {
   };
 
   napi.createNic(helpers.randomMAC(), params1, function (err, res) {
-    t.ifErr(err, 'create nic 1');
+    t.ifError(err, 'create nic 1');
     if (err) {
-      return t.end();
+      return t.done();
     }
     state.nic.f = res;
     state.desc.f = util.format(' [%s: nic_tags_provided nic 1]', res.mac);
@@ -851,9 +852,9 @@ test('POST /nics (nic_tags_provided)', function (t) {
       'nic 1 nic_tags_provided');
 
     napi.createNic(helpers.randomMAC(), params2, function (err2, res2) {
-      t.ifErr(err2, 'create nic 2');
+      t.ifError(err2, 'create nic 2');
       if (err2) {
-        return t.end();
+        return t.done();
       }
 
       state.nic.g = res2;
@@ -861,13 +862,13 @@ test('POST /nics (nic_tags_provided)', function (t) {
       t.deepEqual(res.nic_tags_provided, params1.nic_tags_provided,
         'nic 2 nic_tags_provided');
 
-      return t.end();
+      return t.done();
     });
   });
-});
+};
 
 
-test('POST /nics (nic_tags_provided scalar)', function (t) {
+exports['POST /nics (nic_tags_provided scalar)'] = function (t) {
   vasync.pipeline({
     funcs: [
     function (_, cb) {
@@ -880,7 +881,7 @@ test('POST /nics (nic_tags_provided scalar)', function (t) {
       };
 
       napi.createNic(helpers.randomMAC(), params1, function (err, res) {
-        t.ifErr(err, 'create nic 1');
+        t.ifError(err, 'create nic 1');
         if (err) {
           return cb(err);
         }
@@ -901,7 +902,7 @@ test('POST /nics (nic_tags_provided scalar)', function (t) {
       };
 
       napi.updateNic(state.nic.ntps1.mac, updateParams, function (err, res) {
-        t.ifErr(err, 'update nic 1');
+        t.ifError(err, 'update nic 1');
         if (err) {
           return cb(err);
         }
@@ -913,25 +914,25 @@ test('POST /nics (nic_tags_provided scalar)', function (t) {
       });
     }]
   }, function () {
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('GET /nics (filter: nic_tags_provided)', function (t) {
+exports['GET /nics (filter: nic_tags_provided)'] = function (t) {
   var filter = {
     nic_tags_provided: [state.nicTag2.name, state.nicTag3.name]
   };
 
   napi.listNics(filter, function (err, res) {
-    t.ifErr(err, 'get nics: ' + JSON.stringify(filter));
+    t.ifError(err, 'get nics: ' + JSON.stringify(filter));
     if (err) {
-      return t.end();
+      return t.done();
     }
     t.equal(res.length, 2, '2 nics returned');
 
     if (res.length === 0) {
-      return t.end();
+      return t.done();
     }
 
     var macs = res.reduce(function (arr, x) {
@@ -941,12 +942,12 @@ test('GET /nics (filter: nic_tags_provided)', function (t) {
 
     t.deepEqual(macs, [state.nic.f.mac, state.nic.g.mac].sort(),
       'both nics returned');
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('DELETE /nics/:mac', function (t) {
+exports['DELETE /nics/:mac'] = function (t) {
   var nics = Object.keys(state.nic);
 
   var delNic = function (nicNum, cb) {
@@ -954,7 +955,7 @@ test('DELETE /nics/:mac', function (t) {
     var desc = state.desc[nicNum];
 
     return napi.deleteNic(nic.mac, function (err, res) {
-      t.ifErr(err, 'delete nic ' + nic.mac + desc);
+      t.ifError(err, 'delete nic ' + nic.mac + desc);
       if (err) {
         return cb();
       }
@@ -975,12 +976,12 @@ test('DELETE /nics/:mac', function (t) {
     func: delNic,
     inputs: nics
   }, function (err) {
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('Check IPs are freed along with nics', function (t) {
+exports['Check IPs are freed along with nics'] = function (t) {
   var ips = Object.keys(state.ip);
 
   var checkIP = function (ipNum, cb) {
@@ -994,7 +995,7 @@ test('Check IPs are freed along with nics', function (t) {
     }
 
     napi.getIP(state.network.uuid, ip, function (err, res) {
-      t.ifErr(err, 'get updated IP' + desc);
+      t.ifError(err, 'get updated IP' + desc);
       if (err) {
         return cb();
       }
@@ -1013,29 +1014,27 @@ test('Check IPs are freed along with nics', function (t) {
     func: checkIP,
     inputs: ips
   }, function (err) {
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('UFDS validation', function (t) {
-  /* jsl:ignore (for regex warning) */
+exports['UFDS validation'] = function (t) {
   var invalid = [
-    [ { belongstouuid: 'foo' }, /nic belongs_to_uuid/ ],
-    [ { owneruuid: 'foo' }, /nic owner_uuid/ ],
-    [ { networkuuid: 'foo' }, /nic network_uuid/ ],
+    [ { belongstouuid: 'foo' }, 'nic belongs_to_uuid' ],
+    [ { owneruuid: 'foo' }, 'nic owner_uuid' ],
+    [ { networkuuid: 'foo' }, 'nic network_uuid' ],
 
-    [ { ip: 'foo' }, /IP number/ ],
-    [ { ip: -1 }, /IP number/ ],
-    [ { ip: 4294967296 }, /IP number/ ],
+    [ { ip: 'foo' }, 'IP number' ],
+    [ { ip: -1 }, 'IP number' ],
+    [ { ip: 4294967296 }, 'IP number' ],
 
-    [ { mac: 281474976710656 }, /MAC number/ ],
-    [ { mac: 0 }, /MAC number/ ],
+    [ { mac: 281474976710656 }, 'MAC number' ],
+    [ { mac: 0 }, 'MAC number' ],
 
-    [ { primary: 0 }, /nic primary value must be true or false/ ],
-    [ { primary: 'foo' }, /nic primary value must be true or false/ ]
+    [ { primary: 0 }, 'nic primary value must be true or false' ],
+    [ { primary: 'foo' }, 'nic primary value must be true or false' ]
   ];
-  /* jsl:end */
 
   var ufdsAdd = function (toTest, cb) {
     var desc = util.format(' (%j)', toTest[0]);
@@ -1048,7 +1047,8 @@ test('UFDS validation', function (t) {
     helpers.ufdsAdd(state, dn, params, function (err) {
       t.ok(err, 'Error should be returned' + desc);
       if (err) {
-        t.similar(err.message, toTest[1], 'Error message matches' + desc);
+        helpers.similar(t, err.message, toTest[1],
+          'Error message matches' + desc);
       }
 
       return cb(null);
@@ -1059,9 +1059,9 @@ test('UFDS validation', function (t) {
     func: ufdsAdd,
     inputs: invalid
   }, function (err) {
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
 
@@ -1069,34 +1069,34 @@ test('UFDS validation', function (t) {
 
 
 
-test('Tear down UFDS client', function (t) {
+exports['Tear down UFDS client'] = function (t) {
   helpers.destroyUFDSclient(t, state);
-});
+};
 
 
-test('remove test network', function (t) {
+exports['remove test network'] = function (t) {
   helpers.deleteNetwork(t, napi, state);
-});
+};
 
 
-test('remove test nic tag', function (t) {
+exports['remove test nic tag'] = function (t) {
   helpers.deleteNicTag(t, napi, state);
-});
+};
 
 
-test('remove second test nic tag', function (t) {
+exports['remove second test nic tag'] = function (t) {
   helpers.deleteNicTag(t, napi, state, 'nicTag2');
-});
+};
 
 
-test('remove third test nic tag', function (t) {
+exports['remove third test nic tag'] = function (t) {
   helpers.deleteNicTag(t, napi, state, 'nicTag3');
-});
+};
 
-test('remove fourth test nic tag', function (t) {
+exports['remove fourth test nic tag'] = function (t) {
   helpers.deleteNicTag(t, napi, state, 'nicTag4');
-});
+};
 
-test('remove fifth test nic tag', function (t) {
+exports['remove fifth test nic tag'] = function (t) {
   helpers.deleteNicTag(t, napi, state, 'nicTag5');
-});
+};

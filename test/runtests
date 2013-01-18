@@ -46,7 +46,7 @@ start_time=$(date +%s)
 
 TOP=$(cd $(dirname $0)/../; pwd)
 NODE_INSTALL=$TOP/node
-TAP=$TOP/node_modules/.bin/tap
+NODEUNIT=$TOP/node_modules/.bin/nodeunit
 
 
 # Options.
@@ -86,7 +86,7 @@ if [[ -n "$opt_test_pattern" ]]; then
 fi
 
 if [[ -n "$test_files" ]]; then
-    PATH=$NODE_INSTALL/bin:$PATH TAP=1 $TAP $test_files \
+    PATH=$NODE_INSTALL/bin:$PATH $NODEUNIT --reporter=tap $test_files \
         | tee $OUTPUT_DIR/napi-integration-tests.tap
 fi
 

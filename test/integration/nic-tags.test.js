@@ -1,13 +1,17 @@
 /*
- * Copyright (c) 2012, Joyent, Inc. All rights reserved.
+ * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  *
  * Integration tests for /nic-tags endpoints
  */
 
 var helpers = require('./helpers');
-var test = require('tap').test;
 var util = require('util');
 var vasync = require('vasync');
+
+
+
+// --- Globals
+
 
 
 var napi = helpers.createNAPIclient();
@@ -21,11 +25,11 @@ var state = {
 
 
 
-test('Create UFDS client', function (t) {
+exports['Create UFDS client'] = function (t) {
   helpers.createUFDSclient(t, state, function (err) {
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
 
@@ -33,10 +37,10 @@ test('Create UFDS client', function (t) {
 
 
 
-test('POST /nic_tags', function (t) {
+exports['POST /nic_tags'] = function (t) {
   var createNicTag = function (name, cb) {
     napi.createNicTag(name, function (err, res) {
-      t.ifErr(err, 'create test nic tag: ' + name);
+      t.ifError(err, 'create test nic tag: ' + name);
       if (err) {
         return cb(err);
       }
@@ -44,7 +48,7 @@ test('POST /nic_tags', function (t) {
       state.nicTags.push(res);
 
       return napi.getNicTag(res.name, function (err2, res2) {
-        t.ifErr(err, 'get nic tag: ' + name);
+        t.ifError(err, 'get nic tag: ' + name);
         if (err) {
           return cb(err);
         }
@@ -61,14 +65,14 @@ test('POST /nic_tags', function (t) {
     inputs: tagNames,
     func: createNicTag
   }, function (err, res) {
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('GET /nic_tags', function (t) {
+exports['GET /nic_tags'] = function (t) {
   napi.listNicTags(function (err, res) {
-    t.ifErr(err, 'get nic tags');
+    t.ifError(err, 'get nic tags');
     // Don't assume that there are no other nic tags
     var tag0 = state.nicTags[0];
     var tag1 = state.nicTags[1];
@@ -89,27 +93,27 @@ test('GET /nic_tags', function (t) {
     }
 
     t.equal(found, 2, 'both tags found in list');
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('DELETE /nic_tags', function (t) {
+exports['DELETE /nic_tags'] = function (t) {
   vasync.forEachParallel({
     inputs: state.nicTags,
     func: function (tag, cb) {
       napi.deleteNicTag(tag.name, function (err) {
-        t.ifErr(err, 'delete test nic tag ' + tag.name);
+        t.ifError(err, 'delete test nic tag ' + tag.name);
         cb(err);
       });
     }
   }, function (err, res) {
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('UFDS validation', function (t) {
+exports['UFDS validation'] = function (t) {
   var params = {
     nictag: 'mytag_' + process.pid,
     objectclass: 'nicTag',
@@ -120,12 +124,12 @@ test('UFDS validation', function (t) {
   helpers.ufdsAdd(state, dn, params, function (err) {
     t.ok(err, 'Error should be returned');
     if (err) {
-      t.similar(err.message, /nic tag uuid/, 'Error message matches');
+      helpers.similar(t, err.message, 'nic tag uuid', 'Error message matches');
     }
 
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
 
@@ -133,6 +137,6 @@ test('UFDS validation', function (t) {
 
 
 
-test('Tear down UFDS client', function (t) {
+exports['Tear down UFDS client'] = function (t) {
   helpers.destroyUFDSclient(t, state);
-});
+};

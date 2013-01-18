@@ -1,11 +1,10 @@
 /*
- * Copyright (c) 2012, Joyent, Inc. All rights reserved.
+ * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  *
  * Integration tests for /networks endpoints
  */
 
 var helpers = require('./helpers');
-var test = require('tap').test;
 var util = require('util');
 var UUID = require('node-uuid');
 var vasync = require('vasync');
@@ -51,21 +50,21 @@ function validUFDSparams() {
 
 
 
-test('create test nic tag', function (t) {
+exports['create test nic tag'] = function (t) {
   helpers.createNicTag(t, napi, state);
-});
+};
 
 
-test('create second test nic tag', function (t) {
+exports['create second test nic tag'] = function (t) {
   helpers.createNicTag(t, napi, state, 'nicTag2');
-});
+};
 
 
-test('Create UFDS client', function (t) {
+exports['Create UFDS client'] = function (t) {
   helpers.createUFDSclient(t, state, function (err) {
-    t.end();
+    t.done();
   });
-});
+};
 
 
 
@@ -73,7 +72,7 @@ test('Create UFDS client', function (t) {
 
 
 
-test('POST /networks (invalid nic tag)', function (t) {
+exports['POST /networks (invalid nic tag)'] = function (t) {
   var params = {
     name: 'networks-integration-' + process.pid + '-invalid',
     vlan_id: 2,
@@ -88,19 +87,27 @@ test('POST /networks (invalid nic tag)', function (t) {
   napi.createNetwork(params, function (err, res) {
     t.ok(err, 'error creating network');
     if (!err) {
-      return t.end();
+      return t.done();
     }
 
-    t.equal(err.restCode, 'ResourceNotFound', 'Correct error code');
-    t.equal(err.message, 'Unknown nic tag "invalid_tag"',
-      'Message is correct');
+    t.deepEqual(err.body, {
+      code: 'InvalidParameters',
+      message: 'Invalid parameters',
+      errors: [
+        {
+          code: 'InvalidParameter',
+          field: 'nic_tag',
+          message: 'nic tag does not exist'
+        }
+      ]
+    }, 'Error is correct');
 
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('POST /networks', function (t) {
+exports['POST /networks'] = function (t) {
   var params = {
     name: 'networks-integration-' + process.pid,
     vlan_id: 0,
@@ -113,9 +120,9 @@ test('POST /networks', function (t) {
   };
 
   napi.createNetwork(params, function (err, res) {
-    t.ifErr(err, 'create network');
+    t.ifError(err, 'create network');
     if (err) {
-      return t.end();
+      return t.done();
     }
 
     params.uuid = res.uuid;
@@ -123,30 +130,30 @@ test('POST /networks', function (t) {
     state.network = res;
     t.deepEqual(res, params, 'parameters returned for network ' + res.uuid);
 
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('Create network on second nic tag', function (t) {
+exports['Create network on second nic tag'] = function (t) {
   var params = {
     nic_tag: state.nicTag2.name
   };
   helpers.createNetwork(t, napi, state, params, 'network2');
-});
+};
 
 
-test('validate IPs created with network', function (t) {
+exports['validate IPs created with network'] = function (t) {
   var ips = [ '10.99.99.1', '10.99.99.2'].reduce(function (arr, i) {
       arr.push(
         {ip: i, belongs_to_uuid: adminUUID, belongs_to_type: 'other',
-          reserved: true, free: false});
+          owner_uuid: adminUUID, reserved: true, free: false});
       return arr;
     }, []);
 
   var checkIP = function (params, cb) {
     napi.getIP(state.network.uuid, params.ip, function (err, res) {
-      t.ifErr(err, 'get IP: ' + params.ip);
+      t.ifError(err, 'get IP: ' + params.ip);
       if (err) {
         return cb(err);
       }
@@ -159,42 +166,42 @@ test('validate IPs created with network', function (t) {
     func: checkIP,
     inputs: ips
   }, function (err) {
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('GET /networks/:uuid', function (t) {
+exports['GET /networks/:uuid'] = function (t) {
   napi.getNetwork(state.network.uuid, function (err, res) {
-    t.ifErr(err, 'get network: ' + state.network.uuid);
+    t.ifError(err, 'get network: ' + state.network.uuid);
     if (err) {
-      return t.end();
+      return t.done();
     }
 
     t.deepEqual(res, state.network, 'network params correct');
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('GET /networks/admin', function (t) {
+exports['GET /networks/admin'] = function (t) {
   napi.getNetwork('admin', function (err, res) {
-    t.ifErr(err, 'get admin network');
+    t.ifError(err, 'get admin network');
     if (err) {
-      return t.end();
+      return t.done();
     }
 
     t.equal(res.name, 'admin', 'admin network found');
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('GET /networks', function (t) {
+exports['GET /networks'] = function (t) {
   napi.listNetworks(function (err, res) {
-    t.ifErr(err, 'get networks');
+    t.ifError(err, 'get networks');
     if (err) {
-      return t.end();
+      return t.done();
     }
 
     t.ok(res.length > 0, 'have networks in list');
@@ -210,32 +217,32 @@ test('GET /networks', function (t) {
     }
 
     t.ok(found, 'found the test network');
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('GET /networks (filtered)', function (t) {
+exports['GET /networks (filtered)'] = function (t) {
   var filter = {
     name: state.network.name
   };
   var desc = util.format(' (name=%s)', filter.name);
 
   napi.listNetworks(filter, function (err, res) {
-    t.ifErr(err, 'get networks' + desc);
+    t.ifError(err, 'get networks' + desc);
     t.ok(res, 'list returned' + desc);
     if (err || !res) {
-      return t.end();
+      return t.done();
     }
 
     t.equal(res.length, 1, 'only matches one network' + desc);
     t.deepEqual(res[0], state.network, 'network params match' + desc);
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('GET /networks (filter: multiple nic tags)', function (t) {
+exports['GET /networks (filter: multiple nic tags)'] = function (t) {
   var filters = [
     { nic_tag: [ state.nicTag.name, state.nicTag2.name ] },
     { nic_tag: state.nicTag.name + ',' + state.nicTag2.name }
@@ -245,10 +252,10 @@ test('GET /networks (filter: multiple nic tags)', function (t) {
     var desc = util.format(' (nic_tag=%j)', filter.nic_tag);
 
     napi.listNetworks(filter, function (err, res) {
-      t.ifErr(err, 'get networks' + desc);
+      t.ifError(err, 'get networks' + desc);
       t.ok(res, 'list returned' + desc);
       if (err || !res) {
-        return t.end();
+        return t.done();
       }
 
       var found = 0;
@@ -276,68 +283,68 @@ test('GET /networks (filter: multiple nic tags)', function (t) {
     func: filterList,
     inputs: filters
   }, function (err) {
-    t.end();
+    t.done();
   });
 
-});
+};
 
 
-test('UFDS validation', function (t) {
+exports['UFDS validation'] = function (t) {
   /* jsl:ignore (for regex warning */
   var invalid = [
-    [ { uuid: 'foo' }, /network uuid/ ],
+    [ { uuid: 'foo' }, 'network uuid' ],
 
-    [ { subnetstartip: 'foo' }, /Subnet start IP/ ],
-    [ { subnetstartip: -1 }, /Subnet start IP/ ],
-    [ { subnetstartip: 4294967296 }, /Subnet start IP/ ],
+    [ { subnetstartip: 'foo' }, 'Subnet start IP' ],
+    [ { subnetstartip: -1 }, 'Subnet start IP' ],
+    [ { subnetstartip: 4294967296 }, 'Subnet start IP' ],
 
-    [ { provisionrangestartip: 'foo' }, /Provision range start IP/ ],
-    [ { provisionrangestartip: -1 }, /Provision range start IP/ ],
-    [ { provisionrangestartip: 4294967296 }, /Provision range start IP/ ],
+    [ { provisionrangestartip: 'foo' }, 'Provision range start IP' ],
+    [ { provisionrangestartip: -1 }, 'Provision range start IP' ],
+    [ { provisionrangestartip: 4294967296 }, 'Provision range start IP' ],
     // Outside the subnet:
     [ { provisionrangestartip: 3232238335 },
-      /Provision range start IP cannot be before the subnet start IP/ ],
+      'Provision range start IP cannot be before the subnet start IP' ],
     [ { provisionrangestartip: 3232238592 },
-      /Provision range start IP cannot be after the subnet end IP/ ],
+      'Provision range start IP cannot be after the subnet end IP' ],
 
-    [ { provisionrangeendip: 'foo' }, /Provision range end IP/ ],
-    [ { provisionrangeendip: -1 }, /Provision range end IP/ ],
-    [ { provisionrangeendip: 4294967296 }, /Provision range end IP/ ],
+    [ { provisionrangeendip: 'foo' }, 'Provision range end IP' ],
+    [ { provisionrangeendip: -1 }, 'Provision range end IP' ],
+    [ { provisionrangeendip: 4294967296 }, 'Provision range end IP' ],
     // Outside the subnet:
     [ { provisionrangeendip: 3232238335 },
-      /Provision range end IP cannot be before the subnet start IP/ ],
+      'Provision range end IP cannot be before the subnet start IP' ],
     [ { provisionrangeendip: 3232238592 },
-      /Provision range end IP cannot be after the subnet end IP/ ],
+      'Provision range end IP cannot be after the subnet end IP' ],
 
-    [ { gatewayip: 'foo' }, /Gateway IP/ ],
-    [ { gatewayip: -1 }, /Gateway IP/ ],
-    [ { gatewayip: 4294967296 }, /Gateway IP/ ],
+    [ { gatewayip: 'foo' }, 'Gateway IP' ],
+    [ { gatewayip: -1 }, 'Gateway IP' ],
+    [ { gatewayip: 4294967296 }, 'Gateway IP' ],
     // Outside the subnet:
     [ { gatewayip: 3232238335 },
-      /Gateway IP must be within the subnet/ ],
+      'Gateway IP must be within the subnet' ],
     [ { gatewayip: 3232238592 },
-      /Gateway IP must be within the subnet/ ],
+      'Gateway IP must be within the subnet' ],
 
-    [ { subnetbits: 'foo' }, /subnet bits/ ],
-    [ { subnetbits: 7 }, /subnet bits/ ],
-    [ { subnetbits: 33 }, /subnet bits/ ],
+    [ { subnetbits: 'foo' }, 'subnet bits' ],
+    [ { subnetbits: 7 }, 'subnet bits' ],
+    [ { subnetbits: 33 }, 'subnet bits' ],
 
-    [ { vlan: 'foo' }, /VLAN ID/ ],
-    [ { vlan: 1 }, /VLAN ID/ ],
-    [ { vlan: -1 }, /VLAN ID/ ],
-    [ { vlan: 4095 }, /VLAN ID/ ],
+    [ { vlan: 'foo' }, 'VLAN ID' ],
+    [ { vlan: 1 }, 'VLAN ID' ],
+    [ { vlan: -1 }, 'VLAN ID' ],
+    [ { vlan: 4095 }, 'VLAN ID' ],
 
-    [ { resolverips: ['foo'] }, /Resolver IP/ ],
-    [ { resolverips: [ -1 ] }, /Resolver IP/ ],
-    [ { resolverips: [ 4294967296 ] }, /Resolver IP/ ],
+    [ { resolverips: ['foo'] }, 'Resolver IP' ],
+    [ { resolverips: [ -1 ] }, 'Resolver IP' ],
+    [ { resolverips: [ 4294967296 ] }, 'Resolver IP' ],
     [ { resolverips: [ 134744072, 134743044, 3232238338, 3232238339,
-      33232238341, 232238340 ] }, /Resolver IP/ ],
+      33232238341, 232238340 ] }, 'Resolver IP' ],
 
     // Provision start IP > provision end IP
     [ { provisionrangestartip: 3232238365,
         provisionrangeendip: 3232238355,
        },
-      /Provision range start IP cannot be after the provision range end IP/ ]
+      'Provision range start IP cannot be after the provision range end IP' ]
   ];
   /* jsl:end */
 
@@ -352,7 +359,8 @@ test('UFDS validation', function (t) {
     helpers.ufdsAdd(state, dn, params, function (err) {
       t.ok(err, 'Error should be returned' + desc);
       if (err) {
-        t.similar(err.message, toTest[1], 'Error message matches' + desc);
+        helpers.similar(t, err.message, toTest[1],
+          util.format('Error message matches "%s"', err.message));
       }
 
       cb(null);
@@ -363,12 +371,12 @@ test('UFDS validation', function (t) {
     func: ufdsAdd,
     inputs: invalid
   }, function (err) {
-    t.end();
+    t.done();
   });
-});
+};
 
 
-test('POST /networks (empty gateway)', function (t) {
+exports['POST /networks (empty gateway)'] = function (t) {
   var params = {
     name: 'networks-integration-' + process.pid + '-3',
     vlan_id: 0,
@@ -381,9 +389,9 @@ test('POST /networks (empty gateway)', function (t) {
   };
 
   napi.createNetwork(params, function (err, res) {
-    t.ifErr(err, 'create network');
+    t.ifError(err, 'create network');
     if (err) {
-      return t.end();
+      return t.done();
     }
 
     params.uuid = res.uuid;
@@ -392,12 +400,12 @@ test('POST /networks (empty gateway)', function (t) {
     t.deepEqual(res, params, 'parameters returned for network ' + res.uuid);
     state.network3 = res;
 
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('POST /networks (single resolver)', function (t) {
+exports['POST /networks (single resolver)'] = function (t) {
   var params = {
     name: 'networks-integration-single-resolver-' + process.pid,
     vlan_id: 104,
@@ -410,9 +418,9 @@ test('POST /networks (single resolver)', function (t) {
   };
 
   napi.createNetwork(params, function (err, res) {
-    t.ifErr(err, 'create network');
+    t.ifError(err, 'create network');
     if (err) {
-      return t.end();
+      return t.done();
     }
 
     params.uuid = res.uuid;
@@ -421,19 +429,19 @@ test('POST /networks (single resolver)', function (t) {
     t.deepEqual(res, params, 'parameters returned for network ' + res.uuid);
 
     napi.getNetwork(res.uuid, function (err2, res2) {
-      t.ifErr(err2, 'create network');
+      t.ifError(err2, 'create network');
       if (err2) {
-        return t.end();
+        return t.done();
       }
 
       t.deepEqual(res2, params, 'get parameters for network ' + res.uuid);
-      return t.end();
+      return t.done();
     });
   });
-});
+};
 
 
-test('POST /networks (comma-separated resolvers)', function (t) {
+exports['POST /networks (comma-separated resolvers)'] = function (t) {
   var params = {
     name: 'networks-integration-comma-resolver-' + process.pid,
     vlan_id: 105,
@@ -446,9 +454,9 @@ test('POST /networks (comma-separated resolvers)', function (t) {
   };
 
   napi.createNetwork(params, function (err, res) {
-    t.ifErr(err, 'create network');
+    t.ifError(err, 'create network');
     if (err) {
-      return t.end();
+      return t.done();
     }
 
     params.uuid = res.uuid;
@@ -458,28 +466,28 @@ test('POST /networks (comma-separated resolvers)', function (t) {
     t.deepEqual(res, params, 'parameters returned for network ' + res.uuid);
 
     napi.getNetwork(res.uuid, function (err2, res2) {
-      t.ifErr(err2, 'create network');
+      t.ifError(err2, 'create network');
       if (err2) {
-        return t.end();
+        return t.done();
       }
 
       t.deepEqual(res2, params, 'get parameters for network ' + res.uuid);
-      return t.end();
+      return t.done();
     });
   });
-});
+};
 
 
 // --- Teardown
 
 
 
-test('Tear down UFDS client', function (t) {
+exports['Tear down UFDS client'] = function (t) {
   helpers.destroyUFDSclient(t, state);
-});
+};
 
 
-test('DELETE /networks/:uuid', function (t) {
+exports['DELETE /networks/:uuid'] = function (t) {
   var names = ['network', 'network2', 'network3', 'singleResolver',
     'commaResolvers'];
 
@@ -488,7 +496,7 @@ test('DELETE /networks/:uuid', function (t) {
       return cb();
     }
     napi.deleteNetwork(state[n].uuid, { force: true }, function (err) {
-      t.ifErr(err, 'delete network ' + n);
+      t.ifError(err, 'delete network ' + n);
       return cb();
     });
   };
@@ -497,16 +505,16 @@ test('DELETE /networks/:uuid', function (t) {
     func: deleteNet,
     inputs: names
   }, function (err) {
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('remove test nic tag', function (t) {
+exports['remove test nic tag'] = function (t) {
   helpers.deleteNicTag(t, napi, state);
-});
+};
 
 
-test('remove second test nic tag', function (t) {
+exports['remove second test nic tag'] = function (t) {
   helpers.deleteNicTag(t, napi, state, 'nicTag2');
-});
+};

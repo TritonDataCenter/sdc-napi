@@ -6,11 +6,10 @@
 
 
 var IP = require('../../lib/util/ip');
-var test = require('tap').test;
 var util = require('util');
 
 
-test('addressToNumber / numberToAddress - valid', function (t) {
+exports['addressToNumber / numberToAddress - valid'] = function (t) {
   var ips = {
     '1.2.3.4': 16909060,
     '0.0.0.0': 0,
@@ -25,21 +24,21 @@ test('addressToNumber / numberToAddress - valid', function (t) {
     t.equal(IP.numberToAddress(ips[i]), i,
       util.format('IP number "%d" converts correctly', ips[i]));
   }
-  t.end();
-});
+  t.done();
+};
 
 
-test('addressToNumber - invalid', function (t) {
+exports['addressToNumber - invalid'] = function (t) {
   var ips = ['1.2.3.4.5', 'asdf', null, '256.0.0.1', '1.2.3.300', '1.2'];
   for (var i in ips) {
     t.equal(IP.addressToNumber(ips[i]), null,
       util.format('IP "%s" is invalid', ips[i]));
   }
-  t.end();
-});
+  t.done();
+};
 
 
-test('bitsToNetmask / netmaskToBits', function (t) {
+exports['bitsToNetmask / netmaskToBits'] = function (t) {
   var bits = {
     '8': '255.0.0.0',
     '16': '255.255.0.0',
@@ -53,5 +52,5 @@ test('bitsToNetmask / netmaskToBits', function (t) {
     t.equal(IP.netmaskToBits(bits[b]), Number(b),
       util.format('netmask %s is valid', bits[b]));
   }
-  t.end();
-});
+  t.done();
+};

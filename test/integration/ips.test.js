@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Joyent, Inc. All rights reserved.
+ * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  *
  * Integration tests for /networks/:uuid/ips endpoints
  */
@@ -8,6 +8,11 @@ var helpers = require('./helpers');
 var test = require('tap').test;
 var util = require('util');
 var vasync = require('vasync');
+
+
+
+// --- Globals
+
 
 
 var napi = helpers.createNAPIclient();
@@ -23,21 +28,21 @@ var uuids = {
 
 
 
-test('Create UFDS client', function (t) {
+exports['Create UFDS client'] = function (t) {
   helpers.createUFDSclient(t, state, function (err) {
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('create test nic tag', function (t) {
+exports['create test nic tag'] = function (t) {
   helpers.createNicTag(t, napi, state);
-});
+};
 
 
-test('create test network', function (t) {
+exports['create test network'] = function (t) {
   helpers.createNetwork(t, napi, state);
-});
+};
 
 
 
@@ -45,9 +50,9 @@ test('create test network', function (t) {
 
 
 
-test('GET /networks/:uuid/ips/:ip (free IP)', function (t) {
+exports['GET /networks/:uuid/ips/:ip (free IP)'] = function (t) {
   napi.getIP(state.network.uuid, '10.99.99.57', function (err, res) {
-    t.ifErr(err, 'getting IP: 10.99.99.57');
+    t.ifError(err, 'getting IP: 10.99.99.57');
     var exp = {
       ip: '10.99.99.57',
       reserved: false,
@@ -55,22 +60,22 @@ test('GET /networks/:uuid/ips/:ip (free IP)', function (t) {
     };
     t.deepEqual(res, exp, 'GET on a free IP');
 
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('PUT /networks/:uuid/ips/:ip', function (t) {
+exports['PUT /networks/:uuid/ips/:ip'] = function (t) {
   var params = {
     reserved: true,
     owner_uuid: uuids.admin,
+    belongs_to_type: 'zone',
     belongs_to_uuid: uuids.a
   };
 
   napi.updateIP(state.network.uuid, '10.99.99.59', params, function (err, res) {
-    t.ifErr(err, 'updating IP: 10.99.99.59');
     if (err) {
-      return t.end();
+      return helpers.doneWithError(err, 'updating IP: 10.99.99.59');
     }
 
     params.ip = '10.99.99.59';
@@ -79,32 +84,31 @@ test('PUT /networks/:uuid/ips/:ip', function (t) {
     t.deepEqual(res, params, 'reserving an IP');
 
     return napi.getIP(state.network.uuid, params.ip, function (err2, res2) {
-      t.ifErr(err2, 'getting IP: 10.99.99.59');
       if (err2) {
-        return t.end();
+        return t.done();
       }
 
       t.deepEqual(res2, params, 'GET on a reserved IP');
 
-      return t.end();
+      return t.done();
     });
   });
-});
+};
 
 
-test('GET /networks/:uuid/ips', function (t) {
+exports['GET /networks/:uuid/ips'] = function (t) {
   napi.listIPs(state.network.uuid, function (err, res) {
-    t.ifErr(err, 'listing IPs');
     if (err) {
-      return t.end();
+      return helpers.doneWithError(err, 'listing IPs');
     }
+
     t.deepEqual(res, [ state.ip ], 'IP list');
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('PUT /networks/:uuid/ips/:ip (free an IP)', function (t) {
+exports['PUT /networks/:uuid/ips/:ip (free an IP)'] = function (t) {
   var doUpdate = function (_, cb) {
     var params = {
       free: true
@@ -112,9 +116,8 @@ test('PUT /networks/:uuid/ips/:ip (free an IP)', function (t) {
 
     napi.updateIP(state.network.uuid, '10.99.99.59', params,
       function (err, res) {
-      t.ifErr(err, 'freeing IP: 10.99.99.59');
       if (err) {
-        return t.end();
+        return helpers.doneWithError(t, err, 'freeing IP: 10.99.99.59');
       }
 
       params.ip = '10.99.99.59';
@@ -123,7 +126,7 @@ test('PUT /networks/:uuid/ips/:ip (free an IP)', function (t) {
       t.deepEqual(res, params, 'freeing an IP');
 
       return napi.getIP(state.network.uuid, params.ip, function (err2, res2) {
-        t.ifErr(err2, 'getting free IP: 10.99.99.59');
+        t.ifError(err2, 'getting free IP: 10.99.99.59');
         if (err2) {
           return cb(err2);
         }
@@ -141,21 +144,21 @@ test('PUT /networks/:uuid/ips/:ip (free an IP)', function (t) {
       doUpdate
     ]
   }, function (err) {
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
-test('UFDS validation', function (t) {
+exports['UFDS validation'] = function (t) {
   /* jsl:ignore (for regex warning) */
   var invalid = [
-    [ { belongstouuid: 'foo' }, /IP belongs_to_uuid/ ],
-    [ { owneruuid: 'foo' }, /IP owner_uuid/ ],
-    [ { reserved: 'foo' }, /IP reserved value must be true or false/ ],
+    [ { belongstouuid: 'foo' }, 'IP belongs_to_uuid' ],
+    [ { owneruuid: 'foo' }, 'IP owner_uuid' ],
+    [ { reserved: 'foo' }, 'IP reserved value must be true or false' ],
 
-    [ { ip: 'foo' }, /IP number/ ],
-    [ { ip: -1 }, /IP number/ ],
-    [ { ip: 4294967296 }, /IP number/ ]
+    [ { ip: 'foo' }, 'IP number' ],
+    [ { ip: -1 }, 'IP number' ],
+    [ { ip: 4294967296 }, 'IP number' ]
   ];
   /* jsl:end */
 
@@ -174,7 +177,8 @@ test('UFDS validation', function (t) {
     helpers.ufdsAdd(state, dn, params, function (err) {
       t.ok(err, 'Error should be returned' + desc);
       if (err) {
-        t.similar(err.message, toTest[1], 'Error message matches' + desc);
+        helpers.similar(t, err.message, toTest[1],
+          'Error message matches' + desc);
       }
 
       return cb(null);
@@ -185,9 +189,9 @@ test('UFDS validation', function (t) {
     func: ufdsAdd,
     inputs: invalid
   }, function (err) {
-    return t.end();
+    return t.done();
   });
-});
+};
 
 
 
@@ -195,16 +199,16 @@ test('UFDS validation', function (t) {
 
 
 
-test('Tear down UFDS client', function (t) {
+exports['Tear down UFDS client'] = function (t) {
   helpers.destroyUFDSclient(t, state);
-});
+};
 
 
-test('remove test network', function (t) {
+exports['remove test network'] = function (t) {
   helpers.deleteNetwork(t, napi, state);
-});
+};
 
 
-test('remove test nic tag', function (t) {
+exports['remove test nic tag'] = function (t) {
   helpers.deleteNicTag(t, napi, state);
-});
+};
