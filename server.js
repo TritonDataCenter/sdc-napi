@@ -37,7 +37,13 @@ try {
   exitOnError(err);
 }
 
-server.on('ready', function _afterReady() {
+server.on('connected', function _afterConnect() {
+  server.init(function () {
+    log.info('Server init complete');
+  });
+});
+
+server.on('initialized', function _afterReady() {
   server.loadInitialData(function () {
     log.info('Initial data loaded');
   });

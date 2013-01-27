@@ -28,13 +28,6 @@ var uuids = {
 
 
 
-exports['Create UFDS client'] = function (t) {
-  helpers.createUFDSclient(t, state, function (err) {
-    return t.done();
-  });
-};
-
-
 exports['create test nic tag'] = function (t) {
   helpers.createNicTag(t, napi, state);
 };
@@ -102,7 +95,16 @@ exports['GET /networks/:uuid/ips'] = function (t) {
       return helpers.doneWithError(err, 'listing IPs');
     }
 
-    t.deepEqual(res, [ state.ip ], 'IP list');
+    var broadcastIP = {
+      belongs_to_type: 'other',
+      belongs_to_uuid: uuids.admin,
+      free: false,
+      ip: '10.99.99.255',
+      owner_uuid: uuids.admin,
+      reserved: true
+    };
+
+    t.deepEqual(res, [ state.ip, broadcastIP ], 'IP list');
     return t.done();
   });
 };
@@ -149,59 +151,21 @@ exports['PUT /networks/:uuid/ips/:ip (free an IP)'] = function (t) {
 };
 
 
-exports['UFDS validation'] = function (t) {
-  /* jsl:ignore (for regex warning) */
-  var invalid = [
-    [ { belongstouuid: 'foo' }, 'IP belongs_to_uuid' ],
-    [ { owneruuid: 'foo' }, 'IP owner_uuid' ],
-    [ { reserved: 'foo' }, 'IP reserved value must be true or false' ],
-
-    [ { ip: 'foo' }, 'IP number' ],
-    [ { ip: -1 }, 'IP number' ],
-    [ { ip: 4294967296 }, 'IP number' ]
-  ];
-  /* jsl:end */
-
-  var ufdsAdd = function (toTest, cb) {
-    var desc = util.format(' (%j)', toTest[0]);
-    var params = {
-      ip: 174285608,
-      objectclass: 'ip'
-    };
-    var dn = util.format('ip=174285608, uuid=%s, ou=networks',
-      state.network.uuid);
-    for (var p in toTest[0]) {
-      params[p] = toTest[0][p];
-    }
-
-    helpers.ufdsAdd(state, dn, params, function (err) {
-      t.ok(err, 'Error should be returned' + desc);
-      if (err) {
-        helpers.similar(t, err.message, toTest[1],
-          'Error message matches' + desc);
-      }
-
-      return cb(null);
-    });
-  };
-
-  vasync.forEachParallel({
-    func: ufdsAdd,
-    inputs: invalid
-  }, function (err) {
-    return t.done();
-  });
-};
+// XXX: tests to add:
+// * exhaust a subnet test:
+//   * create a /28
+//   * provision all IPs on it - verify we get them in order
+//   * verify out of IPs error
+//   * unassign 3 IPs, but reserve one of them
+//   * provision 3 more times: should only get the 2 unreserved IPs, plus
+//     an out of IPs error
+// * same as above, but provision with an IP in the middle of the range
+//   first
 
 
 
 // --- Teardown
 
-
-
-exports['Tear down UFDS client'] = function (t) {
-  helpers.destroyUFDSclient(t, state);
-};
 
 
 exports['remove test network'] = function (t) {

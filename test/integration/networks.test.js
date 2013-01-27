@@ -23,29 +23,6 @@ var adminUUID = '00000000-0000-0000-0000-000000000000';
 
 
 
-// --- Helper functions
-
-
-
-function validUFDSparams() {
-  var uuid = UUID.v4();
-  return {
-    objectclass: 'network',
-    uuid: uuid,
-    networkname: uuid + '-name',
-    vlan: 1024,
-    subnetstartip: 3232238336,
-    subnetbits: 24,
-    provisionrangestartip: 3232238347,
-    provisionrangeendip: 3232238586,
-    nictagname: 'admin',
-    gatewayip: 3232238347,
-    resolverips: [ 134744072 ]
-  };
-}
-
-
-
 // --- Setup
 
 
@@ -57,13 +34,6 @@ exports['create test nic tag'] = function (t) {
 
 exports['create second test nic tag'] = function (t) {
   helpers.createNicTag(t, napi, state, 'nicTag2');
-};
-
-
-exports['Create UFDS client'] = function (t) {
-  helpers.createUFDSclient(t, state, function (err) {
-    t.done();
-  });
 };
 
 
@@ -289,93 +259,6 @@ exports['GET /networks (filter: multiple nic tags)'] = function (t) {
 };
 
 
-exports['UFDS validation'] = function (t) {
-  /* jsl:ignore (for regex warning */
-  var invalid = [
-    [ { uuid: 'foo' }, 'network uuid' ],
-
-    [ { subnetstartip: 'foo' }, 'Subnet start IP' ],
-    [ { subnetstartip: -1 }, 'Subnet start IP' ],
-    [ { subnetstartip: 4294967296 }, 'Subnet start IP' ],
-
-    [ { provisionrangestartip: 'foo' }, 'Provision range start IP' ],
-    [ { provisionrangestartip: -1 }, 'Provision range start IP' ],
-    [ { provisionrangestartip: 4294967296 }, 'Provision range start IP' ],
-    // Outside the subnet:
-    [ { provisionrangestartip: 3232238335 },
-      'Provision range start IP cannot be before the subnet start IP' ],
-    [ { provisionrangestartip: 3232238592 },
-      'Provision range start IP cannot be after the subnet end IP' ],
-
-    [ { provisionrangeendip: 'foo' }, 'Provision range end IP' ],
-    [ { provisionrangeendip: -1 }, 'Provision range end IP' ],
-    [ { provisionrangeendip: 4294967296 }, 'Provision range end IP' ],
-    // Outside the subnet:
-    [ { provisionrangeendip: 3232238335 },
-      'Provision range end IP cannot be before the subnet start IP' ],
-    [ { provisionrangeendip: 3232238592 },
-      'Provision range end IP cannot be after the subnet end IP' ],
-
-    [ { gatewayip: 'foo' }, 'Gateway IP' ],
-    [ { gatewayip: -1 }, 'Gateway IP' ],
-    [ { gatewayip: 4294967296 }, 'Gateway IP' ],
-    // Outside the subnet:
-    [ { gatewayip: 3232238335 },
-      'Gateway IP must be within the subnet' ],
-    [ { gatewayip: 3232238592 },
-      'Gateway IP must be within the subnet' ],
-
-    [ { subnetbits: 'foo' }, 'subnet bits' ],
-    [ { subnetbits: 7 }, 'subnet bits' ],
-    [ { subnetbits: 33 }, 'subnet bits' ],
-
-    [ { vlan: 'foo' }, 'VLAN ID' ],
-    [ { vlan: 1 }, 'VLAN ID' ],
-    [ { vlan: -1 }, 'VLAN ID' ],
-    [ { vlan: 4095 }, 'VLAN ID' ],
-
-    [ { resolverips: ['foo'] }, 'Resolver IP' ],
-    [ { resolverips: [ -1 ] }, 'Resolver IP' ],
-    [ { resolverips: [ 4294967296 ] }, 'Resolver IP' ],
-    [ { resolverips: [ 134744072, 134743044, 3232238338, 3232238339,
-      33232238341, 232238340 ] }, 'Resolver IP' ],
-
-    // Provision start IP > provision end IP
-    [ { provisionrangestartip: 3232238365,
-        provisionrangeendip: 3232238355,
-       },
-      'Provision range start IP cannot be after the provision range end IP' ]
-  ];
-  /* jsl:end */
-
-  var ufdsAdd = function (toTest, cb) {
-    var desc = util.format(' (%j)', toTest[0]);
-    var params = validUFDSparams();
-    var dn = util.format('uuid=%s, ou=networks', params.uuid);
-    for (var p in toTest[0]) {
-      params[p] = toTest[0][p];
-    }
-
-    helpers.ufdsAdd(state, dn, params, function (err) {
-      t.ok(err, 'Error should be returned' + desc);
-      if (err) {
-        helpers.similar(t, err.message, toTest[1],
-          util.format('Error message matches "%s"', err.message));
-      }
-
-      cb(null);
-    });
-  };
-
-  vasync.forEachParallel({
-    func: ufdsAdd,
-    inputs: invalid
-  }, function (err) {
-    t.done();
-  });
-};
-
-
 exports['POST /networks (empty gateway)'] = function (t) {
   var params = {
     name: 'networks-integration-' + process.pid + '-3',
@@ -480,11 +363,6 @@ exports['POST /networks (comma-separated resolvers)'] = function (t) {
 
 // --- Teardown
 
-
-
-exports['Tear down UFDS client'] = function (t) {
-  helpers.destroyUFDSclient(t, state);
-};
 
 
 exports['DELETE /networks/:uuid'] = function (t) {

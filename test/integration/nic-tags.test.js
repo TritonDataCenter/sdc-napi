@@ -21,18 +21,6 @@ var state = {
 
 
 
-// --- Setup
-
-
-
-exports['Create UFDS client'] = function (t) {
-  helpers.createUFDSclient(t, state, function (err) {
-    return t.done();
-  });
-};
-
-
-
 // --- Tests
 
 
@@ -110,33 +98,4 @@ exports['DELETE /nic_tags'] = function (t) {
   }, function (err, res) {
     return t.done();
   });
-};
-
-
-exports['UFDS validation'] = function (t) {
-  var params = {
-    nictag: 'mytag_' + process.pid,
-    objectclass: 'nicTag',
-    uuid: 'foo'
-  };
-  var dn = util.format('uuid=%s, ou=nicTags', params.uuid);
-
-  helpers.ufdsAdd(state, dn, params, function (err) {
-    t.ok(err, 'Error should be returned');
-    if (err) {
-      helpers.similar(t, err.message, 'nic tag uuid', 'Error message matches');
-    }
-
-    return t.done();
-  });
-};
-
-
-
-// --- Teardown
-
-
-
-exports['Tear down UFDS client'] = function (t) {
-  helpers.destroyUFDSclient(t, state);
 };

@@ -16,6 +16,9 @@ var vasync = require('vasync');
 
 
 
+// Set this to any of the exports in this file to only run that test,
+// plus setup and teardown
+var runOne;
 var napi = helpers.createNAPIclient();
 var netParams = ['gateway', 'netmask', 'vlan_id', 'nic_tag', 'resolvers'];
 var state = {
@@ -45,53 +48,20 @@ function addNetworkParams(params) {
 }
 
 
-function validUFDSparams() {
-  return {
-    belongstotype: 'other',
-    belongstouuid: UUID.v4(),
-    mac: util_mac.randomNum('90b8d0'),
-    objectclass: 'nic'
-  };
-}
 
 // --- Setup
 
 
 
-exports['Create UFDS client'] = function (t) {
-  helpers.createUFDSclient(t, state, function (err) {
-    return t.done();
+exports['setup'] = function (t) {
+  helpers.createNicTags(t, napi, state,
+    ['nicTag', 'nicTag2', 'nicTag3', 'nicTag4', 'nicTag5'], function (err) {
+    if (err) {
+      return t.done();
+    }
+
+    helpers.createNetwork(t, napi, state, { gateway: '10.99.99.4' });
   });
-};
-
-
-exports['create test nic tag'] = function (t) {
-  helpers.createNicTag(t, napi, state);
-};
-
-
-exports['create test network'] = function (t) {
-  helpers.createNetwork(t, napi, state, { gateway: '10.99.99.4' });
-};
-
-
-exports['create second test nic tag'] = function (t) {
-  helpers.createNicTag(t, napi, state, 'nicTag2');
-};
-
-
-exports['create third test nic tag'] = function (t) {
-  helpers.createNicTag(t, napi, state, 'nicTag3');
-};
-
-
-exports['create fourth test nic tag'] = function (t) {
-  helpers.createNicTag(t, napi, state, 'nicTag4');
-};
-
-
-exports['create fifth test nic tag'] = function (t) {
-  helpers.createNicTag(t, napi, state, 'nicTag5');
 };
 
 
@@ -610,9 +580,17 @@ exports['PUT /nics (with network_uuid)'] = function (t) {
       params.mac = mac;
       params.ip = res2.ip;
       addNetworkParams(params);
+      t.ok(res2.ip, 'nic now has IP address');
       t.deepEqual(res2, params, 'nic params returned' + desc);
       state.nic.putIPnetUUID = params;
       state.ip.putIPnetUUID = res2.ip;
+
+      if (!res2.ip || !state.network.uuid) {
+        t.ok(false, util.format(
+          'Not all params present: ip=%s, network_uuid=%s', res2.ip,
+          state.network.uuid));
+        return t.done();
+      }
 
       napi.getIP(state.network.uuid, res2.ip, function (err3, res3) {
         t.ifError(err3, 'get IP' + desc);
@@ -1019,84 +997,23 @@ exports['Check IPs are freed along with nics'] = function (t) {
 };
 
 
-exports['UFDS validation'] = function (t) {
-  var invalid = [
-    [ { belongstouuid: 'foo' }, 'nic belongs_to_uuid' ],
-    [ { owneruuid: 'foo' }, 'nic owner_uuid' ],
-    [ { networkuuid: 'foo' }, 'nic network_uuid' ],
-
-    [ { ip: 'foo' }, 'IP number' ],
-    [ { ip: -1 }, 'IP number' ],
-    [ { ip: 4294967296 }, 'IP number' ],
-
-    [ { mac: 281474976710656 }, 'MAC number' ],
-    [ { mac: 0 }, 'MAC number' ],
-
-    [ { primary: 0 }, 'nic primary value must be true or false' ],
-    [ { primary: 'foo' }, 'nic primary value must be true or false' ]
-  ];
-
-  var ufdsAdd = function (toTest, cb) {
-    var desc = util.format(' (%j)', toTest[0]);
-    var params = validUFDSparams();
-    var dn = util.format('mac=%d, ou=nics', params.mac);
-    for (var p in toTest[0]) {
-      params[p] = toTest[0][p];
-    }
-
-    helpers.ufdsAdd(state, dn, params, function (err) {
-      t.ok(err, 'Error should be returned' + desc);
-      if (err) {
-        helpers.similar(t, err.message, toTest[1],
-          'Error message matches' + desc);
-      }
-
-      return cb(null);
-    });
-  };
-
-  vasync.forEachParallel({
-    func: ufdsAdd,
-    inputs: invalid
-  }, function (err) {
-    return t.done();
-  });
-};
-
-
 
 // --- Teardown
 
 
 
-exports['Tear down UFDS client'] = function (t) {
-  helpers.destroyUFDSclient(t, state);
+exports['teardown'] = function (t) {
+  helpers.deleteNetwork(t, napi, state, function () {
+    helpers.deleteNicTags(t, napi, state);
+  });
 };
 
 
-exports['remove test network'] = function (t) {
-  helpers.deleteNetwork(t, napi, state);
-};
-
-
-exports['remove test nic tag'] = function (t) {
-  helpers.deleteNicTag(t, napi, state);
-};
-
-
-exports['remove second test nic tag'] = function (t) {
-  helpers.deleteNicTag(t, napi, state, 'nicTag2');
-};
-
-
-exports['remove third test nic tag'] = function (t) {
-  helpers.deleteNicTag(t, napi, state, 'nicTag3');
-};
-
-exports['remove fourth test nic tag'] = function (t) {
-  helpers.deleteNicTag(t, napi, state, 'nicTag4');
-};
-
-exports['remove fifth test nic tag'] = function (t) {
-  helpers.deleteNicTag(t, napi, state, 'nicTag5');
-};
+// Use to run only one test in this file:
+if (runOne) {
+  module.exports = {
+    setup: exports.setup,
+    oneTest: runOne,
+    teardown: exports.teardown
+  };
+}

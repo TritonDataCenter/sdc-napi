@@ -149,6 +149,7 @@ exports['Create nic - mising params'] = function (t) {
 // non-existent network for network_uuid
 // non-existant nic tag
 // XXX: both belongs_to_type and _uuid required
+// XXX: test creating a nic with network_uuid=admin
 
 
 

@@ -11,8 +11,8 @@ var fs = require('fs');
 var NAPI = require('sdc-clients').NAPI;
 var path = require('path');
 var test = require('tap').test;
-var UFDS = require('../../lib/ufds');
 var util = require('util');
+var vasync = require('vasync');
 
 
 
@@ -39,13 +39,19 @@ function createNAPIclient() {
 }
 
 
-/*
- * Creates a nic tag for testing; stores the result in nicTag
+/**
+ * Creates a nic tag for testing; stores the result in state.nicTag, or
+ * state[targetName] if targetName is specified
  */
-function createNicTag(t, napi, state, targetName) {
+function createNicTag(t, napi, state, targetName, callback) {
   var name = 'nictag_integration_' + process.pid;
   if (targetName) {
-    name = name + '_' + targetName;
+    if (typeof (targetName) === 'function') {
+      callback = targetName;
+      targetName = null;
+    } else {
+      name = name + '_' + targetName;
+    }
   }
 
   napi.createNicTag(name, function (err, res) {
@@ -58,20 +64,87 @@ function createNicTag(t, napi, state, targetName) {
         } else {
           state.nicTag = res;
         }
+
+        if (!state.hasOwnProperty('nic_tags')) {
+          state.nic_tags = [];
+        }
+
+        state.nic_tags.push(res);
       }
-      return t.done();
+
+      if (callback) {
+        return callback(err, res);
+      } else {
+        return t.done();
+      }
   });
 }
 
 
-/*
- * Deletes the testing nic tag stored in state.nicTag
+/**
+ * Creates all of the nic tags specified in tags
  */
-function deleteNicTag(t, napi, state, name) {
-  var tagName = name ? state[name].name : state.nicTag.name;
+function createNicTags(t, napi, state, tags, callback) {
+  vasync.forEachParallel({
+    inputs: tags,
+    func: createNicTag.bind(null, t, napi, state)
+  }, function (err, res) {
+    if (callback) {
+      return callback(err, res);
+    }
+
+    return t.done();
+  });
+}
+
+
+/**
+ * Deletes the testing nic tag stored in state.nicTag or state[name], if
+ * name is specified
+ */
+function deleteNicTag(t, napi, state, name, callback) {
+  var tagName = state.nicTag.name;
+  if (name) {
+    if (typeof (name) === 'function') {
+      callback = name;
+      name = null;
+    } else {
+      tagName = state[name].name;
+    }
+  }
+
 
   napi.deleteNicTag(tagName, function (err) {
     t.ifError(err, 'delete test nic tag: ' + tagName);
+    if (callback) {
+      return callback(err);
+    }
+
+    return t.done();
+  });
+}
+
+
+/**
+ * Deletes all nic tags in state.nic_tags
+ */
+function deleteNicTags(t, napi, state) {
+  if (!state.hasOwnProperty('nic_tags') || state.nic_tags.length === 0) {
+    return t.done();
+  }
+
+  vasync.forEachParallel({
+    inputs: state.nic_tags,
+    func: function _delNicTag(tag, cb) {
+      napi.deleteNicTag(tag.name, function (err) {
+        t.ifError(err, 'delete test nic tag: ' + tag.name);
+
+        // We're calling this in teardown, so plow on anyway with deleting
+        // the rest of the tags
+        return cb();
+      });
+    }
+  }, function (err) {
     return t.done();
   });
 }
@@ -121,14 +194,25 @@ function createNetwork(t, napi, state, extraParams, targetName) {
 }
 
 
-/*
+/**
  * Deletes the testing network stored in state.network
  */
-function deleteNetwork(t, napi, state, name) {
-  var net = name ? state[name]: state.network;
+function deleteNetwork(t, napi, state, name, callback) {
+  var net = state.network;
+  if (name) {
+    if (typeof (name) === 'function') {
+      callback = name;
+    } else {
+      net = state[name];
+    }
+  }
 
   napi.deleteNetwork(net.uuid, { force: true }, function (err) {
     t.ifError(err, 'delete network');
+    if (callback) {
+      return callback(err);
+    }
+
     return t.done();
   });
 }
@@ -174,63 +258,16 @@ function randomMAC() {
 }
 
 
-/*
- * Creates a UFDS client, storing it in state.ufds
- */
-function createUFDSclient(t, state, callback) {
-  var ufds_client = require('sdc-clients').UFDS;
-  var conf = config.load(CONFIG_FILE);
-
-  state.baseDN = conf.ufds.baseDN;
-  var client = new ufds_client(conf.ufds);
-
-  var errCb = function (err) {
-    return callback(err);
-  };
-
-  client.on('error', errCb);
-
-  client.on('ready', function () {
-    client.removeListener('error', errCb);
-    state.ufds = client;
-    return callback(null);
-  });
-}
-
-
-/*
- * Add a record to UFDS
- */
-function ufdsAdd(state, dn, toAdd, callback) {
-  state.ufds.client.add(util.format('%s, %s', dn, state.baseDN),
-    toAdd, callback);
-}
-
-
-/*
- * Destroys the UFDS client in state.ufds
- */
-function destroyUFDSclient(t, state, callback) {
-  if (!state.ufds) {
-    return callback(null);
-  }
-  return state.ufds.close(function (err) {
-    t.ifError(err, 'UFDS client close');
-    return t.done();
-  });
-}
-
 
 module.exports = {
   createNAPIclient: createNAPIclient,
-  createUFDSclient: createUFDSclient,
   createNetwork: createNetwork,
   createNicTag: createNicTag,
+  createNicTags: createNicTags,
   deleteNetwork: deleteNetwork,
   deleteNicTag: deleteNicTag,
-  destroyUFDSclient: destroyUFDSclient,
+  deleteNicTags: deleteNicTags,
   doneWithError: doneWithError,
   randomMAC: randomMAC,
-  similar: similar,
-  ufdsAdd: ufdsAdd
+  similar: similar
 };

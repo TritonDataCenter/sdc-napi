@@ -173,6 +173,9 @@ Creates a new logical network
 ||gateway||IP||Gateway IP address (Optional)||
 ||resolvers||Array of IPs||Resolver IP addresses (Optional)||
 
+** Note that the provisioning range of provision_start_ip to provision_end_ip is
+inclusive.**
+
 ### Example
 
     POST /networks
@@ -500,6 +503,16 @@ Returns the nic with the given MAC address.
 ## PUT /nics/:mac_address
 
 Changes properties of the nic with the given MAC address.
+
+||**Field**||**Type**||**Description**||
+||owner_uuid||UUID||Nic Owner||
+||belongs_to_uuid||UUID||The UUID of what this Nic belongs to||
+||belongs_to_type||String||The type that this belongs to (eg: 'zone', 'server')||
+||ip||String||IP address to assign to the nic||
+||network_uuid||UUID||The network UUID the nic's IP should be on||
+||nic_tags_provided||Array of nic tag names||Nic tags this nic provides||
+||model||String||Nic model for KVM VMs (optional for other VM types)||
+
 
 **Note: this is the MAC address with all colons removed.**
 

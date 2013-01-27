@@ -320,6 +320,8 @@ exports['Create network - provision start IP after end IP'] = function (t) {
 };
 
 
+// XXX: can't delete if in use by a network pool
+
 
 // --- Teardown
 
