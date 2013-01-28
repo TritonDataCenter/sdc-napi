@@ -303,7 +303,9 @@ function createNetworkIPs(file, cb) {
   var client;
   var closed = false;
   var finished = 0;
-  var network = bucketName.replace('napi_ips_', '');
+  var network = bucketName.replace('napi_ips_', '').replace(/_/g, '-');
+  var provEnd = util_ip.aton(NETWORKS[network].provision_end_ip);
+  var provStart = util_ip.aton(NETWORKS[network].provision_start_ip);
   var started = 0;
 
   console.log('> network %s: adding IPs to bucket %s', network, bucketName);
@@ -338,6 +340,19 @@ function createNetworkIPs(file, cb) {
           operation: 'put',
           value: json
         };
+      }).filter(function (ip) {
+        if (ip.value.hasOwnProperty('belongs_to_uuid') ||
+          ip.value.hasOwnProperty('belongs_to_type') ||
+          ip.value.hasOwnProperty('owner_uuid')) {
+          return true;
+        }
+        var num = Number(ip.key);
+
+        if (ip.value.reserved && ((num < provStart) || (num > provEnd))) {
+          return false;
+        }
+
+        return true;
       });
 
       started++;
