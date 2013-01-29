@@ -55,25 +55,22 @@ function readAllLines(file, callback) {
 
 
 function readLines(file, dataCallback, doneCallback) {
-    var leftover = '';
-    var rs = fs.createReadStream(file, { flags: 'r', encoding: 'utf8' });
+  var leftover = '';
+  var rs = fs.createReadStream(file, { flags: 'r', encoding: 'utf8' });
 
-    rs.on('data', function (data) {
-        var pieces = data.toString().split(/\n/g);
-        if (leftover.length !== 0) {
-            pieces[0] = leftover + pieces[0];
-            leftover = pieces.pop();
-        }
+  rs.on('data', function (data) {
+    var pieces = (leftover + data.toString()).split(/\n/g);
+    leftover = pieces.pop();
 
-        return dataCallback(pieces, rs);
-    });
+    return dataCallback(pieces);
+  });
 
-    rs.on('end', function () {
-        if (leftover.length !== 0) {
-            dataCallback(leftover);
-        }
-        return doneCallback();
-    });
+  rs.on('end', function () {
+    if (leftover.length !== 0) {
+      dataCallback(leftover);
+    }
+    return doneCallback();
+  });
 }
 
 
@@ -333,7 +330,15 @@ function createNetworkIPs(file, cb) {
       var batch = lines.filter(function (line) {
         return line;
       }).map(function (line) {
-        var json = JSON.parse(line);
+        var json;
+        try {
+          json = JSON.parse(line);
+        } catch (err) {
+          console.error('Error reading line from "%s":', file);
+          console.error(line);
+          throw err;
+        }
+
         return {
           bucket : bucketName,
           key: json.ip,
