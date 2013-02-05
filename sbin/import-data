@@ -11,6 +11,7 @@ var fs = require('fs');
 var mod_config = require('../lib/config');
 var moray = require('moray');
 var napi = require('sdc-clients').NAPI;
+var nopt = require('nopt');
 var path = require('path');
 var util = require('util');
 var util_ip = require('../lib/util/ip');
@@ -20,6 +21,7 @@ var vasync = require('vasync');
 
 var CONFIG;
 var DIRECTORY;
+var DRY_RUN = false;
 var FILES;
 var LOG = bunyan.createLogger({
   name: path.basename(process.argv[1]),
@@ -30,6 +32,9 @@ var LOG = bunyan.createLogger({
 var MORAY;
 var NAPI;
 var NETWORKS = {};
+var NETWORK_MAP = {};
+var NIC_TAGS = {};
+var OLD_NETWORKS = [];
 
 
 // --- Utilities
@@ -85,20 +90,32 @@ function usage(msg, code) {
 
 
 function process_argv() {
-  if (process.argv.length < 3) {
+  var dir;
+  var longOpts = {
+    'dryrun': Boolean
+  };
+  var parsed = nopt(longOpts);
+
+  if (parsed.dryrun) {
+    DRY_RUN = true;
+    console.log('dry run: not modifying any data');
+  }
+
+  if (parsed.argv.remain.length < 1) {
     usage(null, 1);
   }
+  dir = parsed.argv.remain[0];
 
   try {
-    var stats = fs.statSync(process.argv[2]);
+    var stats = fs.statSync(dir);
     if (!stats.isDirectory()) {
-      usage(process.argv[2] + ' is not a directory', 1);
+      usage(dir + ' is not a directory', 1);
     }
   } catch (e) {
-    usage(process.argv[2] + ' is invalid: ' + e.message, 1);
+    usage(dir + ' is invalid: ' + e.message, 1);
   }
 
-  DIRECTORY = process.argv[2];
+  DIRECTORY = dir;
 }
 
 
@@ -187,6 +204,39 @@ function getFiles(_, callback) {
 }
 
 
+function getNicTags(_, callback) {
+  enter('getting existing nic tags');
+  NAPI.listNicTags(function (err, res) {
+    if (res) {
+      console.log('found nic tags:');
+      res.forEach(function (t) {
+        console.log('* %s: %s', t.uuid, t.name);
+        NIC_TAGS[t.name] = t.uuid;
+      });
+    }
+
+    return callback(err);
+  });
+}
+
+
+function getNetworks(_, callback) {
+  enter('getting existing networks');
+  NAPI.listNetworks(function (err, res) {
+    if (res) {
+      console.log('found networks:');
+      res.forEach(function (n) {
+        console.log('* %s: name=%s, nic_tag=%s, subnet=%s, vlan_id=%d',
+          n.uuid, n.name, n.nic_tag, n.subnet, n.vlan_id);
+        OLD_NETWORKS.push(n);
+      });
+    }
+
+    return callback(err);
+  });
+}
+
+
 function createNicTags(_, callback) {
   enter('creating nic tags');
   readAllLines(DIRECTORY + '/napi_nic_tags.moray', function (err, lines) {
@@ -201,6 +251,16 @@ function createNicTags(_, callback) {
           var json = JSON.parse(line);
         } catch (err2) {
           return cb(err2);
+        }
+
+        if (NIC_TAGS.hasOwnProperty(json.name)) {
+          console.log('nic tag %s already exists: not creating', json.name);
+          return cb();
+        }
+
+        if (DRY_RUN) {
+          console.log('created nic tag %s', json.name);
+          return cb();
         }
 
         NAPI.createNicTag(json.name, json, function (err3, res) {
@@ -249,6 +309,26 @@ function createNetworks(_, callback) {
         json.subnet = util.format('%s/%s', json.subnet_start_ip,
             json.subnet_bits);
 
+        for (var n in OLD_NETWORKS) {
+          var oldNet = OLD_NETWORKS[n];
+          if (json.subnet == oldNet.subnet && json.nic_tag == oldNet.nic_tag &&
+            json.vlan_id == oldNet.vlan_id) {
+            console.log(
+              'network "%s" matches existing network "%s": not creating: %s',
+              json.name, oldNet.name, JSON.stringify(json, null, 2));
+            NETWORK_MAP[json.uuid] = oldNet.uuid;
+            NETWORKS[oldNet.uuid] = oldNet;
+            return cb();
+          }
+        }
+
+        if (DRY_RUN) {
+          console.log('created network %s: %s', json.name,
+            JSON.stringify(json, null, 2));
+          NETWORKS[json.uuid] = json;
+          return cb();
+        }
+
         NAPI.createNetwork(json, function (err3, res) {
           if (res) {
             console.log('created network %s: %s', json.name,
@@ -271,6 +351,7 @@ function createNetworkPools(_, callback) {
       // The original install may not have had any network pools, so this
       // file might not exist
       if (err.code === 'ENOENT') {
+        console.log('no network pools to create');
         return callback();
       }
       return callback(err);
@@ -283,6 +364,12 @@ function createNetworkPools(_, callback) {
           var json = JSON.parse(line);
         } catch (err2) {
           return cb(err2);
+        }
+
+        if (DRY_RUN) {
+          console.log('created network pool %s: %s', json.name,
+            JSON.stringify(json, null, 2));
+          return cb();
         }
 
         NAPI.createNetworkPool(json.name, json, function (err3, res) {
@@ -300,12 +387,21 @@ function createNetworkPools(_, callback) {
 
 
 function createNetworkIPs(file, cb) {
-  // XXX: don't add reserved IPs above and below provisionable start / end
   var bucketName = path.basename(file, '.moray').replace(/-/g, '_');
   var client;
   var closed = false;
   var finished = 0;
   var network = bucketName.replace('napi_ips_', '').replace(/_/g, '-');
+
+  // Figure out if this network is actually a network that already exists
+  // in NAPI
+  if (NETWORK_MAP.hasOwnProperty(network)) {
+    console.log('> network %s is actually existing network', network,
+      NETWORK_MAP[network]);
+    network = NETWORK_MAP[network];
+    bucketName = 'napi_ips_' + network.replace(/-/g, '_');
+  }
+
   var provEnd = util_ip.aton(NETWORKS[network].provision_end_ip);
   var provStart = util_ip.aton(NETWORKS[network].provision_start_ip);
   var started = 0;
@@ -338,10 +434,10 @@ function createNetworkIPs(file, cb) {
         var json;
         try {
           json = JSON.parse(line);
-        } catch (err) {
+        } catch (err2) {
           console.error('Error reading line from "%s":', file);
           console.error(line);
-          throw err;
+          throw err2;
         }
 
         return {
@@ -368,6 +464,11 @@ function createNetworkIPs(file, cb) {
       started++;
 
       console.log('  bucket: %s: batch length=%d', bucketName, batch.length);
+
+      if (DRY_RUN) {
+        finished++;
+        return _returnIfDone();
+      }
 
       client.batch(batch, function (err2) {
         finished++;
@@ -441,6 +542,11 @@ function createNics(file, cb) {
         return line;
       }).map(function (line) {
         var json = JSON.parse(line);
+        if (json.hasOwnProperty('network_uuid') &&
+          NETWORK_MAP.hasOwnProperty(json.network_uuid)) {
+          json.network_uuid = NETWORK_MAP[json.network_uuid];
+        }
+
         return {
           bucket : 'napi_nics',
           key: json.mac.toString(),
@@ -452,6 +558,10 @@ function createNics(file, cb) {
       started++;
 
       console.log('  bucket: napi_nics: batch length=%d', batch.length);
+      if (DRY_RUN) {
+        finished++;
+        return _returnIfDone();
+      }
 
       client.batch(batch, function (err2) {
         finished++;
@@ -484,6 +594,8 @@ function main() {
   funcs: [
     // morayClientInit,
     getFiles,
+    getNicTags,
+    getNetworks,
     createNicTags,
     createNetworks,
     createNetworkPools,
