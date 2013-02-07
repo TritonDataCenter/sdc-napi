@@ -5,12 +5,11 @@
  */
 
 var assert = require('assert-plus');
+var async = require('async');
 var clone = require('clone');
 var helpers = require('./helpers');
-var IP = require('../../lib/models/ip').IP;
+var mod_err = require('../../lib/util/errors');
 var mod_uuid = require('node-uuid');
-var Network = require('../../lib/models/network').Network;
-var NicTag = require('../../lib/models/nic-tag').NicTag;
 var restify = require('restify');
 var util = require('util');
 var vasync = require('vasync');
@@ -21,6 +20,10 @@ var vasync = require('vasync');
 
 
 
+// Set this to any of the exports in this file to only run that test,
+// plus setup and teardown
+var runOne;
+var MORAY_IP = '10.0.2.15';
 var NAPI;
 var NET;
 var INVALID_PARAMS = [
@@ -49,29 +52,40 @@ var MULTIPLE_PARAMS_REQ = [
 
 
 
-/**
- * Sets up UFDS to return a nic tag so that the existance check in
- * network creation passes
- */
-exports.setUp = function (callback) {
-  NET = new Network(helpers.validNetworkParams());
-  helpers.ufdsReturnValues({
-    get: [
-      [null, NET]
-    ]
-  });
-
-  return callback();
-};
-
-
-exports['Create client and server'] = function (t) {
+exports['Initial setup'] = function (t) {
   helpers.createClientAndServer(function (err, res) {
     t.ifError(err, 'server creation');
     t.ok(res, 'client');
     NAPI = res;
 
-    t.done();
+    if (!NAPI) {
+      return t.done();
+    }
+
+    var netParams = helpers.validNetworkParams();
+    NAPI.createNicTag(netParams.nic_tag, function (err2) {
+      t.ifError(err2);
+      if (err2) {
+        t.deepEqual(err2.body, {}, 'error body');
+      }
+
+      NAPI.createNetwork(netParams, function (err3, res3) {
+        t.ifError(err3);
+        if (err3) {
+          t.deepEqual(err3.body, {}, 'error body');
+          return t.done();
+        }
+        NET = res3;
+
+        // Add an IP to moray
+        NAPI.updateIP(NET.uuid, MORAY_IP, { reserved: true },
+          function (err4) {
+          t.ifError(err4);
+
+          return t.done();
+        });
+      });
+    });
   });
 };
 
@@ -82,13 +96,7 @@ exports['Create client and server'] = function (t) {
 
 
 exports['Get IP - non-existent network'] = function (t) {
-  // Set UFDS to return nothing
-  var getErr = new restify.ResourceNotFoundError('network not found');
-  helpers.ufdsReturnValues({
-    get: [[getErr, null]]
-  });
-
-  NAPI.getIP('doesnotexist', '1.2.3.4', function (err, res) {
+  NAPI.getIP(mod_uuid.v4(), '1.2.3.4', function (err, res) {
     t.ok(err, 'error returned');
     if (!err) {
       return t.done();
@@ -96,8 +104,8 @@ exports['Get IP - non-existent network'] = function (t) {
 
     t.equal(err.statusCode, 404, 'status code');
     t.deepEqual(err.body, {
-      code: getErr.restCode,
-      message: getErr.message
+      code: 'ResourceNotFound',
+      message: 'network not found'
     }, 'Error body');
 
     return t.done();
@@ -111,12 +119,6 @@ exports['Get IP - outside subnet'] = function (t) {
     '10.0.1.255',
     '8.8.8.8'
   ];
-
-  var ufdsReturn = { get: [] };
-  for (var i = 0; i < invalid.length; i++) {
-    ufdsReturn.get.push([null, NET]);
-  }
-  helpers.ufdsReturnValues(ufdsReturn);
 
   vasync.forEachParallel({
     inputs: invalid,
@@ -149,12 +151,6 @@ exports['Get IP - invalid'] = function (t) {
     '10.0.2.256'
   ];
 
-  var ufdsReturn = { get: [] };
-  for (var i = 0; i < invalid.length; i++) {
-    ufdsReturn.get.push([null, NET]);
-  }
-  helpers.ufdsReturnValues(ufdsReturn);
-
   vasync.forEachParallel({
     inputs: invalid,
     func: function (ip, cb) {
@@ -184,13 +180,7 @@ exports['Get IP - invalid'] = function (t) {
 
 
 
-exports['Update IP - non-existent network'] = function (t) {
-  // Set UFDS to return nothing
-  var getErr = new restify.ResourceNotFoundError('network not found');
-  helpers.ufdsReturnValues({
-    get: [[getErr, null]]
-  });
-
+exports['Update IP - invalid network'] = function (t) {
   NAPI.updateIP('doesnotexist', '1.2.3.4', { reserved: true },
     function (err, res) {
     t.ok(err, 'error returned');
@@ -200,8 +190,8 @@ exports['Update IP - non-existent network'] = function (t) {
 
     t.equal(err.statusCode, 404, 'status code');
     t.deepEqual(err.body, {
-      code: getErr.restCode,
-      message: getErr.message
+      code: 'ResourceNotFound',
+      message: 'network not found'
     }, 'Error body');
 
     return t.done();
@@ -210,13 +200,7 @@ exports['Update IP - non-existent network'] = function (t) {
 
 
 exports['Update IP - non-existent network'] = function (t) {
-  // Set UFDS to return nothing
-  var getErr = new restify.ResourceNotFoundError('network not found');
-  helpers.ufdsReturnValues({
-    get: [[getErr, null]]
-  });
-
-  NAPI.updateIP('doesnotexist', '1.2.3.4', { reserved: true },
+  NAPI.updateIP(mod_uuid.v4(), '1.2.3.4', { reserved: true },
     function (err, res) {
     t.ok(err, 'error returned');
     if (!err) {
@@ -225,8 +209,8 @@ exports['Update IP - non-existent network'] = function (t) {
 
     t.equal(err.statusCode, 404, 'status code');
     t.deepEqual(err.body, {
-      code: getErr.restCode,
-      message: getErr.message
+      code: 'ResourceNotFound',
+      message: 'network not found'
     }, 'Error body');
 
     return t.done();
@@ -240,12 +224,6 @@ exports['Update IP - outside subnet'] = function (t) {
     '10.0.1.255',
     '8.8.8.8'
   ];
-
-  var ufdsReturn = { get: [] };
-  for (var i = 0; i < invalid.length; i++) {
-    ufdsReturn.get.push([null, NET]);
-  }
-  helpers.ufdsReturnValues(ufdsReturn);
 
   vasync.forEachParallel({
     inputs: invalid,
@@ -278,12 +256,6 @@ exports['Update IP - invalid'] = function (t) {
     '10.0.2.256'
   ];
 
-  var ufdsReturn = { get: [] };
-  for (var i = 0; i < invalid.length; i++) {
-    ufdsReturn.get.push([null, NET]);
-  }
-  helpers.ufdsReturnValues(ufdsReturn);
-
   vasync.forEachParallel({
     inputs: invalid,
     func: function (ip, cb) {
@@ -308,24 +280,13 @@ exports['Update IP - invalid'] = function (t) {
 };
 
 
-exports['Update IP - invalid params (IP not in UFDS)'] = function (t) {
-  var ufdsReturn = { get: [] };
-  for (var i = 0; i < INVALID_PARAMS.length; i++) {
-    // One get for the network existence check
-    ufdsReturn.get.push([null, NET]);
-    // One get for the IP existence check
-    ufdsReturn.get.push([new restify.ResourceNotFoundError(
-      'IP\'s not here, man'), null]);
-  }
-  helpers.ufdsReturnValues(ufdsReturn);
-
-  // XXX: also do this for an update
+exports['Update IP - invalid params (IP not in moray)'] = function (t) {
   vasync.forEachParallel({
     inputs: INVALID_PARAMS,
     func: function (data, cb) {
       var params = helpers.validIPparams();
       params[data[0]] = data[1];
-      NAPI.updateIP(NET.uuid, '10.0.2.4', params, function (err, res) {
+      NAPI.updateIP(NET.uuid, '10.0.2.14', params, function (err, res) {
         t.ok(err, util.format('error returned: %s="%s"', data[0], data[1]));
         if (!err) {
           return cb();
@@ -336,7 +297,7 @@ exports['Update IP - invalid params (IP not in UFDS)'] = function (t) {
           code: 'InvalidParameters',
           message: 'Invalid parameters',
           errors: [
-            helpers.invalidParam(data[0], data[2])
+            mod_err.invalidParam(data[0], data[2])
           ]
         }, 'Error body');
 
@@ -349,35 +310,24 @@ exports['Update IP - invalid params (IP not in UFDS)'] = function (t) {
 };
 
 
-exports['Update IP - invalid params (IP in UFDS)'] = function (t) {
-  var ip = new IP({ ip: '10.0.2.4', network_uuid: NET.uuid, reserved: true});
-  var ufdsReturn = { get: [] };
-  for (var i = 0; i < INVALID_PARAMS.length; i++) {
-    // One get for the network existence check
-    ufdsReturn.get.push([null, NET]);
-    // One get for the IP existence check
-    ufdsReturn.get.push([null, ip]);
-  }
-  helpers.ufdsReturnValues(ufdsReturn);
-
-  // XXX: also do this for an update
+exports['Update IP - invalid params (IP in moray)'] = function (t) {
   vasync.forEachParallel({
     inputs: INVALID_PARAMS,
     func: function (data, cb) {
       var params = helpers.validIPparams();
       params[data[0]] = data[1];
-      NAPI.updateIP(NET.uuid, '10.0.2.4', params, function (err, res) {
-        t.ok(err, util.format('error returned: %s="%s"', data[0], data[1]));
-        if (!err) {
+      NAPI.updateIP(NET.uuid, MORAY_IP, params, function (err2) {
+        t.ok(err2, util.format('error returned: %s="%s"', data[0], data[1]));
+        if (!err2) {
           return cb();
         }
 
-        t.equal(err.statusCode, 422, 'status code');
-        t.deepEqual(err.body, {
+        t.equal(err2.statusCode, 422, 'status code');
+        t.deepEqual(err2.body, {
           code: 'InvalidParameters',
           message: 'Invalid parameters',
           errors: [
-            helpers.invalidParam(data[0], data[2])
+            mod_err.invalidParam(data[0], data[2])
           ]
         }, 'Error body');
 
@@ -395,18 +345,8 @@ exports['Update IP - invalid params (IP in UFDS)'] = function (t) {
  * for the IP as well (either it should be already set in UFDS, or updated in
  * the same payload).  If either is set, owner_uuid needs to be set as well.
  */
-exports['Update IP - invalid param combinations (IP not in UFDS)'] =
+exports['Update IP - invalid param combinations (IP not in moray)'] =
   function (t) {
-  var ufdsReturn = { get: [] };
-  for (var i = 0; i < MULTIPLE_PARAMS_REQ.length; i++) {
-    // One get for the network existence check
-    ufdsReturn.get.push([null, NET]);
-    // One get for the IP existence check
-    ufdsReturn.get.push([new restify.ResourceNotFoundError(
-      'IP\'s not here, man'), null]);
-  }
-  helpers.ufdsReturnValues(ufdsReturn);
-
   vasync.forEachParallel({
     inputs: MULTIPLE_PARAMS_REQ,
     func: function (params, cb) {
@@ -435,36 +375,25 @@ exports['Update IP - invalid param combinations (IP not in UFDS)'] =
 };
 
 
-exports['Update IP - invalid param combinations (IP in UFDS)'] =
+exports['Update IP - invalid param combinations (IP in moray)'] =
   function (t) {
-  var ip = new IP({ ip: '10.0.2.4', network_uuid: NET.uuid, reserved: true});
-  var ufdsReturn = { get: [] };
-  for (var i = 0; i < MULTIPLE_PARAMS_REQ.length; i++) {
-    // One get for the network existence check
-    ufdsReturn.get.push([null, NET]);
-    // One get for the IP existence check
-    ufdsReturn.get.push([null, ip]);
-  }
-  helpers.ufdsReturnValues(ufdsReturn);
-
   vasync.forEachParallel({
     inputs: MULTIPLE_PARAMS_REQ,
     func: function (params, cb) {
-      NAPI.updateIP(NET.uuid, '10.0.2.4', params, function (err, res) {
+      NAPI.updateIP(NET.uuid, MORAY_IP, params, function (err, res) {
         t.ok(err, 'error returned: ' + JSON.stringify(params));
         if (!err) {
           return cb();
         }
 
         t.equal(err.statusCode, 422, 'status code');
-        t.deepEqual(err.body, {
-          code: 'InvalidParameters',
+        t.deepEqual(err.body, helpers.invalidParamErr({
           errors: ['belongs_to_uuid', 'belongs_to_type', 'owner_uuid'].filter(
             function (p) { return !params.hasOwnProperty(p); }).map(
             function (p) { return helpers.missingParam(p, 'Missing parameter');
           }).sort(helpers.fieldSort),
           message: 'Missing parameters'
-        }, 'Error body');
+        }), 'Error body');
 
         return cb();
       });
@@ -475,16 +404,8 @@ exports['Update IP - invalid param combinations (IP in UFDS)'] =
 };
 
 
-exports['Update IP - both missing and invalid params (IP not in UFDS)'] =
+exports['Update IP - both missing and invalid params (IP not in moray)'] =
   function (t) {
-
-  helpers.ufdsReturnValues({
-    get: [
-      [null, NET],
-      [new restify.ResourceNotFoundError('IP not found'), null]
-    ]
-  });
-
   NAPI.updateIP(NET.uuid, '10.0.2.4', { belongs_to_uuid: 'asdf' },
     function (err, res) {
     t.ok(err, 'error returned');
@@ -493,33 +414,22 @@ exports['Update IP - both missing and invalid params (IP not in UFDS)'] =
     }
 
     t.equal(err.statusCode, 422, 'status code');
-    t.deepEqual(err.body, {
-      code: 'InvalidParameters',
-      message: 'Invalid parameters',
+    t.deepEqual(err.body, helpers.invalidParamErr({
       errors: [
         helpers.missingParam('belongs_to_type', 'Missing parameter'),
-        helpers.invalidParam('belongs_to_uuid', 'invalid UUID'),
+        mod_err.invalidParam('belongs_to_uuid', 'invalid UUID'),
         helpers.missingParam('owner_uuid', 'Missing parameter')
       ]
-    }, 'Error body');
+    }), 'Error body');
 
     return t.done();
   });
 };
 
 
-exports['Update IP - both missing and invalid params (IP in UFDS)'] =
+exports['Update IP - both missing and invalid params (IP in moray)'] =
   function (t) {
-
-  var ip = new IP({ ip: '10.0.2.4', network_uuid: NET.uuid, reserved: true});
-  helpers.ufdsReturnValues({
-    get: [
-      [null, NET],
-      [null, ip]
-    ]
-  });
-
-  NAPI.updateIP(NET.uuid, '10.0.2.4', { belongs_to_uuid: 'asdf' },
+  NAPI.updateIP(NET.uuid, MORAY_IP, { belongs_to_uuid: 'asdf' },
     function (err, res) {
     t.ok(err, 'error returned');
     if (!err) {
@@ -527,15 +437,13 @@ exports['Update IP - both missing and invalid params (IP in UFDS)'] =
     }
 
     t.equal(err.statusCode, 422, 'status code');
-    t.deepEqual(err.body, {
-      code: 'InvalidParameters',
-      message: 'Invalid parameters',
+    t.deepEqual(err.body, helpers.invalidParamErr({
       errors: [
         helpers.missingParam('belongs_to_type', 'Missing parameter'),
-        helpers.invalidParam('belongs_to_uuid', 'invalid UUID'),
+        mod_err.invalidParam('belongs_to_uuid', 'invalid UUID'),
         helpers.missingParam('owner_uuid', 'Missing parameter')
       ]
-    }, 'Error body');
+    }), 'Error body');
 
     return t.done();
   });
@@ -545,126 +453,122 @@ exports['Update IP - both missing and invalid params (IP in UFDS)'] =
 /*
  * Allow updating all parameters
  */
-exports['Update IP - valid param combinations (IP in UFDS)'] =
+exports['Update IP - valid param combinations (IP in moray)'] =
   function (t) {
-  var ip = new IP({
+  var ipParams = {
     belongs_to_type: 'other',
     belongs_to_uuid: mod_uuid.v4(),
-    ip: '10.0.2.4',
-    network_uuid: NET.uuid,
+    ip: '10.0.2.25',
     owner_uuid: mod_uuid.v4(),
     reserved: true
-  });
-  var ufdsReturn = { get: [], update: [] };
-  var updateList = clone(MULTIPLE_PARAMS_REQ);
-  updateList.push({ reserved: 'false' });
-  updateList.push({ owner_uuid: mod_uuid.v4() });
+  };
 
-  for (var i = 0; i < updateList.length; i++) {
-    // One get for the network existence check
-    ufdsReturn.get.push([null, NET]);
-    // One get for the IP existence check
-    ufdsReturn.get.push([null, ip]);
-    // And finally the update
-    ufdsReturn.update.push([null, ip]);
-  }
-  helpers.ufdsReturnValues(ufdsReturn);
+  NAPI.updateIP(NET.uuid, '10.0.2.25', ipParams, function (err, ipRes) {
+    t.ifError(err);
+    ipParams.free = false;
 
-  // XXX: also do this for an update
-  vasync.forEachParallel({
-    inputs: updateList,
-    func: function (params, cb) {
-      NAPI.updateIP(NET.uuid, '10.0.2.4', params,
-        function (err, obj, req, res) {
-        t.ifError(err);
-        if (err) {
+    t.deepEqual(ipRes, ipParams, 'response');
+
+    var updateList = clone(MULTIPLE_PARAMS_REQ);
+    updateList.push({ reserved: false });
+    updateList.push({ owner_uuid: mod_uuid.v4() });
+
+    async.forEachSeries(updateList, function (params, cb) {
+      NAPI.updateIP(NET.uuid, '10.0.2.25', params,
+        function (err2, obj, req, res) {
+        t.ifError(err2);
+        if (err2) {
           return cb();
         }
 
         t.equal(res.statusCode, 200, 'status code: ' + JSON.stringify(params));
-        t.deepEqual(obj, ip.serialize(), 'Response');
+        for (var p in params) {
+          ipParams[p] = params[p];
+        }
+
+        t.deepEqual(obj, ipParams, 'response');
 
         return cb();
       });
-    }
-  }, function () {
-    return t.done();
+    }, function () {
+      return t.done();
+    });
   });
 };
 
 
 
-exports['Update IP - valid param combinations (IP not in UFDS)'] =
+exports['Update IP - valid param combinations (IP not in moray)'] =
   function (t) {
-  var ufdsReturn = { get: [], add: [] };
+  var i = 0;
   var updateList = [
-    { reserved: 'false' },
+    { reserved: false },
     { owner_uuid: mod_uuid.v4() },
     { belongs_to_uuid: mod_uuid.v4(),
       belongs_to_type: 'other',
       owner_uuid: mod_uuid.v4() }
   ];
 
-  for (var i = 0; i < updateList.length; i++) {
-    // One get for the network existence check
-    ufdsReturn.get.push([null, NET]);
-    // One get for the IP existence check
-    ufdsReturn.get.push([new restify.ResourceNotFoundError(
-      'IP not found'), null]);
+  async.forEachSeries(updateList, function (updateData, cb) {
+    var ip = '10.0.2.22' + i;
 
-    // And finally the add
-    var ipParams = {
-      ip: '10.0.2.4',
-      network_uuid: NET.uuid
-    };
-    for (var p in updateList[i]) {
-      ipParams[p] = updateList[i][p];
-    }
-    var retIP = new IP(ipParams);
-    ufdsReturn.add.push([null, retIP]);
-    updateList[i] = [updateList[i], retIP];
-  }
-  helpers.ufdsReturnValues(ufdsReturn);
-
-  // XXX: also do this for an update
-  vasync.forEachParallel({
-    inputs: updateList,
-    func: function (updateData, cb) {
-      var params = updateData[0];
-      var ip = updateData[1];
-
-      NAPI.updateIP(NET.uuid, '10.0.2.4', params,
-        function (err, obj, req, res) {
-        t.ifError(err);
-        if (err) {
-          t.deepEqual(err.body, {}, 'error body: ' + JSON.stringify(params));
-          return cb();
-        }
-
-        t.equal(res.statusCode, 200, 'status code: ' + JSON.stringify(params));
-        t.deepEqual(obj, ip.serialize(), 'Response');
-
+    NAPI.updateIP(NET.uuid, ip, updateData,
+      function (err, obj, req, res) {
+      t.ifError(err);
+      if (err) {
+        t.deepEqual(err.body, {}, 'error body: ' + JSON.stringify(updateData));
         return cb();
-      });
-    }
+      }
+
+      t.equal(res.statusCode, 200, 'status code: ' +
+        JSON.stringify(updateData));
+      updateData.free = updateData.hasOwnProperty('reserved') ? true : false;
+      updateData.reserved = false;
+      updateData.ip = ip;
+      t.deepEqual(obj, updateData, 'Response');
+
+      return cb();
+    });
   }, function () {
     return t.done();
   });
 };
 
 
-exports['Update IP - free (IP in UFDS)'] = function (t) {
-  var ip = new IP({ ip: '10.0.2.4', network_uuid: NET.uuid, reserved: true});
-  helpers.ufdsReturnValues({
-    get: [
-      [null, NET],
-      [null, ip]
-    ],
-    del: [
-      null
-    ]
-  });
+exports['Update IP - free (IP in moray)'] = function (t) {
+  var params = {
+    belongs_to_type: 'other',
+    belongs_to_uuid: mod_uuid.v4(),
+    ip: '10.0.2.55',
+    owner_uuid: mod_uuid.v4(),
+    reserved: true
+  };
 
+  NAPI.updateIP(NET.uuid, '10.0.2.55', params, function (err) {
+    t.ifError(err);
+
+    NAPI.updateIP(NET.uuid, '10.0.2.55', { free: 'true' },
+      function (err2, obj, req, res) {
+      t.ifError(err2);
+      if (err2) {
+        t.deepEqual(err.body, {}, 'error body');
+        return t.done();
+      }
+
+      t.equal(res.statusCode, 200, 'status code');
+      t.deepEqual(obj, {
+        ip: '10.0.2.55',
+        free: true,
+        reserved: false
+      }, 'Response');
+
+      return t.done();
+    });
+  });
+};
+
+
+exports['Update IP - free (IP not in moray)'] = function (t) {
   NAPI.updateIP(NET.uuid, '10.0.2.4', { free: 'true' },
     function (err, obj, req, res) {
     t.ifError(err);
@@ -685,50 +589,40 @@ exports['Update IP - free (IP in UFDS)'] = function (t) {
 };
 
 
-exports['Update IP - free (IP not in UFDS)'] = function (t) {
-  helpers.ufdsReturnValues({
-    get: [
-      [null, NET],
-      [new restify.ResourceNotFoundError('IP not found'), null]
-    ],
-    del: [
-      null
-    ]
-  });
+exports['Update IP - unassign (IP in moray)'] = function (t) {
+  var params = {
+    belongs_to_type: 'server',
+    belongs_to_uuid: mod_uuid.v4(),
+    owner_uuid: mod_uuid.v4()
+  };
 
-  NAPI.updateIP(NET.uuid, '10.0.2.4', { free: 'true' },
-    function (err, obj, req, res) {
+  NAPI.updateIP(NET.uuid, '10.0.2.34', params, function (err) {
     t.ifError(err);
-    if (err) {
-      t.deepEqual(err.body, {}, 'error body');
+
+    NAPI.updateIP(NET.uuid, '10.0.2.34', { unassign: 'true' },
+      function (err2, obj, req, res) {
+      t.ifError(err2);
+      if (err2) {
+        t.deepEqual(err.body, {}, 'error body');
+        return t.done();
+      }
+
+      t.equal(res.statusCode, 200, 'status code');
+      t.deepEqual(obj, {
+        ip: '10.0.2.34',
+        free: false,
+        owner_uuid: params.owner_uuid,
+        reserved: false
+      }, 'Response');
+
       return t.done();
-    }
-
-    t.equal(res.statusCode, 200, 'status code');
-    t.deepEqual(obj, {
-      ip: '10.0.2.4',
-      free: true,
-      reserved: false
-    }, 'Response');
-
-    return t.done();
+    });
   });
 };
 
 
-exports['Update IP - unassign (IP in UFDS)'] = function (t) {
-  var ip = new IP({ ip: '10.0.2.4', network_uuid: NET.uuid, reserved: false});
-  helpers.ufdsReturnValues({
-    get: [
-      [null, NET],
-      [null, ip]
-    ],
-    update: [
-      [null, ip]
-    ]
-  });
-
-  NAPI.updateIP(NET.uuid, '10.0.2.4', { unassign: 'true' },
+exports['Update IP - unassign (IP not in moray)'] = function (t) {
+  NAPI.updateIP(NET.uuid, '10.0.2.35', { unassign: 'true' },
     function (err, obj, req, res) {
     t.ifError(err);
     if (err) {
@@ -738,7 +632,7 @@ exports['Update IP - unassign (IP in UFDS)'] = function (t) {
 
     t.equal(res.statusCode, 200, 'status code');
     t.deepEqual(obj, {
-      ip: '10.0.2.4',
+      ip: '10.0.2.35',
       free: true,
       reserved: false
     }, 'Response');
@@ -759,3 +653,14 @@ exports['Stop server'] = function (t) {
     t.done();
   });
 };
+
+
+
+// Use to run only one test in this file:
+if (runOne) {
+  module.exports = {
+    setup: exports['Initial setup'],
+    oneTest: runOne,
+    teardown: exports['Stop server']
+  };
+}

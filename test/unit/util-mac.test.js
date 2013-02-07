@@ -6,7 +6,6 @@
 
 
 var MAC = require('../../lib/util/mac');
-var test = require('tap').test;
 
 
 

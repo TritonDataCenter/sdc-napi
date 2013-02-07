@@ -6,9 +6,13 @@
 
 var assert = require('assert-plus');
 var clone = require('clone');
+var common = require('../lib/common');
+var EventEmitter = require('events').EventEmitter;
+var ldapjs = require('ldapjs');
 var NAPI = require('../../lib/napi').NAPI;
 var napiClient = require('sdc-clients/lib/napi');
 var restify = require('restify');
+var verror = require('verror');
 
 
 
@@ -16,11 +20,10 @@ var restify = require('restify');
 
 
 
+var BUCKETS = {};
 // Set to log messages to stderr
-var LOG = false;
+var LOG = process.env.LOG || false;
 var SERVER;
-var UFDS_RETURN;
-var SENT_TO_UFDS;
 
 
 
@@ -28,22 +31,199 @@ var SENT_TO_UFDS;
 
 
 
-function ufdsEntry(action, obj) {
-  assert.arrayOfObject(UFDS_RETURN[action], 'UFDS_RETURN.' + action);
-  assert.ok(UFDS_RETURN[action].length !== 0,
-    'UFDS_RETURN.' + action + ': no more elements');
-
-  if (!SENT_TO_UFDS) {
-    SENT_TO_UFDS = {};
-  }
-
-  if (!SENT_TO_UFDS[action]) {
-    SENT_TO_UFDS[action] = [];
-  }
-
-  SENT_TO_UFDS[action].push(obj);
+function bucketNotFoundErr(bucket) {
+  var err = new verror.VError('bucket "%s" does not exist', bucket);
+  err.name = 'BucketNotFoundError';
+  return err;
 }
 
+
+function objectNotFoundErr(key) {
+  var err = new verror.VError('key "%s" does not exist', key);
+  err.name = 'ObjectNotFoundError';
+  return err;
+}
+
+
+
+// --- Fake moray object
+
+
+
+function FakeMoray(opts) {
+  assert.object(opts, 'opts');
+  assert.object(opts.log, 'opts.log');
+
+  this.log = opts.log;
+  BUCKETS = {};
+}
+
+
+FakeMoray.prototype._put = function _store(bucket, key, val) {
+  var newVal = {};
+  for (var k in val) {
+    newVal[k] = val[k].toString();
+  }
+  BUCKETS[bucket][key] = newVal;
+};
+
+
+FakeMoray.prototype.batch = function batch(data, callback) {
+  assert.arrayOfObject(data, 'data');
+
+  for (var b in data) {
+    var item = data[b];
+    assert.string(item.bucket, 'item.bucket');
+    assert.string(item.key, 'item.key');
+    assert.string(item.operation, 'item.operation');
+    assert.object(item.value, 'item.value');
+
+    if (item.operation === 'put') {
+      if (!BUCKETS.hasOwnProperty(item.bucket)) {
+        return callback(bucketNotFoundErr(item.bucket));
+      }
+
+      this._put(item.bucket, item.key, item.value);
+    }
+  }
+
+  return callback();
+};
+
+
+FakeMoray.prototype.createBucket =
+  function createBucket(bucket, schema, callback) {
+
+  BUCKETS[bucket] = {};
+  return callback();
+};
+
+
+FakeMoray.prototype.delObject = function delObject(bucket, key, callback) {
+  if (!BUCKETS.hasOwnProperty(bucket)) {
+    return callback(bucketNotFoundErr(bucket));
+  }
+
+  if (!BUCKETS[bucket].hasOwnProperty(key)) {
+    return callback(objectNotFoundErr(key));
+  }
+
+  delete BUCKETS[bucket][key];
+  return callback();
+};
+
+
+FakeMoray.prototype.findObjects = function findObjects(bucket, filter, opts) {
+  var res = new EventEmitter;
+  var filterObj = ldapjs.parseFilter(filter);
+
+  process.nextTick(function () {
+    if (!BUCKETS.hasOwnProperty(bucket)) {
+      res.emit('error', bucketNotFoundErr(bucket));
+      return;
+    }
+
+    for (var r in BUCKETS[bucket]) {
+      if (filterObj.matches(BUCKETS[bucket][r])) {
+        res.emit('record', { value: BUCKETS[bucket][r] });
+      }
+    }
+
+    res.emit('end');
+  });
+
+  return res;
+};
+
+
+FakeMoray.prototype.getBucket = function getBucket(bucket, callback) {
+  if (!BUCKETS.hasOwnProperty(bucket)) {
+    return callback(bucketNotFoundErr(bucket));
+  }
+
+  // The real moray returns the bucket schema here, but NAPI only
+  // uses this for an existence check, so this suffices
+  return callback(null, BUCKETS[bucket]);
+};
+
+
+FakeMoray.prototype.getObject = function getObject(bucket, key, callback) {
+  if (!BUCKETS.hasOwnProperty(bucket)) {
+    return callback(bucketNotFoundErr(bucket));
+  }
+
+  if (!BUCKETS[bucket].hasOwnProperty(key)) {
+    return callback(objectNotFoundErr(key));
+  }
+
+  return callback(null, { value: BUCKETS[bucket][key] });
+};
+
+
+FakeMoray.prototype.putObject =
+  function putObject(bucket, key, value, opts, callback) {
+  if (typeof (opts) === 'function') {
+    callback = opts;
+    opts = {};
+  }
+
+  if (!BUCKETS.hasOwnProperty(bucket)) {
+    return callback(bucketNotFoundErr(bucket));
+  }
+
+  this._put(bucket, key, value);
+  // XXX: allow returning an error here
+  return callback();
+};
+
+
+FakeMoray.prototype.sql = function sql(str) {
+  // Mock out PG's gap detection
+
+  /* JSSTYLED */
+  var bucket = str.match(/from ([a-z0-9_]+)/)[1];
+  /* JSSTYLED */
+  var gt = Number(str.match(/>= (\d+)/)[1]);
+  /* JSSTYLED */
+  var lt = Number(str.match(/<= (\d+)/)[1]);
+  var res = new EventEmitter;
+
+  assert.string(bucket, 'bucket');
+  assert.number(gt, 'gt');
+  assert.number(lt, 'lt');
+
+  process.nextTick(function () {
+    if (!BUCKETS.hasOwnProperty(bucket)) {
+      res.emit('error', bucketNotFoundErr(bucket));
+      return;
+    }
+
+    var bucketKeys = Object.keys(BUCKETS[bucket]).map(function (k) {
+      return Number(k); }).sort();
+    var last = bucketKeys[0];
+
+    for (var i in bucketKeys) {
+      var ip = bucketKeys[i];
+      if ((ip - last) > 1 && (last + 1) <= lt && (last + 1) >= gt) {
+        res.emit('record', { gap_start: last + 1 });
+        break;
+      }
+      last = ip;
+    }
+
+    res.emit('end');
+  });
+
+  return res;
+};
+
+
+FakeMoray.prototype.updateBucket =
+  function updateBucket(bucket, schema, callback) {
+
+    // XXX: throw here?
+  return callback();
+};
 
 
 // --- Exports
@@ -83,46 +263,22 @@ function createClientAndServer(callback) {
   });
 
   server.initialDataLoaded = true;
-  server.ufds = {
-    add: function (model, cb) {
-      ufdsEntry('add', model);
-      var next = UFDS_RETURN.add.shift();
-      if (next[0]) {
-        return cb(next[0]);
+  server.moray = new FakeMoray({ log: log });
+
+  server.on('initialized', function () {
+    server.start(function (err) {
+      if (err) {
+        return callback(err);
       }
-      return cb(null, model);
-    },
-    del: function (opts, cb) {
-      ufdsEntry('del', opts);
-      return cb(UFDS_RETURN.del.shift());
-    },
-    get: function (opts, cb) {
-      ufdsEntry('get', opts);
-      return cb.apply(null, UFDS_RETURN.get.shift());
-    },
-    list: function (opts, cb) {
-      ufdsEntry('list', opts);
-      return cb.apply(null, UFDS_RETURN.list.shift());
-    },
-    update: function (opts, cb) {
-      ufdsEntry('update', opts);
-      return cb.apply(null, UFDS_RETURN.update.shift());
-    }
-  };
 
-  UFDS_RETURN = {};
-  SENT_TO_UFDS = null;
-
-  server.start(function (err) {
-    if (err) {
-      return callback(err);
-    }
-
-    SERVER = server;
-    return callback(null, new napiClient({
-      url: server.info().url
-    }));
+      SERVER = server;
+      return callback(null, new napiClient({
+        url: server.info().url
+      }));
+    });
   });
+
+  server.init();
 }
 
 
@@ -130,22 +286,7 @@ function createClientAndServer(callback) {
  * Sorts an error array by field
  */
 function fieldSort(a, b) {
-  return (a.field > b.field);
-}
-
-
-/**
- * Returns an invalid parameter error array element
- */
-function invalidParam(field, message) {
-  assert.string(field);
-  assert.string(message);
-
-  return {
-    code: 'InvalidParameter',
-    field: field,
-    message: message
-  };
+  return (a.field > b.field) ? 1 : -1;
 }
 
 
@@ -153,13 +294,22 @@ function invalidParam(field, message) {
  * Returns a missing parameter error array element
  */
 function missingParam(field, message) {
-  assert.string(field);
+  assert.string(field, 'field');
+  assert.optionalString(message, 'message');
 
   return {
     code: 'MissingParameter',
     field: field,
-    message: 'Missing parameter'
+    message: message || 'Missing parameter'
   };
+}
+
+
+/**
+ * Returns the moray buckets
+ */
+function morayBuckets() {
+  return BUCKETS;
 }
 
 
@@ -172,27 +322,6 @@ function stopServer(callback) {
   }
 
   return SERVER.stop(callback);
-}
-
-
-/**
- * Sets mock UFDS return values
- */
-function ufdsReturnValues(vals) {
-  if (!vals) {
-    return UFDS_RETURN;
-  }
-
-  UFDS_RETURN = clone(vals);
-  SENT_TO_UFDS = null;
-}
-
-
-/**
- * Gets values that UFDS mock was called with
- */
-function ufdsCallValues(vals) {
-  return clone(SENT_TO_UFDS);
 }
 
 
@@ -261,11 +390,11 @@ function validNetworkParams(override) {
 module.exports = {
   createClientAndServer: createClientAndServer,
   fieldSort: fieldSort,
-  invalidParam: invalidParam,
+  invalidParamErr: common.invalidParamErr,
   missingParam: missingParam,
+  morayBuckets: morayBuckets,
+  randomMAC: common.randomMAC,
   stopServer: stopServer,
-  ufdsCallValues: ufdsCallValues,
-  ufdsReturnValues: ufdsReturnValues,
   validIPparams: validIPparams,
   validNicparams: validNicparams,
   validNetworkParams: validNetworkParams

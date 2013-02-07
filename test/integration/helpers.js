@@ -7,11 +7,12 @@
 var assert = require('assert');
 var bunyan = require('bunyan');
 var config = require('../../lib/config');
+var common = require('../lib/common');
 var fs = require('fs');
 var NAPI = require('sdc-clients').NAPI;
 var path = require('path');
-var test = require('tap').test;
 var util = require('util');
+var util_ip = require('../../lib/util/ip');
 var vasync = require('vasync');
 
 
@@ -153,7 +154,7 @@ function deleteNicTags(t, napi, state) {
 /*
  * Creates a network for testing; stores the result in state.network
  */
-function createNetwork(t, napi, state, extraParams, targetName) {
+function createNetwork(t, napi, state, extraParams, targetName, callback) {
   var params = {
     name: 'network-integration-' + process.pid,
     vlan_id: 0,
@@ -162,6 +163,11 @@ function createNetwork(t, napi, state, extraParams, targetName) {
     provision_end_ip: '10.99.99.250',
     nic_tag: state.nicTag.name
   };
+
+  if (typeof (targetName) === 'function') {
+    callback = targetName;
+    targetName = null;
+  }
 
   if (targetName) {
     params.name = params.name + '-' + targetName;
@@ -174,6 +180,9 @@ function createNetwork(t, napi, state, extraParams, targetName) {
   napi.createNetwork(params, function (err, res) {
     t.ifError(err, 'create network');
     if (err) {
+      if (callback) {
+        return callback(err);
+      }
       return t.done();
     }
 
@@ -181,7 +190,7 @@ function createNetwork(t, napi, state, extraParams, targetName) {
 
     params.uuid = res.uuid;
     params.resolvers = [];
-    params.netmask = '255.255.255.0';
+    params.netmask = util_ip.bitsToNetmask(params.subnet.split('/')[1]);
     t.deepEqual(res, params, 'parameters returned for network ' + res.uuid);
     if (targetName) {
       state[targetName] = res;
@@ -189,6 +198,9 @@ function createNetwork(t, napi, state, extraParams, targetName) {
       state.network = res;
     }
 
+    if (callback) {
+      return callback();
+    }
     return t.done();
   });
 }
@@ -240,24 +252,6 @@ function similar(t, str, substr, message) {
 }
 
 
-/*
- * Generate a valid random MAC address (multicast bit not set, locally
- * administered bit set)
- */
-function randomMAC() {
-  var data = [(Math.floor(Math.random() * 15) + 1).toString(16) + 2];
-  for (var i = 0; i < 5; i++) {
-     var oct = (Math.floor(Math.random() * 255)).toString(16);
-     if (oct.length == 1) {
-        oct = '0' + oct;
-     }
-     data.push(oct);
-  }
-
-  return data.join(':');
-}
-
-
 
 module.exports = {
   createNAPIclient: createNAPIclient,
@@ -268,6 +262,7 @@ module.exports = {
   deleteNicTag: deleteNicTag,
   deleteNicTags: deleteNicTags,
   doneWithError: doneWithError,
-  randomMAC: randomMAC,
+  invalidParamErr: common.invalidParamErr,
+  randomMAC: common.randomMAC,
   similar: similar
 };

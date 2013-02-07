@@ -5,10 +5,9 @@
  */
 
 var assert = require('assert-plus');
+var constants = require('../../lib/util/constants');
 var helpers = require('./helpers');
-var IP = require('../../lib/models/ip').IP;
-var Network = require('../../lib/models/network').Network;
-var NicTag = require('../../lib/models/nic-tag').NicTag;
+var mod_err = require('../../lib/util/errors');
 var util = require('util');
 var vasync = require('vasync');
 
@@ -22,7 +21,7 @@ var vasync = require('vasync');
 // plus setup and teardown
 var runOne;
 var NAPI;
-var VLAN_MSG = 'VLAN ID must be a number between 0 and 4094, and not 1';
+var TAG;
 
 
 
@@ -30,24 +29,21 @@ var VLAN_MSG = 'VLAN ID must be a number between 0 and 4094, and not 1';
 
 
 
-/**
- * Sets up UFDS to return a nic tag so that the existance check in
- * network creation passes
- */
-exports.setUp = function (callback) {
-  helpers.ufdsReturnValues({
-    get: [[null, new NicTag({ name: 'nictag1' }) ]]
-  });
-  callback();
-};
-
-
-exports['Create client and server'] = function (t) {
+exports['Initial setup'] = function (t) {
   helpers.createClientAndServer(function (err, res) {
     t.ifError(err, 'server creation');
     t.ok(res, 'client');
     NAPI = res;
-    t.done();
+    if (!NAPI) {
+      t.done();
+    }
+
+    // Match the name of the nic tag in helpers.validNetworkParams()
+    NAPI.createNicTag('nic_tag', function (err2, res2) {
+      t.ifError(err2);
+      TAG = res2;
+      t.done();
+    });
   });
 };
 
@@ -61,21 +57,6 @@ exports['Create network'] = function (t) {
   var params = helpers.validNetworkParams({
     gateway: '10.0.2.1',
     resolvers: ['8.8.8.8', '10.0.2.2']
-  });
-  var newNet = new Network(params);
-  var ip1 = new IP({ ip: '10.0.2.1', network_uuid: newNet.uuid });
-  var ip2 = new IP({ ip: '10.0.2.2', network_uuid: newNet.uuid });
-  var tag = new NicTag({ name: params.nic_tag });
-
-  helpers.ufdsReturnValues({
-    add: [
-      [null, newNet],
-      [null, ip1],
-      [null, ip2]
-    ],
-    get: [
-      [null, tag]
-    ]
   });
 
   NAPI.createNetwork(params, function (err, obj, req, res) {
@@ -91,11 +72,33 @@ exports['Create network'] = function (t) {
     params.netmask = '255.255.255.0';
     params.vlan_id = 0;
 
-    t.deepEqual(obj, params, 'Response');
-    t.deepEqual(helpers.ufdsReturnValues(),
-      { add: [], get: [] }, 'all UFDS values returned');
+    t.deepEqual(obj, params, 'response');
 
-    return t.done();
+    NAPI.getNetwork(obj.uuid, function (err2, obj2) {
+      t.ifError(err2);
+
+      t.deepEqual(obj2, obj, 'get response');
+      vasync.forEachParallel({
+        inputs: ['10.0.2.1', '10.0.2.2', '10.0.2.255'],
+        func: function _compareIP(ip, cb) {
+          NAPI.getIP(obj.uuid, ip, function (err3, res3) {
+            t.ifError(err3);
+            t.deepEqual(res3, {
+              belongs_to_type: 'other',
+              belongs_to_uuid: constants.ADMIN_UUID,
+              free: false,
+              ip: ip,
+              owner_uuid: constants.ADMIN_UUID,
+              reserved: true
+            }, util.format('IP %s params', ip));
+
+            return cb();
+          });
+        }
+      }, function () {
+        return t.done();
+      });
+    });
   });
 };
 
@@ -108,8 +111,7 @@ exports['Create network - missing parameters'] = function (t) {
     }
 
     t.equal(err.statusCode, 422, 'status code');
-    t.deepEqual(err.body, {
-      code: 'InvalidParameters',
+    t.deepEqual(err.body, helpers.invalidParamErr({
       errors: ['name', 'nic_tag', 'provision_end_ip', 'provision_start_ip',
         'subnet', 'vlan_id'].map(function (name) {
           return {
@@ -119,7 +121,7 @@ exports['Create network - missing parameters'] = function (t) {
           };
         }),
       message: 'Missing parameters'
-    }, 'Error body');
+    }), 'Error body');
 
     return t.done();
   });
@@ -134,8 +136,7 @@ exports['Create network - missing and invalid parameters'] = function (t) {
     }
 
     t.equal(err.statusCode, 422, 'status code');
-    t.deepEqual(err.body, {
-      code: 'InvalidParameters',
+    t.deepEqual(err.body, helpers.invalidParamErr({
       errors: ['name', 'nic_tag', 'provision_end_ip',
         'subnet', 'vlan_id'].map(function (name) {
           return {
@@ -149,7 +150,7 @@ exports['Create network - missing and invalid parameters'] = function (t) {
           message: 'invalid IP address'
         } ]).sort(helpers.fieldSort),
       message: 'Invalid parameters'
-    }, 'Error body');
+    }), 'Error body');
 
     return t.done();
   });
@@ -175,24 +176,24 @@ exports['Create network - all invalid parameters'] = function (t) {
     }
 
     t.equal(err.statusCode, 422, 'status code');
-    t.deepEqual(err.body, {
-      code: 'InvalidParameters',
+    t.deepEqual(err.body, helpers.invalidParamErr({
       errors: [
-        helpers.invalidParam('gateway', 'invalid IP address'),
-        helpers.invalidParam('name', 'must not be empty'),
-        helpers.invalidParam('provision_end_ip', 'invalid IP address'),
-        helpers.invalidParam('provision_start_ip', 'invalid IP address'),
+        mod_err.invalidParam('gateway', 'invalid IP address'),
+        mod_err.invalidParam('name', 'must not be empty'),
+        mod_err.invalidParam('nic_tag', 'nic tag does not exist'),
+        mod_err.invalidParam('provision_end_ip', 'invalid IP address'),
+        mod_err.invalidParam('provision_start_ip', 'invalid IP address'),
         {
           code: 'InvalidParameter',
           field: 'resolvers',
           invalid: params.resolvers,
           message: 'invalid IPs'
         },
-        helpers.invalidParam('subnet', 'Subnet must be in CIDR form'),
-        helpers.invalidParam('vlan_id', VLAN_MSG)
+        mod_err.invalidParam('subnet', 'Subnet must be in CIDR form'),
+        mod_err.invalidParam('vlan_id', constants.VLAN_MSG)
       ],
       message: 'Invalid parameters'
-    }, 'Error body');
+    }), 'Error body');
 
     return t.done();
   });
@@ -208,10 +209,10 @@ exports['Create network - invalid parameters'] = function (t) {
     ['subnet', 'c/32', 'Subnet IP invalid'],
     ['subnet', 'a/d', 'Subnet IP and bits invalid'],
 
-    ['vlan_id', 'a', VLAN_MSG],
-    ['vlan_id', '-1', VLAN_MSG],
-    ['vlan_id', '1', VLAN_MSG],
-    ['vlan_id', '4095', VLAN_MSG],
+    ['vlan_id', 'a', constants.VLAN_MSG],
+    ['vlan_id', '-1', constants.VLAN_MSG],
+    ['vlan_id', '1', constants.VLAN_MSG],
+    ['vlan_id', '4095', constants.VLAN_MSG],
 
     ['provision_start_ip', '10.0.1.254',
       'provision_start_ip cannot be outside subnet'],
@@ -228,12 +229,6 @@ exports['Create network - invalid parameters'] = function (t) {
       'provision_end_ip cannot be the broadcast address']
   ];
 
-  var ufdsReturn = { get: [] };
-  for (var i = 0; i < invalid.length; i++) {
-    ufdsReturn.get.push([null, new NicTag({ name: 'nictag1' }) ]);
-  }
-  helpers.ufdsReturnValues(ufdsReturn);
-
   vasync.forEachParallel({
     inputs: invalid,
     func: function (data, cb) {
@@ -247,46 +242,17 @@ exports['Create network - invalid parameters'] = function (t) {
         }
 
         t.equal(err.statusCode, 422, 'status code');
-        t.deepEqual(err.body, {
-          code: 'InvalidParameters',
+        t.deepEqual(err.body, helpers.invalidParamErr({
           errors: [
-            helpers.invalidParam(data[0], data[2])
+            mod_err.invalidParam(data[0], data[2])
           ],
           message: 'Invalid parameters'
-        }, 'Error body');
+        }), 'Error body');
 
         return cb();
       });
     }
   }, function () {
-    return t.done();
-  });
-};
-
-
-exports['Create network - non-existent nic tag'] = function (t) {
-  // Set UFDS to return nothing
-  helpers.ufdsReturnValues({
-    get: [[null, null]]
-  });
-
-  NAPI.createNetwork(helpers.validNetworkParams({ nic_tag: 'does_not_exist'}),
-    function (err, res) {
-    t.ok(err, 'error returned');
-
-    if (!err) {
-      return t.done();
-    }
-
-    t.equal(err.statusCode, 422, 'status code');
-    t.deepEqual(err.body, {
-      code: 'InvalidParameters',
-      errors: [
-        helpers.invalidParam('nic_tag', 'nic tag does not exist')
-      ],
-      message: 'Invalid parameters'
-    }, 'Error body');
-
     return t.done();
   });
 };
@@ -304,16 +270,15 @@ exports['Create network - provision start IP after end IP'] = function (t) {
     }
 
     t.equal(err.statusCode, 422, 'status code');
-    t.deepEqual(err.body, {
-      code: 'InvalidParameters',
+    t.deepEqual(err.body, helpers.invalidParamErr({
       errors: [
-        helpers.invalidParam('provision_end_ip',
+        mod_err.invalidParam('provision_end_ip',
           'provision_start_ip must be before provision_end_ip'),
-        helpers.invalidParam('provision_start_ip',
+        mod_err.invalidParam('provision_start_ip',
           'provision_start_ip must be before provision_end_ip')
       ],
       message: 'Invalid parameters'
-    }, 'Error body');
+    }), 'Error body');
 
     return t.done();
   });
@@ -339,8 +304,7 @@ exports['Stop server'] = function (t) {
 // Use to run only one test in this file:
 if (runOne) {
   module.exports = {
-    setup: exports['Create client and server'],
-    setUp: exports.setUp,
+    setup: exports['Initial setup'],
     oneTest: runOne,
     teardown: exports['Stop server']
   };

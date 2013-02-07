@@ -5,6 +5,7 @@
  */
 
 var helpers = require('./helpers');
+var mod_err = require('../../lib/util/errors');
 var util = require('util');
 var util_mac = require('../../lib/util/mac');
 var UUID = require('node-uuid');
@@ -408,6 +409,41 @@ exports['POST /nics (with model)'] = function (t) {
     }
   ]}, function () {
     return t.done();
+  });
+};
+
+
+exports['POST /nics (duplicate nic)'] = function (t) {
+  var params = {
+    owner_uuid: uuids.b,
+    belongs_to_uuid: uuids.a,
+    belongs_to_type: 'server'
+  };
+  var mac = helpers.randomMAC();
+  var desc = util.format(' [%s: duplicate nic]', mac);
+
+  napi.createNic(mac, params, function (err, res) {
+    t.ifError(err, 'provision nic' + desc);
+    if (err) {
+      return t.done();
+    }
+
+    params.primary = false;
+    t.equal(res.mac, mac, 'mac correct');
+
+    napi.createNic(mac, params, function (err2) {
+      t.ok(err2, 'error creating duplicate nic');
+      if (!err2) {
+        return t.done();
+      }
+
+      t.equal(err2.statusCode, 422, 'status code');
+      t.deepEqual(err2.body, helpers.invalidParamErr({
+        errors: [ mod_err.duplicateParam('mac') ]
+      }), 'Error body');
+
+      return t.done();
+    });
   });
 };
 

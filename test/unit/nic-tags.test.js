@@ -5,8 +5,7 @@
  */
 
 var helpers = require('./helpers');
-var Network = require('../../lib/models/network').Network;
-var NicTag = require('../../lib/models/nic-tag').NicTag;
+var mod_err = require('../../lib/util/errors');
 var util = require('util');
 var vasync = require('vasync');
 
@@ -16,8 +15,13 @@ var vasync = require('vasync');
 
 
 
-var INVALID_MSG = 'Name must only contain numbers, letters and underscores';
+// Set this to any of the exports in this file to only run that test,
+// plus setup and teardown
+var runOne;
+var INVALID_MSG = 'name must only contain numbers, letters and underscores';
 var NAPI;
+var cur = 0;
+var curTag;
 
 
 
@@ -35,28 +39,38 @@ exports['Create client and server'] = function (t) {
 };
 
 
+exports.setUp = function (cb) {
+  if (!NAPI) {
+    return cb();
+  }
+
+  NAPI.createNicTag('curTag' + cur, function (err, obj) {
+    curTag = obj;
+    cur++;
+    return cb();
+  });
+};
+
+
 
 // --- Create tests
 
 
 
 exports['Create nic tag'] = function (t) {
-  helpers.ufdsReturnValues({
-    add: [[null]],
-    get: [[null, null]]
-  });
-
   NAPI.createNicTag('newtagname', function (err, obj, req, res) {
     t.ifError(err, 'nic tag create');
     if (err) {
       return t.done();
     }
 
-    var ufdsVals = helpers.ufdsCallValues();
+    var bucket = helpers.morayBuckets()['napi_nic_tags'];
+    var added = bucket['newtagname'];
+
     t.equal(res.statusCode, 200, 'status code');
     t.deepEqual(obj, {
       name: 'newtagname',
-      uuid: ufdsVals.add[0].raw().uuid
+      uuid: added.uuid
     }, 'Response');
 
     return t.done();
@@ -72,15 +86,9 @@ exports['Create nic tag - invalid name'] = function (t) {
     }
 
     t.equal(err.statusCode, 422, '422 returned');
-    t.deepEqual(err.body, {
-      code: 'InvalidParameters',
-      errors: [ {
-        field: 'name',
-        code: 'InvalidParameter',
-        message: INVALID_MSG
-      } ],
-      message: 'Invalid parameter: name'
-    }, 'Error body');
+    t.deepEqual(err.body, helpers.invalidParamErr({
+      errors: [ mod_err.invalidParam('name', INVALID_MSG) ]
+    }), 'Error body');
 
     return t.done();
   });
@@ -97,15 +105,10 @@ exports['Create nic tag - missing name'] = function (t) {
     }
 
     t.equal(err.statusCode, 422, 'status code');
-    t.deepEqual(err.body, {
-      code: 'InvalidParameters',
-      errors: [ {
-        code: 'MissingParameter',
-        field: 'name',
-        message: 'Missing parameter'
-      } ],
-      message: 'Missing parameter: name'
-    }, 'Error body');
+    t.deepEqual(err.body, helpers.invalidParamErr({
+      errors: [ mod_err.missingParam('name') ],
+      message: 'Missing parameters'
+    }), 'Error body');
 
     return t.done();
   });
@@ -113,26 +116,22 @@ exports['Create nic tag - missing name'] = function (t) {
 
 
 exports['Create nic tag - duplicate name'] = function (t) {
-  helpers.ufdsReturnValues({ get: [[null, new NicTag({ name: 'tag1' })]] });
-
   NAPI.createNicTag('tag1', function (err, res) {
-    t.ok(err, 'error returned');
-    if (!err) {
+    t.ifError(err);
+    t.ok(res, 'result returned');
+    NAPI.createNicTag('tag1', function (err2) {
+      t.ok(err2, 'error returned');
+      if (!err2) {
+        return t.done();
+      }
+
+      t.equal(err2.statusCode, 422, '422 returned');
+      t.deepEqual(err2.body, helpers.invalidParamErr({
+        errors: [ mod_err.duplicateParam('name') ]
+      }), 'Error body');
+
       return t.done();
-    }
-
-    t.equal(err.statusCode, 422, '422 returned');
-    t.deepEqual(err.body, {
-      code: 'InvalidParameters',
-      errors: [ {
-        field: 'name',
-        code: 'Duplicate',
-        message: 'Already exists'
-      } ],
-      message: 'A nic tag named "tag1" already exists'
-    }, 'Error body');
-
-    return t.done();
+    });
   });
 };
 
@@ -143,38 +142,33 @@ exports['Create nic tag - duplicate name'] = function (t) {
 
 
 exports['Delete nic tag in use'] = function (t) {
-  var net = new Network({
+  var netParams = {
     name: 'foo',
-    nic_tag: 'foobar',
+    nic_tag: curTag.name,
     provision_start_ip: '10.0.2.1',
     provision_end_ip: '10.0.2.10',
     subnet: '10.0.2.0/24',
     vlan_id: 200
-  });
+  };
 
-  helpers.ufdsReturnValues({
-    list: [[null, [net]]]
-  });
+  NAPI.createNetwork(netParams, function (err, net) {
+    t.ifError(err);
 
-  NAPI.deleteNicTag('foobar', function (err, res) {
-    t.ok(err, 'error returned');
-    if (!err) {
+    NAPI.deleteNicTag(curTag.name, function (err2) {
+      t.ok(err2, 'error returned');
+      if (!err2) {
+        return t.done();
+      }
+
+      t.equal(err2.statusCode, 422, 'status code');
+      t.deepEqual(err2.body, {
+        code: 'InUse',
+        errors: [ mod_err.usedBy('network', net.uuid) ],
+        message: 'Nic tag is in use'
+      }, 'Error body');
+
       return t.done();
-    }
-
-    t.equal(err.statusCode, 422, 'status code');
-    t.deepEqual(err.body, {
-      code: 'InUse',
-      errors: [ {
-        code: 'UsedBy',
-        id: net.uuid,
-        message: util.format('In use by network "%s"', net.uuid),
-        type: 'network'
-      } ],
-      message: 'Nic tag is in use'
-    }, 'Error body');
-
-    return t.done();
+    });
   });
 };
 
@@ -185,14 +179,7 @@ exports['Delete nic tag in use'] = function (t) {
 
 
 exports['Update nic tag - successful'] = function (t) {
-  var tag = new NicTag({ name: 'bar2' });
-  helpers.ufdsReturnValues({
-    get: [[null, null]],
-    list: [[null, null]],
-    update: [[null, tag]]
-  });
-
-  NAPI.updateNicTag('foobar', { name: tag.params.name },
+  NAPI.updateNicTag(curTag.name, { name: 'bar2' },
     function (err, obj, req, res) {
     t.ifError(err, 'error returned');
     if (err) {
@@ -201,8 +188,8 @@ exports['Update nic tag - successful'] = function (t) {
 
     t.equal(res.statusCode, 200, 'status code');
     t.deepEqual(obj, {
-      name: tag.params.name,
-      uuid: tag.params.uuid
+      name: 'bar2',
+      uuid: curTag.uuid
     }, 'Response');
 
     return t.done();
@@ -211,11 +198,7 @@ exports['Update nic tag - successful'] = function (t) {
 
 
 exports['Update nic tag - missing name'] = function (t) {
-  helpers.ufdsReturnValues({
-    list: [[null, null]]
-  });
-
-  NAPI.updateNicTag('foobar', { },
+  NAPI.updateNicTag(curTag.name, { },
     function (err, obj, req, res) {
     t.ok(err, 'error returned');
     if (!err) {
@@ -223,54 +206,65 @@ exports['Update nic tag - missing name'] = function (t) {
     }
 
     t.equal(err.statusCode, 422, 'status code');
-    t.deepEqual(err.body, {
-      code: 'InvalidParameters',
-      errors: [ {
-        code: 'MissingParameter',
-        field: 'name',
-        message: 'Missing parameter'
-      } ],
-      message: 'Missing parameter: name'
-    }, 'Error body');
+    t.deepEqual(err.body, helpers.invalidParamErr({
+      errors: [ helpers.missingParam('name') ],
+      message: 'Missing parameters'
+    }), 'Error body');
 
     return t.done();
   });
 };
 
 
-exports['Update nic tag in use'] = function (t) {
-  var net = new Network({
-    name: 'foo',
-    nic_tag: 'foobar',
+exports['Update nic tag - in use'] = function (t) {
+  var netParams = {
+    name: 'foo2',
+    nic_tag: curTag.name,
     provision_start_ip: '10.0.2.1',
     provision_end_ip: '10.0.2.10',
     subnet: '10.0.2.0/24',
     vlan_id: 200
-  });
+  };
 
-  helpers.ufdsReturnValues({
-    list: [[null, [net]]]
-  });
+  NAPI.createNetwork(netParams, function (err, net) {
+    t.ifError(err);
 
-  NAPI.updateNicTag('foobar', { name: 'bar2' }, function (err, res) {
-    t.ok(err, 'error returned');
-    if (!err) {
+    NAPI.updateNicTag(curTag.name, { name: 'bar3' }, function (err2, res) {
+      t.ok(err2, 'error returned');
+      if (!err2) {
+        return t.done();
+      }
+
+      t.equal(err2.statusCode, 422, 'status code');
+      t.deepEqual(err2.body, {
+        code: 'InUse',
+        errors: [ mod_err.usedBy('network', net.uuid) ],
+        message: 'Nic tag is in use'
+      }, 'Error body');
+
       return t.done();
-    }
+    });
+  });
+};
 
-    t.equal(err.statusCode, 422, 'status code');
-    t.deepEqual(err.body, {
-      code: 'InUse',
-      errors: [ {
-        code: 'UsedBy',
-        id: net.uuid,
-        message: util.format('In use by network "%s"', net.uuid),
-        type: 'network'
-      } ],
-      message: 'Nic tag is in use'
-    }, 'Error body');
 
-    return t.done();
+exports['Update nic tag - already used name'] = function (t) {
+  NAPI.createNicTag('somenewtag1', function (err, res) {
+    t.ifError(err);
+
+    NAPI.updateNicTag(curTag.name, { name: 'somenewtag1' }, function (err2) {
+      t.ok(err2, 'error returned');
+      if (!err2) {
+        return t.done();
+      }
+
+      t.equal(err2.statusCode, 422, 'status code');
+      t.deepEqual(err2.body, helpers.invalidParamErr({
+        errors: [ mod_err.duplicateParam('name') ]
+      }), 'Error body');
+
+      return t.done();
+    });
   });
 };
 
@@ -286,3 +280,15 @@ exports['Stop server'] = function (t) {
     t.done();
   });
 };
+
+
+
+// Use to run only one test in this file:
+if (runOne) {
+  module.exports = {
+    setup: exports['Create client and server'],
+    setUp: exports.setUp,
+    oneTest: runOne,
+    teardown: exports['Stop server']
+  };
+}

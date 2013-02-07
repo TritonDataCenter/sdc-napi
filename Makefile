@@ -69,6 +69,7 @@ pkg: all $(SMF_MANIFESTS)
 	@mkdir -p $(PKGDIR)/site
 	@mkdir -p $(INSTDIR)/smf/manifests
 	@mkdir -p $(INSTDIR)/test/integration
+	@mkdir $(INSTDIR)/lib
 	@touch $(PKGDIR)/site/.do-not-delete-me
 	cp -r $(TOP)/server.js \
 		$(TOP)/bin \
@@ -79,6 +80,7 @@ pkg: all $(SMF_MANIFESTS)
 	cp -P smf/manifests/*.xml $(INSTDIR)/smf/manifests
 	cp $(TOP)/test/runtests $(INSTDIR)/test/
 	cp -r $(TOP)/test/integration/* $(INSTDIR)/test/integration/
+	cp -r $(TOP)/test/lib/* $(INSTDIR)/test/lib/
 	cp -PR $(NODE_INSTALL) $(INSTDIR)/node
 	# Clean up some dev / build bits
 	find $(INSTDIR) -name "*.pyc" | xargs rm -f

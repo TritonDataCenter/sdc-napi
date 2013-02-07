@@ -5,7 +5,6 @@
  */
 
 var helpers = require('./helpers');
-var test = require('tap').test;
 var util = require('util');
 var vasync = require('vasync');
 
