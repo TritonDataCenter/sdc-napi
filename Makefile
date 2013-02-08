@@ -69,7 +69,7 @@ pkg: all $(SMF_MANIFESTS)
 	@mkdir -p $(PKGDIR)/site
 	@mkdir -p $(INSTDIR)/smf/manifests
 	@mkdir -p $(INSTDIR)/test/integration
-	@mkdir $(INSTDIR)/lib
+	@mkdir $(INSTDIR)/test/lib
 	@touch $(PKGDIR)/site/.do-not-delete-me
 	cp -r $(TOP)/server.js \
 		$(TOP)/bin \
