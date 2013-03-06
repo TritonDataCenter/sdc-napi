@@ -1,6 +1,6 @@
 ---
 title: Networking API (NAPI)
-apisections: Nic Tags, Networks, Nics
+apisections: Nic Tags, Networks, Nics, Network Pools
 markdown2extras: wiki-tables, code-friendly
 ---
 
@@ -21,6 +21,7 @@ The Networking API allows for administering the following:
 
 * Nic Tags
 * Logical Networks
+* Logical Network Pools
 * IPs
 * Nics
 
@@ -28,21 +29,6 @@ NAPI itself is just a directory of the above - it does not handle communicating
 these changes to servers, which is the domain of
 [VMAPI](https://mo.joyent.com/docs/vmapi/master) and
 [CNAPI](https://mo.joyent.com/docs/cnapi/master).
-
-## Getting Started
-
-To bring up the server for development on your laptop:
-
-    # Get the source and build.
-    git clone git@git.joyent.com:napi.git
-    cd napi
-    make all
-
-    # Use the sample config.
-    cp config.json.sample config.json
-
-    # Start the server
-    ./bin/napi
 
 
 
@@ -329,7 +315,28 @@ Modifies a specific IP on a Logical Network.
 ||reserved||Boolean||Whether the IP address should be reserved||
 ||unassign||Boolean||When set, removes belongs_to_uuid and belongs_to_type, ignoring all other parameters in the request||
 
-### Example
+### Reserved IPs
+
+Reserving an IP removes an IP address from the provisioning pool, which means
+that IPs [provisioned on that network](#POST-/networks/:network_uuid/nics)
+will not get that address.  Note that you can still provision a nic with this
+IP address, but you must specify the IP when provisioning.
+
+In addition, when you [delete a nic](#DELETE-/nics/:mac_address) with a
+reserved IP, the IP **keeps its owner_uuid**, but its belongs_to_uuid and
+belongs_to_type are removed (similar to the *unassign* option above).
+
+
+### Example: reserving an IP
+
+    PUT /networks/91daaada-4c62-4b80-9de8-0bd09895f86e/ips/10.99.99.77
+        reserved=true
+
+    {
+      "ip": "10.99.99.77",
+      "reserved": true,
+      "free": false
+    }
 
 
 
@@ -449,6 +456,7 @@ Creates a new nic.
 ||belongs_to_uuid||UUID||The UUID of what this Nic belongs to||
 ||belongs_to_type||String||The type that this belongs to (eg: 'zone', 'server')||
 ||ip||String||IP address to assign to the nic||
+||network_uuid||UUID||UUID of the network or network pool to provision an IP on||
 ||nic_tag||String||Nic tag (required if IP specified)||
 ||vlan_id||Number||VLAN ID (required if IP specified)||
 ||reserved||Boolean||Whether the IP address should be reserved||
@@ -555,6 +563,110 @@ owner_uuid properties will be preserved.
     {}
 
 
+# Network Pools
+
+These endpoints manage logical network provisioning pools.  These are
+collections of logical networks that can be used when
+[provisioning a nic](#POST-/nics). The ordering of the networks property
+of a pool is significant: NAPI will go try to provision an IP on each network
+in this list in succession, until it succeeds or runs out of networks.
+
+
+## GET /network_pools
+
+Returns a list of all logical network pools.
+
+### Example
+
+    GET /network_pools
+    [
+      {
+        "uuid": "3b5913ec-42e6-4803-9c0b-c9b1c5603520",
+        "name": "internal",
+        "networks": [
+          "0e70de36-a40b-4ac0-9429-819f5ff822bd",
+          "9f2eada0-529b-4673-a377-c249f9240a12"
+        ]
+      },
+      {
+        "uuid": "e967a42b-312d-490c-b753-c4768d9f2091",
+        "name": "external",
+        "networks": [
+          "57a83e2b-527c-41c1-983c-be9b792011dc",
+          "8ba8a35f-3eb3-496b-8103-8238eb40f9d0"
+        ]
+      }
+    ]
+
+
+## POST /network_pools
+
+Creates a new logical network provisioning pool.
+
+### Inputs
+
+||**Field**||**Type**||**Description**||
+||name||String||network provisioning pool name||
+||networks||Array of UUIDs||Logical Network UUIDs||
+
+### Example
+
+    POST /network_pools
+        name=internal
+        networks=0e70de36-a40b-4ac0-9429-819f5ff822bd,9f2eada0-529b-4673-a377-c249f9240a12
+    {
+      "uuid": "3b5913ec-42e6-4803-9c0b-c9b1c5603520",
+      "name": "internal",
+      "networks": [
+        "0e70de36-a40b-4ac0-9429-819f5ff822bd",
+        "9f2eada0-529b-4673-a377-c249f9240a12"
+      ]
+    }
+
+
+## GET /network_pools/:uuid
+
+Gets a logical network provisioning pool by UUID.
+
+### Example
+
+    GET /network_pools/3b5913ec-42e6-4803-9c0b-c9b1c5603520
+    {
+      "uuid": "3b5913ec-42e6-4803-9c0b-c9b1c5603520",
+      "name": "internal",
+      "networks": [
+        "0e70de36-a40b-4ac0-9429-819f5ff822bd",
+        "9f2eada0-529b-4673-a377-c249f9240a12"
+      ]
+    }
+
+
+## PUT /network_pools/:uuid
+
+Changes a logical network provisioning pool.
+
+### Inputs
+
+Must specify at least one of:
+
+||**Field**||**Type**||**Description**||
+||name||String||network provisioning pool name||
+||networks||Array of UUIDs||Logical Network UUIDs||
+
+### Example
+
+    PUT /network_pools/3b5913ec-42e6-4803-9c0b-c9b1c5603520
+        name=internal2
+    {
+      "uuid": "3b5913ec-42e6-4803-9c0b-c9b1c5603520",
+      "name": "internal2",
+      "networks": [
+        "0e70de36-a40b-4ac0-9429-819f5ff822bd",
+        "9f2eada0-529b-4673-a377-c249f9240a12"
+      ]
+    }
+
+
 
 # Changelog
 
@@ -573,3 +685,7 @@ owner_uuid properties will be preserved.
 ## 2012-09-12
 
   * GET /networks: added vlan_id and nic_tag filters
+
+## 2013-02-07
+
+  * Added network pool endpoints
