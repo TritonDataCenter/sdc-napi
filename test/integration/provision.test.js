@@ -23,9 +23,9 @@ var vasync = require('vasync');
 // plus setup and teardown
 var runOne;
 var napi = helpers.createNAPIclient();
-var netParams = ['gateway', 'netmask', 'vlan_id', 'nic_tag', 'resolvers'];
 var state = {
-  macs: []
+  deleted: [],
+  nics: []
 };
 var uuids = {
   admin: '00000000-0000-0000-0000-000000000000',
@@ -34,6 +34,11 @@ var uuids = {
   c: 'e8e2deb9-2d68-4e4e-9aa6-4962c879d9b1',
   d: UUID.v4()
 };
+var NIC_PARAMS = {
+  owner_uuid: uuids.b,
+  belongs_to_uuid: uuids.a,
+  belongs_to_type: 'server'
+};
 
 
 
@@ -41,11 +46,32 @@ var uuids = {
 
 
 
-function addNetworkParams(params) {
-  for (var n in netParams) {
-    params[netParams[n]] = state.network[netParams[n]];
-  }
-  params.network_uuid = state.network.uuid;
+/**
+ * Sorts nic objects by IP address
+ */
+function ipSort(a, b) {
+  return (util_ip.aton(a) > util_ip.aton(b)) ? 1 : -1;
+}
+
+
+/**
+ * Try to provision a nic, and make sure it fails
+ */
+function expProvisionFail(t, callback) {
+  napi.createNic(helpers.randomMAC(), NIC_PARAMS, function (err, res) {
+    t.ok(err, 'error returned');
+    if (!err) {
+      return callback();
+    }
+
+    t.equal(err.statusCode, 507, 'status code');
+    t.deepEqual(err.body, {
+      code: 'SubnetFull',
+      message: constants.SUBNET_FULL_MSG
+    }, 'error');
+
+    return callback();
+  });
 }
 
 
@@ -77,6 +103,8 @@ exports.setup = function (t) {
     t.ifError(err);
     if (err) {
       t.deepEqual(err.body, {}, 'error body');
+    } else {
+      NIC_PARAMS.network_uuid = state.network.uuid;
     }
 
     return t.done();
@@ -89,24 +117,18 @@ exports.setup = function (t) {
 
 
 
-// Hammer NAPI with a bunch of concurrent IP provisions, and make sure that
+// Try to provision every IP on a subnet in parallel, and make sure that
 // we get a unique IP for each
 exports['fill network'] = function (t) {
   var exp = [];
   var ips = [];
-  var params = {
-    owner_uuid: uuids.b,
-    belongs_to_uuid: uuids.a,
-    belongs_to_type: 'server',
-    network_uuid: state.network.uuid
-  };
 
   var barrier = vasync.barrier();
 
   function doCreate(num) {
     barrier.start('create-' + num);
     var mac = helpers.randomMAC();
-    napi.createNic(mac, params, function (err, res) {
+    napi.createNic(mac, NIC_PARAMS, function (err, res) {
       barrier.done('create-' + num);
       t.ifError(err, 'provision nic ' + num);
       if (err) {
@@ -114,9 +136,10 @@ exports['fill network'] = function (t) {
         return;
       }
 
-      t.equal(res.network_uuid, params.network_uuid, 'network uuid: ' + num);
+      t.equal(res.network_uuid, NIC_PARAMS.network_uuid,
+        'network uuid: ' + num);
       ips.push(res.ip);
-      state.macs.push(res.mac);
+      state.nics.push(res);
     });
   }
 
@@ -127,24 +150,61 @@ exports['fill network'] = function (t) {
 
   barrier.on('drain', function () {
     t.equal(ips.length, 10, '10 IPs provisioned');
-    var sorted = ips.sort(function (a, b) {
-      return (util_ip.aton(a) > util_ip.aton(b)) ? 1 : -1;
-    });
-    t.deepEqual(sorted, exp, 'All IPs provisioned');
+    t.deepEqual(ips.sort(ipSort), exp, 'All IPs provisioned');
 
     // Subnet should now be full
-    napi.createNic(helpers.randomMAC(), params, function (err, res) {
-      t.ok(err, 'error returned');
-      if (!err) {
-        return t.done();
-      }
+    expProvisionFail(t, function () {
+      return t.done();
+    });
+  });
+};
 
-      t.equal(err.statusCode, 507, 'status code');
-      t.deepEqual(err.body, {
-        code: 'SubnetFull',
-        message: constants.SUBNET_FULL_MSG
-      }, 'error');
 
+exports['delete'] = function (t) {
+  state.deleted.push(state.nics.pop());
+  state.deleted.push(state.nics.pop());
+
+  vasync.forEachParallel({
+    inputs: state.deleted,
+    func: function _delOne(nic, cb) {
+      napi.deleteNic(nic.mac, function (err) {
+        t.ifError(err);
+        if (err) {
+          t.deepEqual(err.body, {}, 'error body');
+        }
+
+        return cb(err);
+      });
+    }
+  }, function () {
+    return t.done();
+  });
+};
+
+
+exports['reprovision'] = function (t) {
+  var provisioned = [];
+  vasync.forEachParallel({
+    inputs: state.deleted,
+    func: function _delOne(nic, cb) {
+      napi.createNic(helpers.randomMAC(), NIC_PARAMS, function (err, res) {
+        t.ifError(err, 'error returned');
+        if (err) {
+          return cb(err);
+        }
+
+        provisioned.push(res.ip);
+        state.nics.push(res);
+        return cb();
+      });
+    }
+  }, function () {
+    t.deepEqual(provisioned.sort(ipSort), state.deleted.map(function (n) {
+      return n.ip;
+    }).sort(ipSort), 'IPs reprovisioned');
+
+    // Subnet should be full again
+    expProvisionFail(t, function () {
       return t.done();
     });
   });
@@ -158,9 +218,9 @@ exports['fill network'] = function (t) {
 
 exports['teardown'] = function (t) {
   vasync.forEachParallel({
-    inputs: state.macs,
-    func: function _delNic(mac, cb) {
-      napi.deleteNic(mac, function (err) {
+    inputs: state.nics,
+    func: function _delNic(nic, cb) {
+      napi.deleteNic(nic.mac, function (err) {
         t.ifError(err);
         if (err) {
           t.deepEqual(err.body, {}, 'error body');
