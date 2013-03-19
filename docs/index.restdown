@@ -1,6 +1,6 @@
 ---
 title: Networking API (NAPI)
-apisections: Nic Tags, Networks, Nics, Network Pools
+apisections: Nic Tags, Networks, Nics, Network Pools, IPs
 markdown2extras: wiki-tables, code-friendly
 ---
 
