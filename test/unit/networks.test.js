@@ -4,6 +4,8 @@
  * Unit tests for network endpoints
  */
 
+var p = console.log;
+var fs = require('fs');
 var assert = require('assert-plus');
 var constants = require('../../lib/util/constants');
 var helpers = require('./helpers');
@@ -16,6 +18,7 @@ var vasync = require('vasync');
 // --- Globals
 
 
+var CONF = JSON.parse(fs.readFileSync(__dirname + '/test-config.json'));
 
 // Set this to any of the exports in this file to only run that test,
 // plus setup and teardown
@@ -85,10 +88,10 @@ exports['Create network'] = function (t) {
             t.ifError(err3);
             t.deepEqual(res3, {
               belongs_to_type: 'other',
-              belongs_to_uuid: constants.ADMIN_UUID,
+              belongs_to_uuid: CONF.ufdsAdminUuid,
               free: false,
               ip: ip,
-              owner_uuid: constants.ADMIN_UUID,
+              owner_uuid: CONF.ufdsAdminUuid,
               reserved: true
             }, util.format('IP %s params', ip));
 

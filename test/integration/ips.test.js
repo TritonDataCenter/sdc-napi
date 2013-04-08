@@ -17,7 +17,7 @@ var vasync = require('vasync');
 var napi = helpers.createNAPIclient();
 var state = {};
 var uuids = {
-  admin: '00000000-0000-0000-0000-000000000000',
+  admin: helpers.ufdsAdminUuid,
   a: '564d69b1-a178-07fe-b36f-dfe5fa3602e2'
 };
 

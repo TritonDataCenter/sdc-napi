@@ -6,7 +6,7 @@ The IP management service:
 * has to allow reserving an IP address
 * should make IP addresses "commentable" / have history so there can be an audit trail
 * should make it possible to provision a machine with a particular IP address (this can be two step (reserve then use)
-* has to make it possible for logical networks to have owners (default owner is admin / 00000-00000-0000-00000-0000000?)
+* has to make it possible for logical networks to have owners (default owner is admin)
 * has to create audit records of IP addresses and Logical Networks
 * will provide the ability to create and manage logical networks
 * will provide the ability to create and manage "other" types of networks (ie keep in mind we'll do VL2 / OpenFlow / etc)
@@ -350,7 +350,7 @@ If it's not enough, we could Just use the same endpoints with /audit in front of
   * Maybe need a way of requesting one or the other only
 * Having both IPv4 and IPv6 addresses on the same LN - should we not allow this, and just have the customer create 2 different LNs?
   * Each nic would then only have one address, which is simpler (though you might end up creating way more vnics)
-* Should all operations require an owner_uuid? (I'm thinking yes, even if it's 00000000-0000-0000-0000-000000000000)
+* Should all operations require an owner\_uuid? (I'm thinking yes, even if it's the admin user)
 * How to manage other kinds of networks?
 * Is the UFDS changelog enough for an audit trail, or do we need more?
 * Laying out endpoints like /bridges/<uuid>/logical_networks/<uuid>: does this make things more confusing, or less?

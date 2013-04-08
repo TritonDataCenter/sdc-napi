@@ -224,7 +224,7 @@ Creates a new nic, provisioning an IP and MAC address in the process.
 ### Example
 
     POST /networks/1275886f-3fdf-456e-bba6-28e0e2eab58f/nics
-        -d owner_uuid=00000000-0000-0000-0000-000000000000
+        -d owner_uuid=930896af-bf8c-48d4-885c-6573a94b1853
         -d belongs_to_uuid=a112b8aa-eb39-4f84-8257-17a705880773
         -d belongs_to_type=zone
 
@@ -235,7 +235,7 @@ Creates a new nic, provisioning an IP and MAC address in the process.
       "nic_tag": "admin",
       "mac": "90:b8:d0:f3:f8:8b",
       "primary": false,
-      "owner_uuid": "00000000-0000-0000-0000-000000000000",
+      "owner_uuid": "930896af-bf8c-48d4-885c-6573a94b1853",
       "belongs_to_uuid": "a112b8aa-eb39-4f84-8257-17a705880773",
       "belongs_to_type": "zone",
       "gateway": "10.99.99.7",
@@ -468,13 +468,13 @@ Creates a new nic.
 
     POST /nics
         -d mac=00:50:56:34:60:4c
-        -d owner_uuid=00000000-0000-0000-0000-000000000000
+        -d owner_uuid=930896af-bf8c-48d4-885c-6573a94b1853
         -d belongs_to_uuid=564da1dd-cea7-9cc6-1059-cca75970c802
         -d belongs_to_type=server
     {
       "mac": "00:50:56:34:60:4c",
       "primary": false,
-      "owner_uuid": "00000000-0000-0000-0000-000000000000",
+      "owner_uuid": "930896af-bf8c-48d4-885c-6573a94b1853",
       "belongs_to_uuid": "564da1dd-cea7-9cc6-1059-cca75970c802",
       "belongs_to_type": "server"
     }

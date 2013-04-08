@@ -1,0 +1,6 @@
+{
+  "//": "minimal NAPI config needed for unit tests",
+
+  "port": 0,
+  "ufdsAdminUuid": "930896af-bf8c-48d4-885c-6573a94b1853"
+}

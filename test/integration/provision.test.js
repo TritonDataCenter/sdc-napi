@@ -28,7 +28,7 @@ var state = {
   nics: []
 };
 var uuids = {
-  admin: '00000000-0000-0000-0000-000000000000',
+  admin: helpers.ufdsAdminUuid,
   a: '564d69b1-a178-07fe-b36f-dfe5fa3602e2',
   b: '91abd897-566a-4ae5-80d2-1ba103221bbc',
   c: 'e8e2deb9-2d68-4e4e-9aa6-4962c879d9b1',

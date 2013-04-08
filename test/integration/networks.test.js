@@ -19,7 +19,7 @@ var napi = helpers.createNAPIclient();
 var state = {
   testName: 'networks'
 };
-var adminUUID = '00000000-0000-0000-0000-000000000000';
+var ufdsAdminUuid = helpers.ufdsAdminUuid;
 
 
 
@@ -116,8 +116,8 @@ exports['Create network on second nic tag'] = function (t) {
 exports['validate IPs created with network'] = function (t) {
   var ips = [ '10.99.99.1', '10.99.99.2'].reduce(function (arr, i) {
       arr.push(
-        {ip: i, belongs_to_uuid: adminUUID, belongs_to_type: 'other',
-          owner_uuid: adminUUID, reserved: true, free: false});
+        {ip: i, belongs_to_uuid: ufdsAdminUuid, belongs_to_type: 'other',
+          owner_uuid: ufdsAdminUuid, reserved: true, free: false});
       return arr;
     }, []);
 

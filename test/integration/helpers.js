@@ -22,6 +22,7 @@ var vasync = require('vasync');
 
 
 var CONFIG_FILE = path.normalize(__dirname + '/../../config.json');
+var CONF = config.load(CONFIG_FILE);
 
 
 
@@ -33,9 +34,8 @@ var CONFIG_FILE = path.normalize(__dirname + '/../../config.json');
  * Creates a NAPI client for the local zone
  */
 function createNAPIclient() {
-  var conf = config.load(CONFIG_FILE);
   return new NAPI({
-    url: 'http://localhost:' + conf.port
+    url: 'http://localhost:' + CONF.port
   });
 }
 
@@ -264,5 +264,6 @@ module.exports = {
   doneWithError: doneWithError,
   invalidParamErr: common.invalidParamErr,
   randomMAC: common.randomMAC,
-  similar: similar
+  similar: similar,
+  ufdsAdminUuid: CONF.ufdsAdminUuid
 };

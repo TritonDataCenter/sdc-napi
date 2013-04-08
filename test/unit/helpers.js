@@ -4,6 +4,7 @@
  * Test helpers for NAPI unit tests
  */
 
+var fs = require('fs');
 var assert = require('assert-plus');
 var clone = require('clone');
 var common = require('../lib/common');
@@ -255,10 +256,9 @@ function createClientAndServer(callback) {
     };
   }
 
+  config = JSON.parse(fs.readFileSync(__dirname + '/test-config.json'));
   var server = new NAPI({
-    config: {
-      port: 0
-    },
+    config: config,
     log: log
   });
 
@@ -333,7 +333,7 @@ function validIPparams(override) {
   var newIP = {
     belongs_to_type: 'zone',
     belongs_to_uuid: '3c7f5393-7c69-4c7c-bc81-cb7aca031ff1',
-    owner_uuid: '00000000-0000-0000-0000-000000000000'
+    owner_uuid: '930896af-bf8c-48d4-885c-6573a94b1853'
   };
 
   for (var o in override) {
@@ -352,7 +352,7 @@ function validNicparams(override) {
   var newNic = {
     belongs_to_type: 'zone',
     belongs_to_uuid: '3c7f5393-7c69-4c7c-bc81-cb7aca031ff1',
-    owner_uuid: '00000000-0000-0000-0000-000000000000'
+    owner_uuid: '930896af-bf8c-48d4-885c-6573a94b1853'
   };
 
   for (var o in override) {
