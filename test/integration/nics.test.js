@@ -860,6 +860,7 @@ exports['POST /nics (nic_tags_provided)'] = function (t) {
     if (err) {
       return t.done();
     }
+
     state.nic.f = res;
     state.desc.f = util.format(' [%s: nic_tags_provided nic 1]', res.mac);
     t.deepEqual(res.nic_tags_provided, params1.nic_tags_provided,
@@ -935,7 +936,8 @@ exports['POST /nics (nic_tags_provided scalar)'] = function (t) {
 
 exports['GET /nics (filter: nic_tags_provided)'] = function (t) {
   var filter = {
-    nic_tags_provided: [state.nicTag2.name, state.nicTag3.name]
+    nic_tags_provided: [ state.nicTag2.name, state.nicTag3.name,
+      state.nicTag5.name ]
   };
 
   napi.listNics(filter, function (err, res) {
@@ -943,7 +945,7 @@ exports['GET /nics (filter: nic_tags_provided)'] = function (t) {
     if (err) {
       return t.done();
     }
-    t.equal(res.length, 2, '2 nics returned');
+    t.equal(res.length, 3, '3 nics returned');
 
     if (res.length === 0) {
       return t.done();
@@ -954,8 +956,9 @@ exports['GET /nics (filter: nic_tags_provided)'] = function (t) {
       return arr;
     }, []).sort();
 
-    t.deepEqual(macs, [state.nic.f.mac, state.nic.g.mac].sort(),
-      'both nics returned');
+    t.deepEqual(macs, [ state.nic.f.mac, state.nic.g.mac,
+      state.nic.ntps1.mac ].sort(),
+      'all three nics returned');
     return t.done();
   });
 };
