@@ -256,9 +256,8 @@ function createClientAndServer(callback) {
     };
   }
 
-  config = JSON.parse(fs.readFileSync(__dirname + '/test-config.json'));
   var server = new NAPI({
-    config: config,
+    config: JSON.parse(fs.readFileSync(__dirname + '/test-config.json')),
     log: log
   });
 
