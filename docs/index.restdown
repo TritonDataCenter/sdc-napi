@@ -126,7 +126,7 @@ No response payload, only a "204 No Content" response status.
 These endpoints manage logical networks.
 
 
-## GetNetwork (GET /networks)
+## ListNetwork (GET /networks)
 
 Returns a list of all logical networks.
 
