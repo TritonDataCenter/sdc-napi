@@ -121,7 +121,7 @@ exports['validate IPs created with network'] = function (t) {
       return arr;
     }, []);
 
-  var checkIP = function (params, cb) {
+  function checkIP(params, cb) {
     napi.getIP(state.network.uuid, params.ip, function (err, res) {
       t.ifError(err, 'get IP: ' + params.ip);
       if (err) {
@@ -130,7 +130,7 @@ exports['validate IPs created with network'] = function (t) {
       t.deepEqual(res, params, 'params for IP ' + params.ip);
       return cb();
     });
-  };
+  }
 
   vasync.forEachParallel({
     func: checkIP,
@@ -218,7 +218,7 @@ exports['GET /networks (filter: multiple nic tags)'] = function (t) {
     { nic_tag: state.nicTag.name + ',' + state.nicTag2.name }
   ];
 
-  var filterList = function (filter, cb) {
+  function filterList(filter, cb) {
     var desc = util.format(' (nic_tag=%j)', filter.nic_tag);
 
     napi.listNetworks(filter, function (err, res) {
@@ -247,7 +247,7 @@ exports['GET /networks (filter: multiple nic tags)'] = function (t) {
       t.equal(found, 2, 'both networks found');
       return cb();
     });
-  };
+  }
 
   vasync.forEachParallel({
     func: filterList,
@@ -369,7 +369,7 @@ exports['DELETE /networks/:uuid'] = function (t) {
   var names = ['network', 'network2', 'network3', 'singleResolver',
     'commaResolvers'];
 
-  var deleteNet = function (n, cb) {
+  function deleteNet(n, cb) {
     if (!state.hasOwnProperty(n)) {
       return cb();
     }
@@ -377,7 +377,7 @@ exports['DELETE /networks/:uuid'] = function (t) {
       t.ifError(err, 'delete network ' + n);
       return cb();
     });
-  };
+  }
 
   vasync.forEachParallel({
     func: deleteNet,

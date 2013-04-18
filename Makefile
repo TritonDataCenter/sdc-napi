@@ -56,6 +56,14 @@ CLEAN_FILES += $(NODEUNIT) ./node_modules/nodeunit
 test: $(NODEUNIT)
 	@$(NODEUNIT) --reporter=tap test/unit/*.test.js
 
+.PHONY: teststop
+teststop:
+	@(for F in test/unit/*.test.js; do \
+		echo "# $$F" ;\
+		$(NODEUNIT) --reporter tap $$F ;\
+		[[ $$? == "0" ]] || exit 1; \
+	done)
+
 #
 # Packaging targets
 #

@@ -10,7 +10,7 @@
     "clone": "0.1.5",
     "moray": "git+ssh://git@git.joyent.com:node-moray.git#6248cbe",
     "node-uuid": "1.2.0",
-    "nodeunit": "0.7.4",
+    "nodeunit": "git://github.com/rgulewich/nodeunit.git#80a3876",
     "nopt": "1.0",
     "restify": "git://github.com/mcavage/node-restify.git#631662b",
     "sdc-clients": "git+ssh://git@git.joyent.com:node-sdc-clients.git#3059045",

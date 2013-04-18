@@ -21,6 +21,7 @@ var vasync = require('vasync');
 
 
 
+var NIC_NET_PARAMS = ['gateway', 'netmask', 'vlan_id', 'nic_tag', 'resolvers'];
 var CONFIG_FILE = path.normalize(__dirname + '/../../config.json');
 var CONF = config.load(CONFIG_FILE);
 
@@ -28,6 +29,20 @@ var CONF = config.load(CONFIG_FILE);
 
 // --- Exported functions
 
+
+
+/*
+ * Add network parameters from state.network to a nic
+ */
+function addNetParamsToNic(state, params) {
+  NIC_NET_PARAMS.forEach(function (n) {
+    if (state.network.hasOwnProperty(n)) {
+      params[n] = state.network[n];
+    }
+  });
+
+  params.network_uuid = state.network.uuid;
+}
 
 
 /*
@@ -254,6 +269,7 @@ function similar(t, str, substr, message) {
 
 
 module.exports = {
+  addNetParamsToNic: addNetParamsToNic,
   createNAPIclient: createNAPIclient,
   createNetwork: createNetwork,
   createNicTag: createNicTag,
@@ -263,6 +279,7 @@ module.exports = {
   deleteNicTags: deleteNicTags,
   doneWithError: doneWithError,
   invalidParamErr: common.invalidParamErr,
+  nicNetParams: NIC_NET_PARAMS,
   randomMAC: common.randomMAC,
   similar: similar,
   ufdsAdminUuid: CONF.ufdsAdminUuid

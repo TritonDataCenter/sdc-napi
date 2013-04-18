@@ -21,7 +21,6 @@ var vasync = require('vasync');
 // plus setup and teardown
 var runOne;
 var napi = helpers.createNAPIclient();
-var netParams = ['gateway', 'netmask', 'vlan_id', 'nic_tag', 'resolvers'];
 var state = {
   nic: {},
   ip: {},
@@ -34,19 +33,6 @@ var uuids = {
   c: 'e8e2deb9-2d68-4e4e-9aa6-4962c879d9b1',
   d: UUID.v4()
 };
-
-
-
-// --- Helper functions
-
-
-
-function addNetworkParams(params) {
-  for (var n in netParams) {
-    params[netParams[n]] = state.network[netParams[n]];
-  }
-  params.network_uuid = state.network.uuid;
-}
 
 
 
@@ -116,7 +102,7 @@ exports['POST /nics (with IP and network)'] = function (t) {
 
     params.primary = false;
     params.mac = mac;
-    addNetworkParams(params);
+    helpers.addNetParamsToNic(state, params);
     t.deepEqual(res, params, 'nic params returned' + desc);
     state.nic.b = params;
     state.desc.b = desc;
@@ -148,7 +134,7 @@ exports['POST /nics (with IP but no network)'] = function (t) {
 
     params.primary = false;
     params.mac = mac;
-    addNetworkParams(params);
+    helpers.addNetParamsToNic(state, params);
     t.deepEqual(res, params, 'nic params returned' + desc);
     state.nic.c = params;
     state.desc.c = desc;
@@ -179,7 +165,7 @@ exports['POST /nics (with IP already reserved)'] = function (t) {
 
     params.primary = false;
     params.mac = mac;
-    addNetworkParams(params);
+    helpers.addNetParamsToNic(state, params);
     t.deepEqual(res, params, 'nic params returned' + desc);
     state.resNic1 = params;
     state.desc.resNic1 = desc;
@@ -222,7 +208,7 @@ exports['POST /networks/:uuid/nics (basic)'] = function (t) {
     params.primary = false;
     params.mac = res.mac;
     params.ip = res.ip;
-    addNetworkParams(params);
+    helpers.addNetParamsToNic(state, params);
 
     t.deepEqual(res, params, 'nic params returned' + desc);
     state.nic.d = params;
@@ -249,7 +235,7 @@ exports['POST /networks/:uuid/nics (with IP)'] = function (t) {
 
     params.primary = false;
     params.mac = res.mac;
-    addNetworkParams(params);
+    helpers.addNetParamsToNic(state, params);
 
     t.deepEqual(res, params, 'nic params returned' + desc);
     state.nic.e = params;
@@ -316,7 +302,7 @@ exports['POST /nics (with reserved IP)'] = function (t) {
     params.primary = false;
     params.mac = mac;
     params.ip = res.ip;
-    addNetworkParams(params);
+    helpers.addNetParamsToNic(state, params);
     t.deepEqual(res, params, 'nic params returned' + desc);
     state.resNic2 = res;
     state.desc.resNic2 = desc;
@@ -456,6 +442,7 @@ exports['DELETE /nics/:mac (with reserved IP)'] = function (t) {
     return napi.deleteNic(nic.mac, function (err) {
       t.ifError(err, 'delete nic' + desc);
       if (err) {
+        t.deepEqual(err.body, {}, 'err body for debugging');
         return cb(err);
       }
 
@@ -521,12 +508,16 @@ exports['PUT /nics/:mac'] = function (t) {
     nic_tags_provided: [ state.nicTag.name ]
   };
 
-  var updateNic = function (nicNum, cb) {
+  function updateNic(nicNum, cb) {
     var nic = state.nic[nicNum];
     var desc = state.desc[nicNum];
 
     napi.updateNic(nic.mac, params, function (err, res) {
       t.ifError(err, 'update nic' + desc);
+      if (err) {
+        t.deepEqual(err.body, {}, 'err body for debugging' + desc);
+      }
+
       for (var p in params) {
         nic[p] = params[p];
       }
@@ -535,13 +526,14 @@ exports['PUT /nics/:mac'] = function (t) {
       napi.getNic(nic.mac, function (err2, res2) {
         t.ifError(err2, 'get updated nic' + desc);
         if (err2) {
+          t.deepEqual(err2.body, {}, 'err2 body for debugging' + desc);
           return cb(err2);
         }
         t.deepEqual(res2, nic, 'get updated params' + desc);
         return cb();
       });
     });
-  };
+  }
 
   vasync.forEachParallel({
     func: updateNic,
@@ -615,7 +607,7 @@ exports['PUT /nics (with network_uuid)'] = function (t) {
       params.primary = false;
       params.mac = mac;
       params.ip = res2.ip;
-      addNetworkParams(params);
+      helpers.addNetParamsToNic(state, params);
       t.ok(res2.ip, 'nic now has IP address');
       t.deepEqual(res2, params, 'nic params returned' + desc);
       state.nic.putIPnetUUID = params;
@@ -697,9 +689,10 @@ exports['PUT /nics (with network_uuid set to admin)'] = function (t) {
       params.mac = mac;
       params.ip = res2.ip;
 
-      for (var n in netParams) {
-        if (state.adminNet.hasOwnProperty(netParams[n])) {
-          params[netParams[n]] = state.adminNet[netParams[n]];
+      for (var n in helpers.nicNetParams) {
+        if (state.adminNet.hasOwnProperty(helpers.nicNetParams[n])) {
+          params[helpers.nicNetParams[n]] =
+            state.adminNet[helpers.nicNetParams[n]];
         }
       }
       params.network_uuid = state.adminNet.uuid;

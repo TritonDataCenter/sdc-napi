@@ -4,10 +4,10 @@
  * Test helpers for NAPI unit tests
  */
 
-var fs = require('fs');
 var assert = require('assert-plus');
 var clone = require('clone');
 var common = require('../lib/common');
+var fs = require('fs');
 var EventEmitter = require('events').EventEmitter;
 var ldapjs = require('ldapjs');
 var NAPI = require('../../lib/napi').NAPI;

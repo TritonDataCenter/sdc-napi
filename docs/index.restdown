@@ -158,9 +158,14 @@ Creates a new logical network
 ||nic_tag||String||Name of the nic tag that this logical network is over||
 ||gateway||IP||Gateway IP address (Optional)||
 ||resolvers||Array of IPs||Resolver IP addresses (Optional)||
+||owner_uuid||UUID||UFDS user UUID of network's owner (Optional)||
+||description||String||Description (Optional)||
 
-** Note that the provisioning range of provision_start_ip to provision_end_ip is
-inclusive.**
+**Notes:**
+
+* The provisioning range of provision_start_ip to provision_end_ip is inclusive.
+* Specifying owner_uuid for a network limits the owner_uuid of nics and IPs
+  created on the network to either that owner_uuid or the UFDS admin UUID.
 
 ### Example
 
