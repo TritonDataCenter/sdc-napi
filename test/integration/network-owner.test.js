@@ -21,6 +21,7 @@ var vasync = require('vasync');
 var napi = helpers.createNAPIclient();
 var nextIP;
 var owner = mod_uuid.v4();
+var provisionable = [];
 var state = {
   testName: 'network-owner'
 };
@@ -87,6 +88,17 @@ exports['Create network'] = function (t) {
 };
 
 
+exports['Create second network'] = function (t) {
+  helpers.createNetwork(t, napi, state, { owner_uuid: owner }, 'ownerNet2');
+};
+
+
+exports['Create third network'] = function (t) {
+  helpers.createNetwork(t, napi, state, { owner_uuid: mod_uuid.v4() },
+    'ownerNet3');
+};
+
+
 exports['provision: invalid owner'] = function (t) {
   napi.provisionNic(state.network.uuid, {
       belongs_to_type: 'zone',
@@ -120,6 +132,47 @@ exports['provision: network owner_uuid'] = function (t) {
 };
 
 
+exports['get provisionable networks'] = function (t) {
+  napi.listNetworks(function (err, res) {
+    t.ifError(err);
+    if (err) {
+      return t.done();
+    }
+
+    res.forEach(function (net) {
+      if (!net.owner_uuid || net.owner_uuid == owner) {
+        provisionable.push(net.uuid);
+      }
+    });
+
+    provisionable.sort();
+    return t.done();
+  });
+};
+
+
+exports['provisionable_by networks'] = function (t) {
+  napi.listNetworks({ provisionable_by: owner }, function (err, res) {
+    t.ifError(err);
+    if (err) {
+      return t.done();
+    }
+
+    var uuids = res.map(function (n) { return n.uuid; }).sort();
+    t.deepEqual(uuids, provisionable, 'provisionable_by returns correct list');
+    t.ok(uuids.indexOf(state.network.uuid) !== -1,
+      'list contains first network');
+    t.ok(uuids.indexOf(state.ownerNet2.uuid) !== -1,
+      'list contains second network');
+
+    t.ok(uuids.indexOf(state.ownerNet3.uuid) === -1,
+      'list does not contain third network');
+
+    return t.done();
+  });
+};
+
+
 
 // --- Teardown
 
@@ -127,6 +180,10 @@ exports['provision: network owner_uuid'] = function (t) {
 
 exports['teardown'] = function (t) {
   helpers.deleteNetwork(t, napi, state, function () {
-    helpers.deleteNicTags(t, napi, state);
+    helpers.deleteNetwork(t, napi, state, 'ownerNet2', function () {
+      helpers.deleteNetwork(t, napi, state, 'ownerNet3', function () {
+        helpers.deleteNicTags(t, napi, state);
+      });
+    });
   });
 };

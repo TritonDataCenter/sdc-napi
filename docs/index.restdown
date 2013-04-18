@@ -1,6 +1,6 @@
 ---
 title: Networking API (NAPI)
-apisections: Nic Tags, Networks, Nics, Network Pools, IPs
+apisections: Nic Tags, Networks, IPs, Nics, Network Pools
 markdown2extras: wiki-tables, code-friendly
 ---
 
@@ -37,7 +37,7 @@ these changes to servers, which is the domain of
 These endpoints manage nic tags.
 
 
-## GET /nic_tags
+## ListNicTags (GET /nic_tags)
 
 Returns a list of all nic tags.
 
@@ -56,7 +56,7 @@ Returns a list of all nic tags.
     ]
 
 
-## GET /nic_tags/:name
+## GetNicTag (GET /nic_tags/:name)
 
 Returns the named nic tag.
 
@@ -69,7 +69,7 @@ Returns the named nic tag.
     }
 
 
-## POST /nic_tags
+## CreateNicTag (POST /nic_tags)
 
 Creates a nic tag.
 
@@ -88,13 +88,45 @@ Creates a nic tag.
     }
 
 
+## UpdateNicTag (PUT /nic_tags/:name)
+
+Updates a nic tag.
+
+### Inputs
+
+||**Field**||**Type**||**Description**||
+||name||String||new nic tag name||
+
+### Example
+
+    PUT /nic_tags/internal
+        -d name=private
+    {
+      "uuid": "df4c1682-a77d-11e2-aafc-5354b5c883c7",
+      "name": "private"
+    }
+
+
+## DeleteNicTag (DELETE /nic_tags/:name)
+
+Deletes a nic tag.
+
+### Inputs
+
+None.
+
+### Returns
+
+No response payload, only a "204 No Content" response status.
+
+
 
 # Networks
 
 These endpoints manage logical networks.
 
 
-## GET /networks
+## GetNetwork (GET /networks)
 
 Returns a list of all logical networks.
 
@@ -107,6 +139,14 @@ list if it matches *all* of the input parameters.
 ||name||String||network name||
 ||vlan_id||Integer||VLAN ID||
 ||nic_tag||String||Nic Tag name||
+||provisionable_by||UUID||Return networks that are provisionable by this owner_uuid||
+
+
+**Notes:**
+
+* *provisionable_by* is intended to list networks that a UFDS user can
+  provision on. This includes both networks that have that user as its
+  owner_uuid and networks with no owner_uuid.
 
 ### Example
 
@@ -143,7 +183,7 @@ list if it matches *all* of the input parameters.
     ]
 
 
-## POST /networks
+## CreateNetwork (POST /networks)
 
 Creates a new logical network
 
@@ -191,7 +231,7 @@ Creates a new logical network
     }
 
 
-## GET /networks/:network_uuid
+## GetNetwork (GET /networks/:network_uuid)
 
 Gets a logical network by UUID.
 
@@ -212,7 +252,20 @@ Gets a logical network by UUID.
     }
 
 
-## POST /networks/:network_uuid/nics
+## DeleteNetwork (DELETE /networks/:network_uuid)
+
+Deletes a network.
+
+### Inputs
+
+None.
+
+### Returns
+
+No response payload, only a "204 No Content" response status.
+
+
+## ProvisionNic (POST /networks/:network_uuid/nics)
 
 Creates a new nic, provisioning an IP and MAC address in the process.
 
@@ -257,7 +310,7 @@ Creates a new nic, provisioning an IP and MAC address in the process.
 These endpoints manage IPs on a logical network.
 
 
-## GET /networks/:network_uuid/ips
+## ListIPs (GET /networks/:network_uuid/ips)
 
 Gets all of the IPs in use on that Logical Network.
 
@@ -288,7 +341,7 @@ Gets all of the IPs in use on that Logical Network.
 
 
 
-## GET /networks/:network_uuid/ips/:ip_address
+## GetIP (GET /networks/:network_uuid/ips/:ip_address)
 
 Gets a specific IP on a Logical Network.
 
@@ -307,7 +360,7 @@ Gets a specific IP on a Logical Network.
     }
 
 
-## PUT /networks/:network_uuid/ips/:ip_address
+## UpdateIP (PUT /networks/:network_uuid/ips/:ip_address)
 
 Modifies a specific IP on a Logical Network.
 
@@ -323,13 +376,13 @@ Modifies a specific IP on a Logical Network.
 ### Reserved IPs
 
 Reserving an IP removes an IP address from the provisioning pool, which means
-that IPs [provisioned on that network](#POST-/networks/:network_uuid/nics)
-will not get that address.  Note that you can still provision a nic with this
-IP address, but you must specify the IP when provisioning.
+that IPs [provisioned on that network](#CreateNic) will not get that address.
+Note that you can still provision a nic with this IP address, but you must
+specify the IP when provisioning.
 
-In addition, when you [delete a nic](#DELETE-/nics/:mac_address) with a
-reserved IP, the IP **keeps its owner_uuid**, but its belongs_to_uuid and
-belongs_to_type are removed (similar to the *unassign* option above).
+In addition, when you [delete a nic](#DeleteNic) with a reserved IP, the IP
+**keeps its owner_uuid**, but its belongs_to_uuid and belongs_to_type are
+removed (similar to the *unassign* option above).
 
 
 ### Example: reserving an IP
@@ -350,7 +403,7 @@ belongs_to_type are removed (similar to the *unassign* option above).
 These endpoints manage nics.
 
 
-## GET /nics
+## ListNics (GET /nics)
 
 Returns a list of all nics.
 
@@ -451,7 +504,7 @@ on (like a logical OR).
     ]
 
 
-## POST /nics
+## CreateNic (POST /nics)
 
 Creates a new nic.
 
@@ -485,7 +538,7 @@ Creates a new nic.
     }
 
 
-## GET /nics/:mac_address
+## GetNic (GET /nics/:mac_address)
 
 Returns the nic with the given MAC address.
 
@@ -513,7 +566,7 @@ Returns the nic with the given MAC address.
     }
 
 
-## PUT /nics/:mac_address
+## UpdateNic (PUT /nics/:mac_address)
 
 Changes properties of the nic with the given MAC address.
 
@@ -553,7 +606,7 @@ Changes properties of the nic with the given MAC address.
     }
 
 
-## DELETE /nics/:mac_address
+## DeleteNic (DELETE /nics/:mac_address)
 
 Deletes the nic with the given MAC address, freeing any IPs that belong to
 that nic in the process. If the IP address is reserved, its reserved and
@@ -561,23 +614,26 @@ owner_uuid properties will be preserved.
 
 **Note: this is the MAC address with all colons removed.**
 
-### Example
+### Inputs
 
-    DELETE /nics/90b8d0575370
+None.
 
-    {}
+### Returns
+
+No response payload, only a "204 No Content" response status.
+
 
 
 # Network Pools
 
 These endpoints manage logical network provisioning pools.  These are
 collections of logical networks that can be used when
-[provisioning a nic](#POST-/nics). The ordering of the networks property
+[provisioning a nic](#CreateNic). The ordering of the networks property
 of a pool is significant: NAPI will go try to provision an IP on each network
 in this list in succession, until it succeeds or runs out of networks.
 
 
-## GET /network_pools
+## ListNetworkPools (GET /network_pools)
 
 Returns a list of all logical network pools.
 
@@ -604,7 +660,7 @@ Returns a list of all logical network pools.
     ]
 
 
-## POST /network_pools
+## CreateNetworkPool (POST /network_pools)
 
 Creates a new logical network provisioning pool.
 
@@ -629,7 +685,7 @@ Creates a new logical network provisioning pool.
     }
 
 
-## GET /network_pools/:uuid
+## GetNetworkPool (GET /network_pools/:uuid)
 
 Gets a logical network provisioning pool by UUID.
 
@@ -646,7 +702,7 @@ Gets a logical network provisioning pool by UUID.
     }
 
 
-## PUT /network_pools/:uuid
+## UpdateNetworkPool (PUT /network_pools/:uuid)
 
 Changes a logical network provisioning pool.
 
@@ -672,6 +728,18 @@ Must specify at least one of:
     }
 
 
+## DeleteNetworkPool (DELETE /network_pools/:uuid)
+
+Deletes a network pool.
+
+### Inputs
+
+None.
+
+### Returns
+
+No response payload, only a "204 No Content" response status.
+
 
 # Changelog
 
@@ -694,3 +762,8 @@ Must specify at least one of:
 ## 2013-02-07
 
   * Added network pool endpoints
+
+## 2013-04-17
+
+  * Added network owner_uuid parameter
+  * Added provisionable_by parameter to NetworkList endpoint
