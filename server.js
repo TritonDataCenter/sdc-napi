@@ -10,46 +10,46 @@ var restify = require('restify');
 
 
 var log = bunyan.createLogger({
-    name: 'napi',
-    level: 'debug',
-    serializers: restify.bunyan.serializers
+        name: 'napi',
+        level: 'debug',
+        serializers: restify.bunyan.serializers
 });
 
 
 function exitOnError(err) {
-  if (err) {
-    var errs = err.hasOwnProperty('ase_errors') ? err.ase_errors : [err];
-    for (var e in errs) {
-      log.error(errs[e]);
+    if (err) {
+        var errs = err.hasOwnProperty('ase_errors') ? err.ase_errors : [err];
+        for (var e in errs) {
+            log.error(errs[e]);
+        }
+        process.exit(1);
     }
-    process.exit(1);
-  }
 }
 
 
 var server;
 try {
-  server = napi.createServer({
-    configFile: __dirname + '/config.json',
-    log: log
-  });
+    server = napi.createServer({
+        configFile: __dirname + '/config.json',
+        log: log
+    });
 } catch (err) {
-  exitOnError(err);
+    exitOnError(err);
 }
 
 server.on('connected', function _afterConnect() {
-  server.init(function () {
-    log.info('Server init complete');
-  });
+    server.init(function () {
+        log.info('Server init complete');
+    });
 });
 
 server.on('initialized', function _afterReady() {
-  server.loadInitialData(function () {
-    log.info('Initial data loaded');
-  });
+    server.loadInitialData(function () {
+        log.info('Initial data loaded');
+    });
 });
 
 server.start(function _afterStart() {
-  var serverInfo = server.info();
-  log.info('%s listening at %s', serverInfo.name, serverInfo.url);
+    var serverInfo = server.info();
+    log.info('%s listening at %s', serverInfo.name, serverInfo.url);
 });

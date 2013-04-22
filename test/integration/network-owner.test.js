@@ -23,7 +23,7 @@ var nextIP;
 var owner = mod_uuid.v4();
 var provisionable = [];
 var state = {
-  testName: 'network-owner'
+    testName: 'network-owner'
 };
 var ufdsAdminUuid = helpers.ufdsAdminUuid;
 
@@ -37,34 +37,34 @@ var ufdsAdminUuid = helpers.ufdsAdminUuid;
  * succeeded
  */
 function checkProvisionSuccess(newOwner, t) {
-  var params = {
-      belongs_to_type: 'zone',
-      belongs_to_uuid: mod_uuid.v4(),
-      owner_uuid: newOwner
-  };
+    var params = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            owner_uuid: newOwner
+    };
 
-  napi.provisionNic(state.network.uuid, params, function (err, res) {
-    t.ifError(err, 'error returned');
-    if (err) {
-      t.deepEqual(err.body, {}, 'err body for debugging');
-      return t.done();
-    }
+    napi.provisionNic(state.network.uuid, params, function (err, res) {
+        t.ifError(err, 'error returned');
+        if (err) {
+            t.deepEqual(err.body, {}, 'err body for debugging');
+            return t.done();
+        }
 
-    params.mac = res.mac;
-    params.primary = false;
+        params.mac = res.mac;
+        params.primary = false;
 
-    if (!nextIP) {
-      nextIP = state.network.provision_start_ip;
-    } else {
-      nextIP = util_ip.ntoa(util_ip.aton(nextIP) + 1);
-    }
-    params.ip = nextIP;
+        if (!nextIP) {
+            nextIP = state.network.provision_start_ip;
+        } else {
+            nextIP = util_ip.ntoa(util_ip.aton(nextIP) + 1);
+        }
+        params.ip = nextIP;
 
-    helpers.addNetParamsToNic(state, params);
-    t.deepEqual(res, params, 'nic params');
+        helpers.addNetParamsToNic(state, params);
+        t.deepEqual(res, params, 'nic params');
 
-    return t.done();
-  });
+        return t.done();
+    });
 }
 
 
@@ -74,7 +74,7 @@ function checkProvisionSuccess(newOwner, t) {
 
 
 exports['create test nic tag'] = function (t) {
-  helpers.createNicTag(t, napi, state);
+    helpers.createNicTag(t, napi, state);
 };
 
 
@@ -84,92 +84,93 @@ exports['create test nic tag'] = function (t) {
 
 
 exports['Create network'] = function (t) {
-  helpers.createNetwork(t, napi, state, { owner_uuid: owner });
+    helpers.createNetwork(t, napi, state, { owner_uuid: owner });
 };
 
 
 exports['Create second network'] = function (t) {
-  helpers.createNetwork(t, napi, state, { owner_uuid: owner }, 'ownerNet2');
+    helpers.createNetwork(t, napi, state, { owner_uuid: owner }, 'ownerNet2');
 };
 
 
 exports['Create third network'] = function (t) {
-  helpers.createNetwork(t, napi, state, { owner_uuid: mod_uuid.v4() },
-    'ownerNet3');
+    helpers.createNetwork(t, napi, state, { owner_uuid: mod_uuid.v4() },
+        'ownerNet3');
 };
 
 
 exports['provision: invalid owner'] = function (t) {
-  napi.provisionNic(state.network.uuid, {
-      belongs_to_type: 'zone',
-      belongs_to_uuid: mod_uuid.v4(),
-      owner_uuid: mod_uuid.v4()
-  }, function (err, res) {
-    t.ok(err, 'error returned');
-    if (!err) {
-      return t.done();
-    }
+    napi.provisionNic(state.network.uuid, {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            owner_uuid: mod_uuid.v4()
+    }, function (err, res) {
+        t.ok(err, 'error returned');
+        if (!err) {
+            return t.done();
+        }
 
-    t.equal(err.statusCode, 422, 'status code');
-    t.deepEqual(err.body, helpers.invalidParamErr({
-      errors: [
-        mod_err.invalidParam('owner_uuid', constants.OWNER_MATCH_MSG)
-      ]
-    }), 'Error body');
+        t.equal(err.statusCode, 422, 'status code');
+        t.deepEqual(err.body, helpers.invalidParamErr({
+            errors: [
+                mod_err.invalidParam('owner_uuid', constants.OWNER_MATCH_MSG)
+            ]
+        }), 'Error body');
 
-    return t.done();
-  });
+        return t.done();
+    });
 };
 
 
 exports['provision: admin owner_uuid'] = function (t) {
-  checkProvisionSuccess(ufdsAdminUuid, t);
+    checkProvisionSuccess(ufdsAdminUuid, t);
 };
 
 
 exports['provision: network owner_uuid'] = function (t) {
-  checkProvisionSuccess(owner, t);
+    checkProvisionSuccess(owner, t);
 };
 
 
 exports['get provisionable networks'] = function (t) {
-  napi.listNetworks(function (err, res) {
-    t.ifError(err);
-    if (err) {
-      return t.done();
-    }
+    napi.listNetworks(function (err, res) {
+        t.ifError(err);
+        if (err) {
+            return t.done();
+        }
 
-    res.forEach(function (net) {
-      if (!net.owner_uuid || net.owner_uuid == owner) {
-        provisionable.push(net.uuid);
-      }
+        res.forEach(function (net) {
+            if (!net.owner_uuid || net.owner_uuid == owner) {
+                provisionable.push(net.uuid);
+            }
+        });
+
+        provisionable.sort();
+        return t.done();
     });
-
-    provisionable.sort();
-    return t.done();
-  });
 };
 
 
 exports['provisionable_by networks'] = function (t) {
-  napi.listNetworks({ provisionable_by: owner }, function (err, res) {
-    t.ifError(err);
-    if (err) {
-      return t.done();
-    }
+    napi.listNetworks({ provisionable_by: owner }, function (err, res) {
+        t.ifError(err);
+        if (err) {
+            return t.done();
+        }
 
-    var uuids = res.map(function (n) { return n.uuid; }).sort();
-    t.deepEqual(uuids, provisionable, 'provisionable_by returns correct list');
-    t.ok(uuids.indexOf(state.network.uuid) !== -1,
-      'list contains first network');
-    t.ok(uuids.indexOf(state.ownerNet2.uuid) !== -1,
-      'list contains second network');
+        var uuids = res.map(function (n) { return n.uuid; }).sort();
+        t.deepEqual(uuids, provisionable,
+            'provisionable_by returns correct list');
+        t.ok(uuids.indexOf(state.network.uuid) !== -1,
+            'list contains first network');
+        t.ok(uuids.indexOf(state.ownerNet2.uuid) !== -1,
+            'list contains second network');
 
-    t.ok(uuids.indexOf(state.ownerNet3.uuid) === -1,
-      'list does not contain third network');
+        t.ok(uuids.indexOf(state.ownerNet3.uuid) === -1,
+            'list does not contain third network');
 
-    return t.done();
-  });
+        return t.done();
+    });
 };
 
 
@@ -179,11 +180,11 @@ exports['provisionable_by networks'] = function (t) {
 
 
 exports['teardown'] = function (t) {
-  helpers.deleteNetwork(t, napi, state, function () {
-    helpers.deleteNetwork(t, napi, state, 'ownerNet2', function () {
-      helpers.deleteNetwork(t, napi, state, 'ownerNet3', function () {
-        helpers.deleteNicTags(t, napi, state);
-      });
+    helpers.deleteNetwork(t, napi, state, function () {
+        helpers.deleteNetwork(t, napi, state, 'ownerNet2', function () {
+            helpers.deleteNetwork(t, napi, state, 'ownerNet3', function () {
+                helpers.deleteNicTags(t, napi, state);
+            });
+        });
     });
-  });
 };

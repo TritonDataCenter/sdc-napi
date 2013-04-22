@@ -17,12 +17,12 @@ JS_FILES	:= $(shell ls *.js) $(shell find lib test -name '*.js') sbin/import-dat
 JSL_CONF_NODE	 = tools/jsl.node.conf
 JSL_FILES_NODE   = $(JS_FILES)
 JSSTYLE_FILES	 = $(JS_FILES)
-JSSTYLE_FLAGS    = -o indent=2,doxygen,unparenthesized-return=0
+JSSTYLE_FLAGS    = -o indent=4,doxygen,unparenthesized-return=0
 SMF_MANIFESTS_IN = smf/manifests/napi.xml.in
 BASH_FILES	:= sbin/napid bin/napictl
 
 ifeq ($(shell uname -s),SunOS)
-	NODE_PREBUILT_VERSION := v0.8.14
+	NODE_PREBUILT_VERSION := v0.8.22
 	NODE_PREBUILT_TAG := zone
 endif
 

@@ -16,16 +16,16 @@ var assert = require('assert-plus');
  * administered bit set)
  */
 function randomMAC() {
-  var data = [(Math.floor(Math.random() * 15) + 1).toString(16) + 2];
-  for (var i = 0; i < 5; i++) {
-     var oct = (Math.floor(Math.random() * 255)).toString(16);
-     if (oct.length == 1) {
-        oct = '0' + oct;
-     }
-     data.push(oct);
-  }
+    var data = [(Math.floor(Math.random() * 15) + 1).toString(16) + 2];
+    for (var i = 0; i < 5; i++) {
+         var oct = (Math.floor(Math.random() * 255)).toString(16);
+         if (oct.length == 1) {
+                oct = '0' + oct;
+         }
+         data.push(oct);
+    }
 
-  return data.join(':');
+    return data.join(':');
 }
 
 
@@ -34,23 +34,23 @@ function randomMAC() {
  * extra
  */
 function invalidParamErr(extra) {
-  assert.optionalObject(extra, 'extra');
+    assert.optionalObject(extra, 'extra');
 
-  var newErr = {
-    code: 'InvalidParameters',
-    message: 'Invalid parameters'
-  };
+    var newErr = {
+        code: 'InvalidParameters',
+        message: 'Invalid parameters'
+    };
 
-  for (var e in extra) {
-    newErr[e] = extra[e];
-  }
+    for (var e in extra) {
+        newErr[e] = extra[e];
+    }
 
-  return newErr;
+    return newErr;
 }
 
 
 
 module.exports = {
-  invalidParamErr: invalidParamErr,
-  randomMAC: randomMAC
+    invalidParamErr: invalidParamErr,
+    randomMAC: randomMAC
 };

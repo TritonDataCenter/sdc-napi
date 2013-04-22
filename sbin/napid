@@ -4,14 +4,14 @@ TOP=$(unset CDPATH; cd $(dirname $0)/../; pwd)
 NODE_INSTALL=${TOP}/node
 
 if [[ ! -d "${NODE_INSTALL}" && -d "${TOP}/build/node" ]]; then
-    # Dev/repo layout.
-    NODE_INSTALL=${TOP}/build/node
+        # Dev/repo layout.
+        NODE_INSTALL=${TOP}/build/node
 fi
 
 NODE=${NODE_INSTALL}/bin/node
 
 if [[ -z "${SMF_FMRI}" ]]; then
-    ${NODE} ${TOP}/server.js "$@" | ${NODE} ${TOP}/node_modules/.bin/bunyan
+        ${NODE} ${TOP}/server.js "$@" | ${NODE} ${TOP}/node_modules/.bin/bunyan
 else
-    ${NODE} ${TOP}/server.js "$@"
+        ${NODE} ${TOP}/server.js "$@"
 fi

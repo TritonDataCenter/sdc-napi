@@ -24,10 +24,10 @@ var DIRECTORY;
 var DRY_RUN = false;
 var FILES;
 var LOG = bunyan.createLogger({
-  name: path.basename(process.argv[1]),
-  level: (process.env.LOG_LEVEL || 'info'),
-  stream: process.stderr,
-  serializers: bunyan.stdSerializers
+    name: path.basename(process.argv[1]),
+    level: (process.env.LOG_LEVEL || 'info'),
+    stream: process.stderr,
+    serializers: bunyan.stdSerializers
 });
 var MORAY;
 var NAPI;
@@ -42,80 +42,80 @@ var OLD_NETWORKS = [];
 
 
 function enter(str) {
-  console.log('');
-  console.log('== %s', str);
-  console.log('');
+    console.log('');
+    console.log('== %s', str);
+    console.log('');
 }
 
 
 function readAllLines(file, callback) {
-  return fs.readFile(file, 'utf8', function (err, data) {
-    if (err) {
-      return callback(err);
-    }
+    return fs.readFile(file, 'utf8', function (err, data) {
+        if (err) {
+            return callback(err);
+        }
 
-    return callback(null, data.split('\n'));
-  });
+        return callback(null, data.split('\n'));
+    });
 }
 
 
 function readLines(file, dataCallback, doneCallback) {
-  var leftover = '';
-  var rs = fs.createReadStream(file, { flags: 'r', encoding: 'utf8' });
+    var leftover = '';
+    var rs = fs.createReadStream(file, { flags: 'r', encoding: 'utf8' });
 
-  rs.on('data', function (data) {
-    var pieces = (leftover + data.toString()).split(/\n/g);
-    leftover = pieces.pop();
+    rs.on('data', function (data) {
+        var pieces = (leftover + data.toString()).split(/\n/g);
+        leftover = pieces.pop();
 
-    return dataCallback(pieces);
-  });
+        return dataCallback(pieces);
+    });
 
-  rs.on('end', function () {
-    if (leftover.length !== 0) {
-      dataCallback(leftover);
-    }
-    return doneCallback();
-  });
+    rs.on('end', function () {
+        if (leftover.length !== 0) {
+            dataCallback(leftover);
+        }
+        return doneCallback();
+    });
 }
 
 
 function usage(msg, code) {
-  if (typeof (msg) === 'string') {
-    console.error(msg);
-  }
+    if (typeof (msg) === 'string') {
+        console.error(msg);
+    }
 
-  console.error('%s <directory>', path.basename(process.argv[1]));
-  process.exit(code || 0);
+    console.error('%s <directory>', path.basename(process.argv[1]));
+    process.exit(code || 0);
 }
 
 
 function process_argv() {
-  var dir;
-  var longOpts = {
-    'dryrun': Boolean
-  };
-  var parsed = nopt(longOpts);
+    var dir;
+    var longOpts = {
+        'dryrun': Boolean
+    };
+    var parsed = nopt(longOpts);
 
-  if (parsed.dryrun) {
-    DRY_RUN = true;
-    console.log('dry run: not modifying any data');
-  }
-
-  if (parsed.argv.remain.length < 1) {
-    usage(null, 1);
-  }
-  dir = parsed.argv.remain[0];
-
-  try {
-    var stats = fs.statSync(dir);
-    if (!stats.isDirectory()) {
-      usage(dir + ' is not a directory', 1);
+    if (parsed.dryrun) {
+        DRY_RUN = true;
+        console.log('dry run: not modifying any data');
     }
-  } catch (e) {
-    usage(dir + ' is invalid: ' + e.message, 1);
-  }
 
-  DIRECTORY = dir;
+    if (parsed.argv.remain.length < 1) {
+        usage(null, 1);
+    }
+    dir = parsed.argv.remain[0];
+
+    try {
+        var stats = fs.statSync(dir);
+        if (!stats.isDirectory()) {
+            usage(dir + ' is not a directory', 1);
+        }
+    } catch (e) {
+        usage(dir + ' is invalid: ' + e.message, 1);
+    }
+
+    DIRECTORY = dir;
 }
 
 
@@ -124,508 +124,515 @@ function process_argv() {
 
 
 function morayClient(callback) {
-  var conf = {
-    connectTimeout: 10000,
-    log: LOG,
-    host: CONFIG.moray.host,
-    noCache: true,
-    port: CONFIG.moray.port,
-    retry: {
-      retries: Infinity,
-      minTimeout: 1000,
-      maxTimeout: 60000
+    var conf = {
+        connectTimeout: 10000,
+        log: LOG,
+        host: CONFIG.moray.host,
+        noCache: true,
+        port: CONFIG.moray.port,
+        retry: {
+            retries: Infinity,
+            minTimeout: 1000,
+            maxTimeout: 60000
+        }
+    };
+    var client = moray.createClient(conf);
+
+    function onMorayError(err) {
+        return callback(err);
     }
-  };
-  var client = moray.createClient(conf);
 
-  function onMorayError(err) {
-    return callback(err);
-  }
+    function onMorayConnect() {
+        client.removeListener('error', onMorayError);
+        client.on('close', function () {
+            client.log.error('moray: closed');
+        });
 
-  function onMorayConnect() {
-    client.removeListener('error', onMorayError);
-    client.on('close', function () {
-      client.log.error('moray: closed');
-    });
+        client.on('connect', function () {
+            client.log.info('moray: reconnected');
+        });
 
-    client.on('connect', function () {
-      client.log.info('moray: reconnected');
-    });
+        client.on('error', function (err) {
+            client.log.warn(err, 'moray: error (reconnecting)');
+        });
 
-    client.on('error', function (err) {
-      client.log.warn(err, 'moray: error (reconnecting)');
-    });
+        return callback(null, client);
+    }
 
-    return callback(null, client);
-  }
-
-  client.once('connect', onMorayConnect);
-  client.once('error', onMorayError);
+    client.once('connect', onMorayConnect);
+    client.once('error', onMorayError);
 }
 
 function morayClientInit(_, callback) {
-  var conf = {
-    connectTimeout: 10000,
-    log: LOG,
-    host: CONFIG.moray.host,
-    noCache: true,
-    port: CONFIG.moray.port,
-    retry: {
-      retries: Infinity,
-      minTimeout: 1000,
-      maxTimeout: 60000
+    var conf = {
+        connectTimeout: 10000,
+        log: LOG,
+        host: CONFIG.moray.host,
+        noCache: true,
+        port: CONFIG.moray.port,
+        retry: {
+            retries: Infinity,
+            minTimeout: 1000,
+            maxTimeout: 60000
+        }
+    };
+    MORAY = moray.createClient(conf);
+
+    function onMorayError(err) {
+        return callback(err);
     }
-  };
-  MORAY = moray.createClient(conf);
 
-  function onMorayError(err) {
-    return callback(err);
-  }
+    function onMorayConnect() {
+        MORAY.removeListener('error', onMorayError);
+        return callback();
+    }
 
-  function onMorayConnect() {
-    MORAY.removeListener('error', onMorayError);
-    return callback();
-  }
-
-  MORAY.once('connect', onMorayConnect);
-  MORAY.once('error', onMorayError);
+    MORAY.once('connect', onMorayConnect);
+    MORAY.once('error', onMorayError);
 }
 
 
 function getFiles(_, callback) {
-  fs.readdir(DIRECTORY, function (err, res) {
-    if (err) {
-      usage(err.message, 1);
-    }
+    fs.readdir(DIRECTORY, function (err, res) {
+        if (err) {
+            usage(err.message, 1);
+        }
 
-    FILES = res;
-    callback();
-  });
+        FILES = res;
+        callback();
+    });
 }
 
 
 function getNicTags(_, callback) {
-  enter('getting existing nic tags');
-  NAPI.listNicTags(function (err, res) {
-    if (res) {
-      console.log('found nic tags:');
-      res.forEach(function (t) {
-        console.log('* %s: %s', t.uuid, t.name);
-        NIC_TAGS[t.name] = t.uuid;
-      });
-    }
+    enter('getting existing nic tags');
+    NAPI.listNicTags(function (err, res) {
+        if (res) {
+            console.log('found nic tags:');
+            res.forEach(function (t) {
+                console.log('* %s: %s', t.uuid, t.name);
+                NIC_TAGS[t.name] = t.uuid;
+            });
+        }
 
-    return callback(err);
-  });
+        return callback(err);
+    });
 }
 
 
 function getNetworks(_, callback) {
-  enter('getting existing networks');
-  NAPI.listNetworks(function (err, res) {
-    if (res) {
-      console.log('found networks:');
-      res.forEach(function (n) {
-        console.log('* %s: name=%s, nic_tag=%s, subnet=%s, vlan_id=%d',
-          n.uuid, n.name, n.nic_tag, n.subnet, n.vlan_id);
-        OLD_NETWORKS.push(n);
-      });
-    }
+    enter('getting existing networks');
+    NAPI.listNetworks(function (err, res) {
+        if (res) {
+            console.log('found networks:');
+            res.forEach(function (n) {
+                console.log('* %s: name=%s, nic_tag=%s, subnet=%s, vlan_id=%d',
+                    n.uuid, n.name, n.nic_tag, n.subnet, n.vlan_id);
+                OLD_NETWORKS.push(n);
+            });
+        }
 
-    return callback(err);
-  });
+        return callback(err);
+    });
 }
 
 
 function createNicTags(_, callback) {
-  enter('creating nic tags');
-  readAllLines(DIRECTORY + '/napi_nic_tags.moray', function (err, lines) {
-    if (err) {
-      return callback(err);
-    }
-
-    vasync.forEachParallel({
-      inputs: lines,
-      func: function _create(line, cb) {
-        try {
-          var json = JSON.parse(line);
-        } catch (err2) {
-          return cb(err2);
+    enter('creating nic tags');
+    readAllLines(DIRECTORY + '/napi_nic_tags.moray', function (err, lines) {
+        if (err) {
+            return callback(err);
         }
 
-        if (NIC_TAGS.hasOwnProperty(json.name)) {
-          console.log('nic tag %s already exists: not creating', json.name);
-          return cb();
-        }
+        vasync.forEachParallel({
+            inputs: lines,
+            func: function _create(line, cb) {
+                try {
+                    var json = JSON.parse(line);
+                } catch (err2) {
+                    return cb(err2);
+                }
 
-        if (DRY_RUN) {
-          console.log('created nic tag %s', json.name);
-          return cb();
-        }
+                if (NIC_TAGS.hasOwnProperty(json.name)) {
+                    console.log('nic tag %s already exists: not creating',
+                        json.name);
+                    return cb();
+                }
 
-        NAPI.createNicTag(json.name, json, function (err3, res) {
-          if (res) {
-            console.log('created nic tag %s', json.name);
-          }
+                if (DRY_RUN) {
+                    console.log('created nic tag %s', json.name);
+                    return cb();
+                }
 
-          return cb(err3);
-        });
-      }
-    }, callback);
-  });
+                NAPI.createNicTag(json.name, json, function (err3, res) {
+                    if (res) {
+                        console.log('created nic tag %s', json.name);
+                    }
+
+                    return cb(err3);
+                });
+            }
+        }, callback);
+    });
 }
 
 
 function createNetworks(_, callback) {
-  enter('creating networks');
-  readAllLines(DIRECTORY + '/napi_networks.moray', function (err, lines) {
-    if (err) {
-      return callback(err);
-    }
-
-    vasync.forEachParallel({
-      inputs: lines,
-      func: function _create(line, cb) {
-        try {
-          var json = JSON.parse(line);
-        } catch (err2) {
-          return cb(err2);
+    enter('creating networks');
+    readAllLines(DIRECTORY + '/napi_networks.moray', function (err, lines) {
+        if (err) {
+            return callback(err);
         }
 
-        ['gateway', 'provision_start_ip', 'provision_end_ip',
-          'subnet_start_ip'].forEach(
-          function (p) {
-          if (json.hasOwnProperty(p)) {
-            json[p] = util_ip.ntoa(json[p]);
-          }
-        });
+        vasync.forEachParallel({
+            inputs: lines,
+            func: function _create(line, cb) {
+                try {
+                    var json = JSON.parse(line);
+                } catch (err2) {
+                    return cb(err2);
+                }
 
-        if (json.hasOwnProperty('resolvers')) {
-          json.resolvers = json.resolvers.map(function (r) {
-            return util_ip.ntoa(r);
-          });
-        }
+                ['gateway', 'provision_start_ip', 'provision_end_ip',
+                    'subnet_start_ip'].forEach(
+                    function (p) {
+                    if (json.hasOwnProperty(p)) {
+                        json[p] = util_ip.ntoa(json[p]);
+                    }
+                });
 
-        json.subnet = util.format('%s/%s', json.subnet_start_ip,
-            json.subnet_bits);
+                if (json.hasOwnProperty('resolvers')) {
+                    json.resolvers = json.resolvers.map(function (r) {
+                        return util_ip.ntoa(r);
+                    });
+                }
 
-        for (var n in OLD_NETWORKS) {
-          var oldNet = OLD_NETWORKS[n];
-          if (json.subnet == oldNet.subnet && json.nic_tag == oldNet.nic_tag &&
-            json.vlan_id == oldNet.vlan_id) {
-            console.log(
-              'network "%s" matches existing network "%s": not creating: %s',
-              json.name, oldNet.name, JSON.stringify(json, null, 2));
-            NETWORK_MAP[json.uuid] = oldNet.uuid;
-            NETWORKS[oldNet.uuid] = oldNet;
-            return cb();
-          }
-        }
+                json.subnet = util.format('%s/%s', json.subnet_start_ip,
+                        json.subnet_bits);
 
-        if (DRY_RUN) {
-          console.log('created network %s: %s', json.name,
-            JSON.stringify(json, null, 2));
-          NETWORKS[json.uuid] = json;
-          return cb();
-        }
+                for (var n in OLD_NETWORKS) {
+                    var oldNet = OLD_NETWORKS[n];
+                    if (json.subnet == oldNet.subnet &&
+                        json.nic_tag == oldNet.nic_tag &&
+                        json.vlan_id == oldNet.vlan_id) {
+                        console.log(
+                            'network "%s" matches existing network "%s": ' +
+                            'not creating: %s', json.name, oldNet.name,
+                            JSON.stringify(json, null, 2));
+                        NETWORK_MAP[json.uuid] = oldNet.uuid;
+                        NETWORKS[oldNet.uuid] = oldNet;
+                        return cb();
+                    }
+                }
 
-        NAPI.createNetwork(json, function (err3, res) {
-          if (res) {
-            console.log('created network %s: %s', json.name,
-              JSON.stringify(res, null, 2));
-            NETWORKS[res.uuid] = res;
-          }
+                if (DRY_RUN) {
+                    console.log('created network %s: %s', json.name,
+                        JSON.stringify(json, null, 2));
+                    NETWORKS[json.uuid] = json;
+                    return cb();
+                }
 
-          return cb(err3);
-        });
-      }
-    }, callback);
-  });
+                NAPI.createNetwork(json, function (err3, res) {
+                    if (res) {
+                        console.log('created network %s: %s', json.name,
+                            JSON.stringify(res, null, 2));
+                        NETWORKS[res.uuid] = res;
+                    }
+
+                    return cb(err3);
+                });
+            }
+        }, callback);
+    });
 }
 
 
 function createNetworkPools(_, callback) {
-  enter('creating network pools');
-  readAllLines(DIRECTORY + '/napi_network_pools.moray', function (err, lines) {
-    if (err) {
-      // The original install may not have had any network pools, so this
-      // file might not exist
-      if (err.code === 'ENOENT') {
-        console.log('no network pools to create');
-        return callback();
-      }
-      return callback(err);
-    }
-
-    vasync.forEachParallel({
-      inputs: lines,
-      func: function _create(line, cb) {
-        try {
-          var json = JSON.parse(line);
-        } catch (err2) {
-          return cb(err2);
+    enter('creating network pools');
+    readAllLines(DIRECTORY + '/napi_network_pools.moray',
+        function (err, lines) {
+        if (err) {
+            // The original install may not have had any network pools, so this
+            // file might not exist
+            if (err.code === 'ENOENT') {
+                console.log('no network pools to create');
+                return callback();
+            }
+            return callback(err);
         }
 
-        if (DRY_RUN) {
-          console.log('created network pool %s: %s', json.name,
-            JSON.stringify(json, null, 2));
-          return cb();
-        }
+        vasync.forEachParallel({
+            inputs: lines,
+            func: function _create(line, cb) {
+                try {
+                    var json = JSON.parse(line);
+                } catch (err2) {
+                    return cb(err2);
+                }
 
-        NAPI.createNetworkPool(json.name, json, function (err3, res) {
-          if (res) {
-            console.log('created network pool %s: %s', json.name,
-              JSON.stringify(res, null, 2));
-          }
+                if (DRY_RUN) {
+                    console.log('created network pool %s: %s', json.name,
+                        JSON.stringify(json, null, 2));
+                    return cb();
+                }
 
-          return cb(err3);
-        });
-      }
-    }, callback);
-  });
+                NAPI.createNetworkPool(json.name, json, function (err3, res) {
+                    if (res) {
+                        console.log('created network pool %s: %s', json.name,
+                            JSON.stringify(res, null, 2));
+                    }
+
+                    return cb(err3);
+                });
+            }
+        }, callback);
+    });
 }
 
 
 function createNetworkIPs(file, cb) {
-  var bucketName = path.basename(file, '.moray').replace(/-/g, '_');
-  var client;
-  var closed = false;
-  var finished = 0;
-  var network = bucketName.replace('napi_ips_', '').replace(/_/g, '-');
+    var bucketName = path.basename(file, '.moray').replace(/-/g, '_');
+    var client;
+    var closed = false;
+    var finished = 0;
+    var network = bucketName.replace('napi_ips_', '').replace(/_/g, '-');
 
-  // Figure out if this network is actually a network that already exists
-  // in NAPI
-  if (NETWORK_MAP.hasOwnProperty(network)) {
-    console.log('> network %s is actually existing network', network,
-      NETWORK_MAP[network]);
-    network = NETWORK_MAP[network];
-    bucketName = 'napi_ips_' + network.replace(/-/g, '_');
-  }
-
-  var provEnd = util_ip.aton(NETWORKS[network].provision_end_ip);
-  var provStart = util_ip.aton(NETWORKS[network].provision_start_ip);
-  var started = 0;
-
-  console.log('> network %s: adding IPs to bucket %s', network, bucketName);
-
-  function _returnIfDone(err) {
-    if (!closed || finished !== started) {
-      return;
+    // Figure out if this network is actually a network that already exists
+    // in NAPI
+    if (NETWORK_MAP.hasOwnProperty(network)) {
+        console.log('> network %s is actually existing network', network,
+            NETWORK_MAP[network]);
+        network = NETWORK_MAP[network];
+        bucketName = 'napi_ips_' + network.replace(/-/g, '_');
     }
 
-    if (client) {
-      client.close();
+    var provEnd = util_ip.aton(NETWORKS[network].provision_end_ip);
+    var provStart = util_ip.aton(NETWORKS[network].provision_start_ip);
+    var started = 0;
+
+    console.log('> network %s: adding IPs to bucket %s', network, bucketName);
+
+    function _returnIfDone(err) {
+        if (!closed || finished !== started) {
+            return;
+        }
+
+        if (client) {
+            client.close();
+        }
+
+        console.log('> network %s: adding IPs done', network);
+        return cb();
     }
 
-    console.log('> network %s: adding IPs done', network);
-    return cb();
-  }
-
-  morayClient(function (err, res) {
-    if (err) {
-      return cb(err);
-    }
-    client = res;
-
-    readLines(DIRECTORY + '/' + file, function (lines, stream) {
-      var batch = lines.filter(function (line) {
-        return line;
-      }).map(function (line) {
-        var json;
-        try {
-          json = JSON.parse(line);
-        } catch (err2) {
-          console.error('Error reading line from "%s":', file);
-          console.error(line);
-          throw err2;
+    morayClient(function (err, res) {
+        if (err) {
+            return cb(err);
         }
+        client = res;
 
-        return {
-          bucket : bucketName,
-          key: json.ip,
-          operation: 'put',
-          value: json
-        };
-      }).filter(function (ip) {
-        if (ip.value.hasOwnProperty('belongs_to_uuid') ||
-          ip.value.hasOwnProperty('belongs_to_type') ||
-          ip.value.hasOwnProperty('owner_uuid')) {
-          return true;
-        }
-        var num = Number(ip.key);
+        readLines(DIRECTORY + '/' + file, function (lines, stream) {
+            var batch = lines.filter(function (line) {
+                return line;
+            }).map(function (line) {
+                var json;
+                try {
+                    json = JSON.parse(line);
+                } catch (err2) {
+                    console.error('Error reading line from "%s":', file);
+                    console.error(line);
+                    throw err2;
+                }
 
-        if (ip.value.reserved && ((num < provStart) || (num > provEnd))) {
-          return false;
-        }
+                return {
+                    bucket : bucketName,
+                    key: json.ip,
+                    operation: 'put',
+                    value: json
+                };
+            }).filter(function (ip) {
+                if (ip.value.hasOwnProperty('belongs_to_uuid') ||
+                    ip.value.hasOwnProperty('belongs_to_type') ||
+                    ip.value.hasOwnProperty('owner_uuid')) {
+                    return true;
+                }
+                var num = Number(ip.key);
 
-        return true;
-      });
+                if (ip.value.reserved && ((num < provStart) ||
+                    (num > provEnd))) {
+                    return false;
+                }
 
-      started++;
+                return true;
+            });
 
-      console.log('  bucket: %s: batch length=%d', bucketName, batch.length);
+            started++;
 
-      if (DRY_RUN) {
-        finished++;
-        return _returnIfDone();
-      }
+            console.log('  bucket: %s: batch length=%d',
+                bucketName, batch.length);
 
-      client.batch(batch, function (err2) {
-        finished++;
-        if (err2) {
-          console.error('Error adding batch to %s: %s', bucketName,
-            err2.toString());
-          stream.destroy();
-        }
+            if (DRY_RUN) {
+                finished++;
+                return _returnIfDone();
+            }
 
-        _returnIfDone();
-      });
-    }, function () {
-      closed = true;
+            client.batch(batch, function (err2) {
+                finished++;
+                if (err2) {
+                    console.error('Error adding batch to %s: %s', bucketName,
+                        err2.toString());
+                    stream.destroy();
+                }
 
-      _returnIfDone();
+                _returnIfDone();
+            });
+        }, function () {
+            closed = true;
+
+            _returnIfDone();
+        });
     });
-  });
 }
 
 
 function createIPs(_, callback) {
-  enter('creating IPs');
-  var ipFiles = FILES.filter(function (f) { return /^napi_ips/.test(f); });
+    enter('creating IPs');
+    var ipFiles = FILES.filter(function (f) { return /^napi_ips/.test(f); });
 
-  /*
-   * vasync.pipeline({
-   *   funcs: ipFiles.map(function (f) {
-   *     return function (_, cb ) {
-   *       createNetworkIPs(f, cb);
-   *     }
-   *   })
-   * }, callback);
-   */
+    /*
+     * vasync.pipeline({
+     *   funcs: ipFiles.map(function (f) {
+     *     return function (_, cb ) {
+     *       createNetworkIPs(f, cb);
+     *     }
+     *   })
+     * }, callback);
+     */
 
-  vasync.forEachParallel({
-    inputs: ipFiles,
-    func: createNetworkIPs
-  }, callback);
+    vasync.forEachParallel({
+        inputs: ipFiles,
+        func: createNetworkIPs
+    }, callback);
 }
 
 
 function createNics(file, cb) {
-  var client;
-  var closed = false;
-  var finished = 0;
-  var started = 0;
+    var client;
+    var closed = false;
+    var finished = 0;
+    var started = 0;
 
-  enter('creating nics');
+    enter('creating nics');
 
-  function _returnIfDone(err) {
-    if (!closed || finished !== started) {
-      return;
-    }
-
-    if (client) {
-      client.close();
-    }
-
-    console.log('> adding nics done');
-    return cb();
-  }
-
-  morayClient(function (err, res) {
-    if (err) {
-      return cb(err);
-    }
-    client = res;
-
-    readLines(DIRECTORY + '/napi_nics.moray', function (lines, stream) {
-      var batch = lines.filter(function (line) {
-        return line;
-      }).map(function (line) {
-        var json = JSON.parse(line);
-        if (json.hasOwnProperty('network_uuid') &&
-          NETWORK_MAP.hasOwnProperty(json.network_uuid)) {
-          json.network_uuid = NETWORK_MAP[json.network_uuid];
+    function _returnIfDone(err) {
+        if (!closed || finished !== started) {
+            return;
         }
 
-        return {
-          bucket : 'napi_nics',
-          key: json.mac.toString(),
-          operation: 'put',
-          value: json
-        };
-      });
-
-      started++;
-
-      console.log('  bucket: napi_nics: batch length=%d', batch.length);
-      if (DRY_RUN) {
-        finished++;
-        return _returnIfDone();
-      }
-
-      client.batch(batch, function (err2) {
-        finished++;
-        if (err2) {
-          console.error('Error adding batch to napi_nics: %s', err2.toString());
-          stream.destroy();
+        if (client) {
+            client.close();
         }
 
-        _returnIfDone();
-      });
-    }, function () {
-      closed = true;
+        console.log('> adding nics done');
+        return cb();
+    }
 
-      _returnIfDone();
+    morayClient(function (err, res) {
+        if (err) {
+            return cb(err);
+        }
+        client = res;
+
+        readLines(DIRECTORY + '/napi_nics.moray', function (lines, stream) {
+            var batch = lines.filter(function (line) {
+                return line;
+            }).map(function (line) {
+                var json = JSON.parse(line);
+                if (json.hasOwnProperty('network_uuid') &&
+                    NETWORK_MAP.hasOwnProperty(json.network_uuid)) {
+                    json.network_uuid = NETWORK_MAP[json.network_uuid];
+                }
+
+                return {
+                    bucket : 'napi_nics',
+                    key: json.mac.toString(),
+                    operation: 'put',
+                    value: json
+                };
+            });
+
+            started++;
+
+            console.log('  bucket: napi_nics: batch length=%d', batch.length);
+            if (DRY_RUN) {
+                finished++;
+                return _returnIfDone();
+            }
+
+            client.batch(batch, function (err2) {
+                finished++;
+                if (err2) {
+                    console.error('Error adding batch to napi_nics: %s',
+                        err2.toString());
+                    stream.destroy();
+                }
+
+                _returnIfDone();
+            });
+        }, function () {
+            closed = true;
+
+            _returnIfDone();
+        });
     });
-  });
 }
 
 
 function main() {
-  process_argv();
+    process_argv();
 
-  CONFIG = mod_config.load(
-    path.normalize(__dirname + '/../config.json'));
-  NAPI = new napi({
-    url: 'http://localhost:' + CONFIG.port
-  });
+    CONFIG = mod_config.load(
+        path.normalize(__dirname + '/../config.json'));
+    NAPI = new napi({
+        url: 'http://localhost:' + CONFIG.port
+    });
 
-  vasync.pipeline({
-  funcs: [
-    // morayClientInit,
-    getFiles,
-    getNicTags,
-    getNetworks,
-    createNicTags,
-    createNetworks,
-    createNetworkPools,
-    createIPs,
-    createNics
+    vasync.pipeline({
+    funcs: [
+        // morayClientInit,
+        getFiles,
+        getNicTags,
+        getNetworks,
+        createNicTags,
+        createNetworks,
+        createNetworkPools,
+        createIPs,
+        createNics
 
-  ] }, function (err) {
-    enter('done');
+    ] }, function (err) {
+        enter('done');
 
-    if (err) {
-      console.error(err.message);
-      if (err.hasOwnProperty('ase_errors')) {
-        err.ase_errors.forEach(function (e) {
-          if (e.hasOwnProperty('body')) {
-            console.error(JSON.stringify(e.body, null, 2));
-          } else {
-            console.error(e.message);
-          }
-        });
-      }
-    }
+        if (err) {
+            console.error(err.message);
+            if (err.hasOwnProperty('ase_errors')) {
+                err.ase_errors.forEach(function (e) {
+                    if (e.hasOwnProperty('body')) {
+                        console.error(JSON.stringify(e.body, null, 2));
+                    } else {
+                        console.error(e.message);
+                    }
+                });
+            }
+        }
 
-    if (MORAY) {
-      MORAY.close();
-    }
+        if (MORAY) {
+            MORAY.close();
+        }
 
-    if (err) {
-      process.exit(1);
-    }
-  });
+        if (err) {
+            process.exit(1);
+        }
+    });
 }
 
 main();
