@@ -24,11 +24,9 @@ var runOne;
 var NAPI;
 var NET1;
 var NET2;
+var NET3;
+var NET4;
 var POOL1;
-
-
-
-// --- Internal helpers
 
 
 
@@ -54,12 +52,16 @@ exports['Initial setup'] = function (t) {
             // Explicitly pick a UUID to make sure it sorts before NET2
             uuid: '0d281aa3-8d70-4666-a118-b1b88669f11f'
         });
-
+        var otherTag = 'othertag' + process.pid;
 
         vasync.pipeline({
         funcs: [
             function _nicTag(_, cb) {
                 NAPI.createNicTag(net1Params.nic_tag, cb);
+            },
+
+            function _nicTag2(_, cb) {
+                NAPI.createNicTag(otherTag, cb);
             },
 
             function _testNet(_, cb) {
@@ -84,14 +86,51 @@ exports['Initial setup'] = function (t) {
                 });
             },
 
+            function _testNet3(_, cb) {
+                var params = helpers.validNetworkParams({
+                    name: 'net3',
+                    provision_end_ip: '10.0.1.12',
+                    provision_start_ip: '10.0.1.9',
+                    subnet: '10.0.1.8/29',
+                    uuid: 'ccc57862-54fa-4667-89ae-c981cd5ada9a'
+                });
+
+                NAPI.createNetwork(params, function (err3, res3) {
+                    NET3 = res3;
+                    cb(err3);
+                });
+            },
+
+            function _testNet4(_, cb) {
+                var params = helpers.validNetworkParams({
+                    name: 'net4',
+                    nic_tag: otherTag,
+                    provision_end_ip: '10.0.1.12',
+                    provision_start_ip: '10.0.1.9',
+                    subnet: '10.0.1.8/29',
+                    uuid: 'dddd7862-54fa-4667-89ae-c981cd5ada9a'
+                });
+
+                NAPI.createNetwork(params, function (err4, res4) {
+                    NET4 = res4;
+                    cb(err4);
+                });
+            },
+
             function _netPool1(_, cb) {
+                var name = 'pool1-' + process.pid;
                 var params = {
-                    networks: [ NET1.uuid, NET2.uuid ]
+                    networks: [ NET1.uuid, NET2.uuid, NET3.uuid ]
                 };
 
-                NAPI.createNetworkPool('pool1-' + process.pid, params,
-                    function (err2, res2) {
-                    POOL1 = res2;
+                NAPI.createNetworkPool(name, params, function (err2, res2) {
+                    if (!err2) {
+                        POOL1 = res2;
+                        params.name = name;
+                        params.uuid = res2.uuid;
+                        params.nic_tag = NET1.nic_tag;
+                        t.deepEqual(res2, params, 'result');
+                    }
                     cb(err2);
                 });
             }
@@ -104,6 +143,165 @@ exports['Initial setup'] = function (t) {
 
             return t.done();
         });
+    });
+};
+
+
+
+// --- Create tests
+
+
+
+exports['Create pool - non-existent network'] = function (t) {
+    var params = {
+        networks: [ NET1.uuid, mod_uuid.v4() ]
+    };
+    NAPI.createNetworkPool('pool-fail-1-' + process.pid, params,
+        function (err, res) {
+        t.ok(err, 'error returned');
+        if (!err) {
+            return t.done();
+        }
+
+        var unknownParam = mod_err.invalidParam('networks', 'unknown network');
+        unknownParam.invalid = [ params.networks[1] ];
+
+        t.equal(err.statusCode, 422, 'status code');
+        t.deepEqual(err.body, helpers.invalidParamErr({
+            errors: [ unknownParam ]
+        }), 'error body');
+
+        return t.done();
+    });
+};
+
+
+exports['Create pool - too many networks'] = function (t) {
+    var params = {
+        networks: [ ]
+    };
+    for (var n = 0; n < 65; n++) {
+        params.networks.push(mod_uuid.v4());
+    }
+
+    NAPI.createNetworkPool('pool-fail-1-' + process.pid, params,
+        function (err, res) {
+        t.ok(err, 'error returned');
+        if (!err) {
+            return t.done();
+        }
+
+        t.equal(err.statusCode, 422, 'status code');
+        t.deepEqual(err.body, helpers.invalidParamErr({
+            errors: [ mod_err.invalidParam('networks',
+                'maximum 64 networks per network pool') ]
+        }), 'error body');
+
+        return t.done();
+    });
+};
+
+
+exports['Create pool - mismatched nic tags'] = function (t) {
+    var params = {
+        networks: [ NET1.uuid, NET4.uuid ]
+    };
+
+    NAPI.createNetworkPool('pool-fail-2-' + process.pid, params,
+        function (err, res) {
+        t.ok(err, 'error returned');
+        if (!err) {
+            return t.done();
+        }
+
+        t.equal(err.statusCode, 422, 'status code');
+        t.deepEqual(err.body, helpers.invalidParamErr({
+            errors: [ mod_err.invalidParam('networks',
+                constants.POOL_TAGS_MATCH_MSG) ]
+        }), 'error body');
+
+        return t.done();
+    });
+};
+
+
+
+// --- Update tests
+
+
+
+exports['Update non-existent pool'] = function (t) {
+    var params = {
+        networks: [ NET1.uuid ]
+    };
+
+    NAPI.updateNetworkPool(mod_uuid.v4(), params, function (err, res) {
+        t.ok(err, 'error returned');
+        if (!err) {
+            return t.done();
+        }
+
+        t.equal(err.statusCode, 404, 'status code');
+        t.deepEqual(err.body, {
+            code: 'ResourceNotFound',
+            message: 'network pool not found'
+        }, 'error body');
+
+        return t.done();
+    });
+};
+
+
+exports['Update pool'] = function (t) {
+    var params = {
+        networks: [ NET1.uuid, NET2.uuid ]
+    };
+
+    NAPI.updateNetworkPool(POOL1.uuid, params, function (err, res) {
+        t.ifError(err, 'error returned');
+        if (err) {
+            return t.done();
+        }
+
+        POOL1.networks = params.networks;
+        t.deepEqual(res, POOL1, 'updated result');
+        return t.done();
+    });
+};
+
+
+
+// --- Get tests
+
+
+
+exports['Get pool'] = function (t) {
+    NAPI.getNetworkPool(POOL1.uuid, function (err, res) {
+        t.ifError(err, 'error returned');
+        if (err) {
+            return t.done();
+        }
+
+        t.deepEqual(res, POOL1, 'get result');
+        return t.done();
+    });
+};
+
+
+
+// --- List tests
+
+
+
+exports['List pools'] = function (t) {
+    NAPI.listNetworkPools(function (err, res) {
+        t.ifError(err, 'error returned');
+        if (err) {
+            return t.done();
+        }
+
+        t.deepEqual(res, [ POOL1 ], 'list result');
+        return t.done();
     });
 };
 

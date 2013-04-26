@@ -66,6 +66,7 @@ exports['POST /network_pools'] = function (t) {
             ' uuid: ' + res.uuid);
         state.pools.push(res);
         params.uuid = res.uuid;
+        params.nic_tag = state.network.nic_tag;
         t.deepEqual(res, params, 'create params');
 
         return napi.getNetworkPool(res.uuid, function (err2, res2) {
@@ -114,6 +115,7 @@ exports['PUT /network_pools/:uuid'] = function (t) {
         }
 
         params.uuid = state.pools[0].uuid;
+        params.nic_tag = state.network.nic_tag;
         t.deepEqual(res, params, 'update params');
 
         return napi.getNetworkPool(res.uuid, function (err2, res2) {

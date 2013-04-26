@@ -30,10 +30,29 @@ var TAG;
 
 
 // Test variables:
-var net;
+var nets = [];
 var nic;
 var owner = mod_uuid.v4();
+var owner2 = mod_uuid.v4();
+
 var netParams = helpers.validNetworkParams({ owner_uuid: owner });
+var net2Params = helpers.validNetworkParams({
+    name: 'net2-' + process.pid,
+    owner_uuid: owner
+});
+var net3Params = helpers.validNetworkParams({
+    name: 'net3-' + process.pid,
+    owner_uuid: mod_uuid.v4()
+});
+var net4Params = helpers.validNetworkParams({
+    name: 'net4-' + process.pid
+});
+var net5Params = helpers.validNetworkParams({
+    name: 'net5-' + process.pid,
+    owner_uuid: owner2
+});
+var pools = [];
+
 var ip1 = util_ip.ntoa(util_ip.aton(netParams.provision_end_ip) - 1);
 var ip2 = util_ip.ntoa(util_ip.aton(netParams.provision_end_ip) - 2);
 var ip3 = util_ip.ntoa(util_ip.aton(netParams.provision_end_ip) - 3);
@@ -46,27 +65,58 @@ var ip5 = util_ip.ntoa(util_ip.aton(netParams.provision_end_ip) - 5);
 
 
 
-function provisionNicWithOwner(newOwner, t) {
+function provisionNetwork(newNetParams, t) {
+    NAPI.createNetwork(newNetParams, function (err, res) {
+        t.ifError(err, 'error returned');
+
+        if (err) {
+            return t.done();
+        }
+
+        if (newNetParams.owner_uuid) {
+            t.equal(res.owner_uuid, newNetParams.owner_uuid, 'owner UUID');
+        }
+
+        nets.push(res);
+        return t.done();
+    });
+}
+
+
+function provisionNicWithOwner(newOwner, provisionOn, t, callback) {
     var provParams = {
         belongs_to_type: 'zone',
         belongs_to_uuid: mod_uuid.v4(),
         owner_uuid: newOwner
     };
 
-    NAPI.provisionNic(net.uuid, provParams, function (err, res) {
+    NAPI.provisionNic(provisionOn, provParams, function (err, res) {
         t.ifError(err, 'error returned');
         if (err) {
             t.deepEqual(err.body, {}, 'error body for debugging');
-            return t.done();
+            return callback(err);
         }
 
+        delete provParams.network_uuid;
         for (var p in provParams) {
             t.equal(res[p], provParams[p], p);
         }
-        t.equal(res.network_uuid, net.uuid, 'network_uuid');
-        t.equal(res.owner_uuid, newOwner, 'owner_uuid');
         nic = res;
 
+        return callback(null, res);
+    });
+}
+
+
+function provisionNetworkNicWithOwner(newOwner, t) {
+    return provisionNicWithOwner(newOwner, nets[0].uuid, t,
+        function (err, res) {
+        if (err) {
+            return t.done();
+        }
+
+        t.equal(res.owner_uuid, newOwner, 'owner_uuid');
+        t.equal(res.network_uuid, nets[0].uuid, 'network_uuid');
         return t.done();
     });
 }
@@ -80,7 +130,7 @@ function updateNic(updateParams, t) {
             return t.done();
         }
 
-        t.equal(res.network_uuid, net.uuid, 'network_uuid');
+        t.equal(res.network_uuid, nets[0].uuid, 'network_uuid');
         t.equal(res.owner_uuid, updateParams.owner_uuid, 'owner_uuid');
 
         return t.done();
@@ -116,7 +166,7 @@ function createNicWithOwner(newOwner, ip, t) {
 
     if (ip !== null) {
         provParams.ip = ip;
-        provParams.network_uuid = net.uuid;
+        provParams.network_uuid = nets[0].uuid;
     }
 
     NAPI.createNic(helpers.randomMAC(), provParams, function (err, res) {
@@ -137,7 +187,7 @@ function createNicWithOwner(newOwner, ip, t) {
 
 
 function updateIPWithDifferentOwner(t) {
-    NAPI.updateIP(net.uuid, ip1, {
+    NAPI.updateIP(nets[0].uuid, ip1, {
         owner_uuid: mod_uuid.v4(),
         reserved: true
     }, function (err, res) {
@@ -159,7 +209,7 @@ function updateIPWithDifferentOwner(t) {
 
 
 function successfulReserve(newOwner, t) {
-    NAPI.updateIP(net.uuid, ip1, {
+    NAPI.updateIP(nets[0].uuid, ip1, {
         owner_uuid: newOwner,
         reserved: true
     }, function (err, res) {
@@ -181,6 +231,53 @@ function successfulReserve(newOwner, t) {
 }
 
 
+function createPool(name, params, t) {
+    NAPI.createNetworkPool(name, params, function (err, res) {
+        t.ifError(err, 'error returned');
+        if (err) {
+            return t.done();
+        }
+
+        params.uuid = res.uuid;
+        params.name = name;
+        params.nic_tag = netParams.nic_tag;
+        t.deepEqual(res, params, 'result');
+        pools.push(res);
+
+        NAPI.getNetworkPool(params.uuid, function (err2, res2) {
+            t.ifError(err2, 'error returned');
+            if (err2) {
+                return t.done();
+            }
+
+            t.deepEqual(res2, params, 'get result');
+            return t.done();
+        });
+    });
+}
+
+
+function updatePoolFailure(uuid, params, invalidNets, t) {
+    NAPI.updateNetworkPool(uuid, params, function (err, res) {
+        t.ok(err, 'error returned');
+        if (!err) {
+            return t.done();
+        }
+
+        var invalidParam = mod_err.invalidParam('networks',
+            constants.POOL_OWNER_MATCH_MSG);
+        invalidParam.invalid = invalidNets;
+
+        t.equal(err.statusCode, 422, 'status code');
+        t.deepEqual(err.body, helpers.invalidParamErr({
+            errors: [ invalidParam ]
+        }), 'error body');
+
+        return t.done();
+    });
+}
+
+
 
 // --- Setup
 
@@ -192,41 +289,242 @@ exports['Initial setup'] = function (t) {
         t.ok(res, 'client');
         NAPI = res;
         if (!NAPI) {
-            t.done();
+            return t.done();
         }
 
         // Match the name of the nic tag in helpers.validNetworkParams()
         NAPI.createNicTag('nic_tag', function (err2, res2) {
             t.ifError(err2);
             TAG = res2;
-            t.done();
+            return t.done();
         });
     });
 };
 
 
 exports['create network with owner_uuid'] = function (t) {
-    NAPI.createNetwork(netParams, function (err, res) {
-        t.ifError(err, 'error returned');
+    provisionNetwork(netParams, t);
+};
 
-        if (err) {
+
+exports['create second network with owner_uuid'] = function (t) {
+    provisionNetwork(net2Params, t);
+};
+
+
+exports['create third network with different owner_uuid'] = function (t) {
+    provisionNetwork(net3Params, t);
+};
+
+
+exports['create fourth network with no owner_uuid'] = function (t) {
+    provisionNetwork(net4Params, t);
+};
+
+
+exports['create fifth network with no owner_uuid'] = function (t) {
+    provisionNetwork(net5Params, t);
+};
+
+
+
+// --- Network pool create tests
+
+
+
+exports['create network pool with mismatched network owner_uuids']=
+    function (t) {
+    var params = {
+        networks: [ nets[0].uuid, nets[2].uuid ],
+        owner_uuid: owner
+    };
+
+    t.notEqual(nets[0].owner_uuid, nets[2].owner_uuid,
+        'owner_uuids not equal');
+
+    NAPI.createNetworkPool('pool1-fail-' + process.pid, params,
+        function (err, res) {
+        t.ok(err, 'error returned');
+        if (!err) {
             return t.done();
         }
 
-        t.equal(res.owner_uuid, owner, 'owner UUID');
-        net = res;
+        var invalidParam = mod_err.invalidParam('networks',
+            constants.POOL_OWNER_MATCH_MSG);
+        invalidParam.invalid = [ nets[2].uuid ];
+
+        t.equal(err.statusCode, 422, 'status code');
+        t.deepEqual(err.body, helpers.invalidParamErr({
+            errors: [ invalidParam ]
+        }), 'error body');
+
         return t.done();
     });
 };
 
 
+exports['create network pool with owner_uuid'] = function (t) {
+    // pools[0]
+    createPool('pool1-' + process.pid, {
+        networks: [ nets[0].uuid, nets[1].uuid ].sort(),
+        owner_uuid: owner
+    }, t);
+};
 
-// --- Nic tests
 
+exports['create network pool: mixed owner_uuid and no owner_uuid'] =
+    function (t) {
+    // pools[1]
+    createPool('pool2-' + process.pid, {
+        networks: [ nets[0].uuid, nets[3].uuid ].sort(),
+        owner_uuid: owner
+    }, t);
+};
+
+
+exports['create network pool: no owner_uuid'] = function (t) {
+    // pools[2]
+    createPool('pool3-' + process.pid, {
+        networks: [ nets[0].uuid, nets[3].uuid ].sort()
+    }, t);
+};
+
+
+
+// --- Network pool update tests
+
+
+
+exports['update network pool: mismatched network owner_uuid'] =
+    function (t) {
+    // Update to add a network with a different owner_uuid
+    updatePoolFailure(pools[1].uuid, {
+        networks: [ nets[0].uuid, nets[2].uuid, nets[3].uuid ].sort()
+    }, [ nets[2].uuid ], t);
+};
+
+
+exports['update network pool: mismatched owner_uuid'] = function (t) {
+    // Update a pool that has an owner to a different UUID that doesn't match
+    updatePoolFailure(pools[1].uuid, {
+        owner_uuid: mod_uuid.v4()
+    }, [ nets[0].uuid ], t);
+};
+
+
+exports['update network pool: no owner_uuid to mismatched'] = function (t) {
+    // Update a pool that has no owner to a UUID that doesn't match the
+    // networks in the pool
+    t.ok(!pools[2].owner_uuid, 'pool has no owner_uuid');
+    updatePoolFailure(pools[2].uuid, {
+        owner_uuid: mod_uuid.v4()
+    }, [ nets[0].uuid ], t);
+};
+
+
+exports['update network pool: mismatched owner_uuid'] = function (t) {
+    // Update both owner_uuid and networks, including one network
+    // whose owner_uuid doesn't match
+    updatePoolFailure(pools[1].uuid, {
+        networks: [ nets[0].uuid, nets[2].uuid ],
+        owner_uuid: owner
+    }, [ nets[2].uuid ], t);
+};
+
+
+exports['update network pool: no owner_uuid to one'] = function (t) {
+    var params = {
+        owner_uuid: nets[0].owner_uuid
+    };
+
+    NAPI.updateNetworkPool(pools[2].uuid, params, function (err, res) {
+        t.ifError(err, 'error returned');
+        if (err) {
+            return t.done();
+        }
+
+        t.equal(res.owner_uuid, params.owner_uuid, 'owner_uuid');
+
+        return t.done();
+    });
+};
+
+
+exports['update network pool: networks and owner_uuid'] = function (t) {
+    var params = {
+        networks: [ nets[4].uuid ],
+        owner_uuid: owner2
+    };
+
+    t.equal(nets[4].owner_uuid, owner2, 'owner_uuid equal');
+
+    NAPI.updateNetworkPool(pools[2].uuid, params, function (err, res) {
+        t.ifError(err, 'error returned');
+        if (err) {
+            t.deepEqual(err.body, {}, 'error body for debugging');
+            return t.done();
+        }
+
+        pools[2].networks = params.networks;
+        pools[2].owner_uuid = params.owner_uuid;
+        t.deepEqual(res, pools[2], 'result');
+
+        return t.done();
+    });
+};
+
+
+exports['update network pool: remove owner_uuid'] = function (t) {
+    var params = {
+        owner_uuid: ''
+    };
+
+    NAPI.updateNetworkPool(pools[2].uuid, params, function (err, res) {
+        t.ifError(err, 'error returned');
+        if (err) {
+            t.deepEqual(err.body, {}, 'error body for debugging');
+            return t.done();
+        }
+
+        delete pools[2].owner_uuid;
+        t.deepEqual(res, pools[2], 'result');
+        t.ok(!res.hasOwnProperty('owner_uuid'), 'no owner_uuid present');
+
+        NAPI.getNetworkPool(pools[2].uuid, function (err2, res2) {
+            t.ifError(err2, 'error returned');
+            if (err2) {
+                return t.done();
+            }
+
+            t.deepEqual(res2, pools[2], 'get result');
+            return t.done();
+        });
+    });
+};
+
+
+
+// --- Nic provision tests
+
+
+
+exports['provisioning nic on network pool with same owner_uuid'] =
+    function (t) {
+    return provisionNicWithOwner(owner, pools[0].uuid, t, function (err, res) {
+        if (err) {
+            return t.done();
+        }
+
+        t.ok(pools[0].networks.indexOf(res.network_uuid) !== -1,
+            'provisioned on one of the pool networks');
+
+        return t.done();
+    });
+};
 
 
 exports['provisioning nic with a different owner_uuid'] = function (t) {
-    NAPI.provisionNic(net.uuid, {
+    NAPI.provisionNic(nets[0].uuid, {
             belongs_to_type: 'zone',
             belongs_to_uuid: mod_uuid.v4(),
             owner_uuid: mod_uuid.v4()
@@ -248,24 +546,39 @@ exports['provisioning nic with a different owner_uuid'] = function (t) {
 };
 
 
-exports['provisioning nic with same owner_uuid'] =
-    provisionNicWithOwner.bind(null, owner);
+exports['provisioning nic with same owner_uuid'] = function (t) {
+    provisionNetworkNicWithOwner(owner, t);
+};
 
 
-exports['provisioning nic with admin owner_uuid'] =
-    provisionNicWithOwner.bind(null, CONF.ufdsAdminUuid);
+exports['provisioning nic with admin owner_uuid'] = function (t) {
+    provisionNetworkNicWithOwner(CONF.ufdsAdminUuid, t);
+};
 
 
-exports['updating nic to a different owner_uuid'] =
-    updateNicFailure.bind(null, { owner_uuid: mod_uuid.v4() });
+
+// --- Nic update tests
 
 
-exports['updating nic to admin owner_uuid'] =
-    updateNic.bind(null, { owner_uuid: CONF.ufdsAdminUuid });
+
+exports['updating nic to a different owner_uuid'] = function (t) {
+    updateNicFailure({ owner_uuid: mod_uuid.v4() }, t);
+};
 
 
-exports['updating nic back to network owner_uuid'] =
-    updateNic.bind(null, { owner_uuid: owner });
+exports['updating nic to admin owner_uuid'] = function (t) {
+    updateNic({ owner_uuid: CONF.ufdsAdminUuid }, t);
+};
+
+
+exports['updating nic back to network owner_uuid'] = function (t) {
+    updateNic({ owner_uuid: owner }, t);
+};
+
+
+
+// --- Nic create tests
+
 
 
 exports['creating nic with different owner_uuid'] = function (t) {
@@ -273,9 +586,11 @@ exports['creating nic with different owner_uuid'] = function (t) {
         belongs_to_type: 'zone',
         belongs_to_uuid: mod_uuid.v4(),
         ip: ip2,
-        network_uuid: net.uuid,
+        network_uuid: nets[0].uuid,
         owner_uuid: mod_uuid.v4()
     };
+
+    t.notEqual(provParams.owner_uuid, nets[0].uuid, 'owner_uuids not equal');
 
     NAPI.createNic(helpers.randomMAC(), provParams, function (err, res) {
         t.ok(err, 'error returned');
@@ -295,35 +610,39 @@ exports['creating nic with different owner_uuid'] = function (t) {
 };
 
 
-exports['creating nic with network owner_uuid'] =
-    createNicWithOwner.bind(null, owner, ip2);
+exports['creating nic with network owner_uuid'] = function (t) {
+    createNicWithOwner(owner, ip2, t);
+};
 
 
-exports['creating nic with admin owner_uuid'] =
-    createNicWithOwner.bind(null, owner, ip3);
+exports['creating nic with admin owner_uuid'] = function (t) {
+    createNicWithOwner(owner, ip3, t);
+};
 
 
-exports['create nic: different owner and no IP (1)'] =
-    createNicWithOwner.bind(null, mod_uuid.v4(), null);
+exports['create nic: different owner and no IP (1)'] = function (t) {
+    createNicWithOwner(mod_uuid.v4(), null, t);
+};
 
 
 exports['update nic with admin owner_uuid and IP'] = function (t) {
     updateNic({
         ip: ip4,
-        network_uuid: net.uuid,
+        network_uuid: nets[0].uuid,
         owner_uuid: CONF.ufdsAdminUuid
     }, t);
 };
 
 
-exports['create nic: different owner and no IP (2)'] =
-    createNicWithOwner.bind(null, mod_uuid.v4(), null);
+exports['create nic: different owner and no IP (2)'] = function (t) {
+    createNicWithOwner(mod_uuid.v4(), null, t);
+};
 
 
 exports['update nic with network owner_uuid and IP'] = function (t) {
     updateNic({
         ip: ip5,
-        network_uuid: net.uuid,
+        network_uuid: nets[0].uuid,
         owner_uuid: owner
     }, t);
 };
@@ -332,7 +651,7 @@ exports['update nic with network owner_uuid and IP'] = function (t) {
 exports['update nic with different owner_uuid and IP'] = function (t) {
     updateNicFailure({
         ip: ip5,
-        network_uuid: net.uuid,
+        network_uuid: nets[0].uuid,
         owner_uuid: mod_uuid.v4()
     }, t);
 };
@@ -347,16 +666,20 @@ exports['update nic with different owner_uuid and IP'] = function (t) {
 exports['reserving IP for a different owner_uuid'] = updateIPWithDifferentOwner;
 
 
-exports['reserving IP for same owner_uuid'] =
-    successfulReserve.bind(null, owner);
+exports['reserving IP for same owner_uuid'] = function (t) {
+    successfulReserve(owner, t);
+};
 
 
 // Second time reserving - the IP record is now in moray
 exports['updating IP to a different owner_uuid'] = updateIPWithDifferentOwner;
 
 
-exports['reserving IP for admin owner_uuid'] =
-    successfulReserve.bind(null, CONF.ufdsAdminUuid);
+exports['reserving IP for admin owner_uuid'] = function (t) {
+    successfulReserve(CONF.ufdsAdminUuid, t);
+};
+
+
 
 
 

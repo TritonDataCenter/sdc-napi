@@ -279,6 +279,8 @@ Creates a new nic, provisioning an IP and MAC address in the process.
 ||reserved||Boolean||Whether the IP address should be reserved||
 ||nic_tags_provided||Array of nic tag names||Nic tags this nic provides||
 
+**Notes:**
+
 ### Example
 
     POST /networks/1275886f-3fdf-456e-bba6-28e0e2eab58f/nics
@@ -669,6 +671,14 @@ Creates a new logical network provisioning pool.
 ||**Field**||**Type**||**Description**||
 ||name||String||network provisioning pool name||
 ||networks||Array of UUIDs||Logical Network UUIDs||
+||owner_uuid||UUID||UFDS user UUID of network's owner (Optional)||
+
+**Notes:**
+
+* Specifying owner_uuid for a pool limits the networks in that pool to those
+  with either no owner_uuid or a matching owner_uuid. You can therefore only
+  provision nics or IPs on a network in the pool according to its [owner_uuid
+  limitations](#CreateNetwork).
 
 ### Example
 
