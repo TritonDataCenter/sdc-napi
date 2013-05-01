@@ -59,7 +59,11 @@ exports['Initial setup'] = function (t) {
 exports['Create network'] = function (t) {
     var params = helpers.validNetworkParams({
         gateway: '10.0.2.1',
-        resolvers: ['8.8.8.8', '10.0.2.2']
+        resolvers: ['8.8.8.8', '10.0.2.2'],
+        routes: {
+            '10.0.1.0/24': '10.0.2.2',
+            '10.0.3.1': '10.0.2.2'
+        }
     });
 
     NAPI.createNetwork(params, function (err, obj, req, res) {
@@ -168,6 +172,7 @@ exports['Create network - all invalid parameters'] = function (t) {
         provision_end_ip: '10.0.1.256',
         provision_start_ip: '10.256.1.255',
         resolvers: ['10.5.0.256', 'asdf', '2'],
+        routes: 'blah',
         subnet: 'asdf',
         vlan_id: 'a'
     };
@@ -193,6 +198,7 @@ exports['Create network - all invalid parameters'] = function (t) {
                     invalid: params.resolvers,
                     message: 'invalid IPs'
                 },
+                mod_err.invalidParam('routes', 'must be an object'),
                 mod_err.invalidParam('subnet', 'Subnet must be in CIDR form'),
                 mod_err.invalidParam('vlan_id', constants.VLAN_MSG)
             ],
@@ -230,7 +236,23 @@ exports['Create network - invalid parameters'] = function (t) {
         ['provision_end_ip', '10.0.3.1',
             'provision_end_ip cannot be outside subnet'],
         ['provision_end_ip', '10.0.2.255',
-            'provision_end_ip cannot be the broadcast address']
+            'provision_end_ip cannot be the broadcast address'],
+
+        ['routes', { 'asdf': 'asdf', 'foo': 'bar' },
+            [ 'asdf', 'asdf', 'foo', 'bar' ],
+            'invalid routes'],
+
+        ['routes', { '10.2.0.0/16': '10.0.1.256' },
+            [ '10.0.1.256' ],
+            'invalid route'],
+
+        ['routes', { '10.2.0.0/7': '10.0.1.2' },
+            [ '10.2.0.0/7' ],
+            'invalid route'],
+
+        ['routes', { '10.2.0.0/33': '10.0.1.2' },
+            [ '10.2.0.0/33' ],
+            'invalid route']
     ];
 
     vasync.forEachParallel({
@@ -241,16 +263,24 @@ exports['Create network - invalid parameters'] = function (t) {
 
             NAPI.createNetwork(toCreate, function (err, res) {
                 t.ok(err, util.format('error returned: %s: %s',
-                    data[0], data[1]));
+                    data[0], typeof (data[1]) === 'object' ?
+                    JSON.stringify(data[1]) : data[1]));
                 if (!err) {
                     return cb();
                 }
 
                 t.equal(err.statusCode, 422, 'status code');
+                var invalidErr;
+
+                if (data.length === 3) {
+                    invalidErr = mod_err.invalidParam(data[0], data[2]);
+                } else {
+                    invalidErr = mod_err.invalidParam(data[0], data[3]);
+                    invalidErr.invalid = data[2];
+                }
+
                 t.deepEqual(err.body, helpers.invalidParamErr({
-                    errors: [
-                        mod_err.invalidParam(data[0], data[2])
-                    ],
+                    errors: [ invalidErr ],
                     message: 'Invalid parameters'
                 }), 'Error body');
 

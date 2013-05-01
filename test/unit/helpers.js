@@ -63,7 +63,11 @@ function FakeMoray(opts) {
 FakeMoray.prototype._put = function _store(bucket, key, val) {
     var newVal = {};
     for (var k in val) {
-        newVal[k] = val[k].toString();
+        if (typeof (val[k]) === 'object') {
+            newVal[k] = val[k];
+        } else {
+            newVal[k] = val[k].toString();
+        }
     }
     BUCKETS[bucket][key] = newVal;
 };

@@ -67,7 +67,13 @@ exports['Initial setup'] = function (t) {
             },
 
             function _testNet2(_, cb) {
-                NAPI.createNetwork(helpers.validNetworkParams({ vlan_id: 46 }),
+                NAPI.createNetwork(helpers.validNetworkParams({
+                    routes: {
+                      '10.0.3.4': '10.0.2.2',
+                      '10.0.4.0/24': '10.0.2.2'
+                    },
+                    vlan_id: 46
+                }),
                     function (err2, res2) {
                     NET2 = res2;
                     cb(err2);
@@ -324,6 +330,7 @@ exports['Provision nic'] = function (t) {
             owner_uuid: params.owner_uuid,
             primary: false,
             resolvers: NET2.resolvers,
+            routes: NET2.routes,
             vlan_id: NET2.vlan_id
         }, 'result');
 
@@ -357,6 +364,7 @@ exports['Provision nic - with IP'] = function (t) {
             owner_uuid: params.owner_uuid,
             primary: false,
             resolvers: NET2.resolvers,
+            routes: NET2.routes,
             vlan_id: NET2.vlan_id
         }, 'result');
 
