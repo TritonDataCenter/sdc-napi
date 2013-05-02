@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  *
- * Integration tests for /networks endpoints with owner_uuid specified
+ * Integration tests for /networks endpoints with owner_uuids specified
  */
 
 var constants = require('../../lib/util/constants');
@@ -84,17 +84,18 @@ exports['create test nic tag'] = function (t) {
 
 
 exports['Create network'] = function (t) {
-    helpers.createNetwork(t, napi, state, { owner_uuid: owner });
+    helpers.createNetwork(t, napi, state, { owner_uuids: [ owner ] });
 };
 
 
 exports['Create second network'] = function (t) {
-    helpers.createNetwork(t, napi, state, { owner_uuid: owner }, 'ownerNet2');
+    helpers.createNetwork(t, napi, state, { owner_uuids: [ owner ] },
+        'ownerNet2');
 };
 
 
 exports['Create third network'] = function (t) {
-    helpers.createNetwork(t, napi, state, { owner_uuid: mod_uuid.v4() },
+    helpers.createNetwork(t, napi, state, { owner_uuids: [ mod_uuid.v4() ] },
         'ownerNet3');
 };
 
@@ -140,7 +141,7 @@ exports['get provisionable networks'] = function (t) {
         }
 
         res.forEach(function (net) {
-            if (!net.owner_uuid || net.owner_uuid == owner) {
+            if (!net.owner_uuids || net.owner_uuids.indexOf(owner) !== -1) {
                 provisionable.push(net.uuid);
             }
         });

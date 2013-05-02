@@ -34,22 +34,23 @@ var nets = [];
 var nic;
 var owner = mod_uuid.v4();
 var owner2 = mod_uuid.v4();
+var owner3 = mod_uuid.v4();
 
-var netParams = helpers.validNetworkParams({ owner_uuid: owner });
+var netParams = helpers.validNetworkParams({ owner_uuids: [ owner3, owner ] });
 var net2Params = helpers.validNetworkParams({
     name: 'net2-' + process.pid,
-    owner_uuid: owner
+    owner_uuids: [ owner3, owner ]
 });
 var net3Params = helpers.validNetworkParams({
     name: 'net3-' + process.pid,
-    owner_uuid: mod_uuid.v4()
+    owner_uuids: [ mod_uuid.v4() ]
 });
 var net4Params = helpers.validNetworkParams({
     name: 'net4-' + process.pid
 });
 var net5Params = helpers.validNetworkParams({
     name: 'net5-' + process.pid,
-    owner_uuid: owner2
+    owner_uuids: [ owner2 ]
 });
 var pools = [];
 
@@ -68,13 +69,16 @@ var ip5 = util_ip.ntoa(util_ip.aton(netParams.provision_end_ip) - 5);
 function provisionNetwork(newNetParams, t) {
     NAPI.createNetwork(newNetParams, function (err, res) {
         t.ifError(err, 'error returned');
-
         if (err) {
+            t.deepEqual(err.body, {}, 'error body for debugging');
             return t.done();
         }
 
-        if (newNetParams.owner_uuid) {
-            t.equal(res.owner_uuid, newNetParams.owner_uuid, 'owner UUID');
+        if (newNetParams.owner_uuids) {
+            res.owner_uuids.sort();
+            newNetParams.owner_uuids.sort();
+            t.deepEqual(res.owner_uuids, newNetParams.owner_uuids,
+                'owner UUIDs');
         }
 
         nets.push(res);
@@ -235,6 +239,7 @@ function createPool(name, params, t) {
     NAPI.createNetworkPool(name, params, function (err, res) {
         t.ifError(err, 'error returned');
         if (err) {
+            t.deepEqual(err.body, {}, 'error body for debugging');
             return t.done();
         }
 
@@ -336,10 +341,10 @@ exports['create network pool with mismatched network owner_uuids']=
     function (t) {
     var params = {
         networks: [ nets[0].uuid, nets[2].uuid ],
-        owner_uuid: owner
+        owner_uuids: [ owner ]
     };
 
-    t.notEqual(nets[0].owner_uuid, nets[2].owner_uuid,
+    t.notEqual(nets[0].owner_uuids[0], nets[2].owner_uuids[0],
         'owner_uuids not equal');
 
     NAPI.createNetworkPool('pool1-fail-' + process.pid, params,
@@ -367,7 +372,7 @@ exports['create network pool with owner_uuid'] = function (t) {
     // pools[0]
     createPool('pool1-' + process.pid, {
         networks: [ nets[0].uuid, nets[1].uuid ].sort(),
-        owner_uuid: owner
+        owner_uuids: [ owner ]
     }, t);
 };
 
@@ -377,7 +382,7 @@ exports['create network pool: mixed owner_uuid and no owner_uuid'] =
     // pools[1]
     createPool('pool2-' + process.pid, {
         networks: [ nets[0].uuid, nets[3].uuid ].sort(),
-        owner_uuid: owner
+        owner_uuids: [ owner ]
     }, t);
 };
 
@@ -407,7 +412,7 @@ exports['update network pool: mismatched network owner_uuid'] =
 exports['update network pool: mismatched owner_uuid'] = function (t) {
     // Update a pool that has an owner to a different UUID that doesn't match
     updatePoolFailure(pools[1].uuid, {
-        owner_uuid: mod_uuid.v4()
+        owner_uuids: [ mod_uuid.v4() ]
     }, [ nets[0].uuid ], t);
 };
 
@@ -415,9 +420,9 @@ exports['update network pool: mismatched owner_uuid'] = function (t) {
 exports['update network pool: no owner_uuid to mismatched'] = function (t) {
     // Update a pool that has no owner to a UUID that doesn't match the
     // networks in the pool
-    t.ok(!pools[2].owner_uuid, 'pool has no owner_uuid');
+    t.ok(!pools[2].owner_uuids, 'pool has no owner_uuids');
     updatePoolFailure(pools[2].uuid, {
-        owner_uuid: mod_uuid.v4()
+        owner_uuids: [ mod_uuid.v4() ]
     }, [ nets[0].uuid ], t);
 };
 
@@ -427,14 +432,14 @@ exports['update network pool: mismatched owner_uuid'] = function (t) {
     // whose owner_uuid doesn't match
     updatePoolFailure(pools[1].uuid, {
         networks: [ nets[0].uuid, nets[2].uuid ],
-        owner_uuid: owner
+        owner_uuids: [ owner ]
     }, [ nets[2].uuid ], t);
 };
 
 
 exports['update network pool: no owner_uuid to one'] = function (t) {
     var params = {
-        owner_uuid: nets[0].owner_uuid
+        owner_uuids: [ nets[0].owner_uuids[0] ]
     };
 
     NAPI.updateNetworkPool(pools[2].uuid, params, function (err, res) {
@@ -443,7 +448,7 @@ exports['update network pool: no owner_uuid to one'] = function (t) {
             return t.done();
         }
 
-        t.equal(res.owner_uuid, params.owner_uuid, 'owner_uuid');
+        t.deepEqual(res.owner_uuids, params.owner_uuids, 'owner_uuids');
 
         return t.done();
     });
@@ -453,10 +458,10 @@ exports['update network pool: no owner_uuid to one'] = function (t) {
 exports['update network pool: networks and owner_uuid'] = function (t) {
     var params = {
         networks: [ nets[4].uuid ],
-        owner_uuid: owner2
+        owner_uuids: [ owner2 ]
     };
 
-    t.equal(nets[4].owner_uuid, owner2, 'owner_uuid equal');
+    t.deepEqual(nets[4].owner_uuids, [ owner2 ], 'owner_uuid equal');
 
     NAPI.updateNetworkPool(pools[2].uuid, params, function (err, res) {
         t.ifError(err, 'error returned');
@@ -466,7 +471,7 @@ exports['update network pool: networks and owner_uuid'] = function (t) {
         }
 
         pools[2].networks = params.networks;
-        pools[2].owner_uuid = params.owner_uuid;
+        pools[2].owner_uuids = params.owner_uuids;
         t.deepEqual(res, pools[2], 'result');
 
         return t.done();
@@ -474,9 +479,9 @@ exports['update network pool: networks and owner_uuid'] = function (t) {
 };
 
 
-exports['update network pool: remove owner_uuid'] = function (t) {
+exports['update network pool: remove owner_uuids'] = function (t) {
     var params = {
-        owner_uuid: ''
+        owner_uuids: ''
     };
 
     NAPI.updateNetworkPool(pools[2].uuid, params, function (err, res) {
@@ -486,9 +491,9 @@ exports['update network pool: remove owner_uuid'] = function (t) {
             return t.done();
         }
 
-        delete pools[2].owner_uuid;
+        delete pools[2].owner_uuids;
         t.deepEqual(res, pools[2], 'result');
-        t.ok(!res.hasOwnProperty('owner_uuid'), 'no owner_uuid present');
+        t.ok(!res.hasOwnProperty('owner_uuids'), 'no owner_uuids present');
 
         NAPI.getNetworkPool(pools[2].uuid, function (err2, res2) {
             t.ifError(err2, 'error returned');
@@ -548,6 +553,11 @@ exports['provisioning nic with a different owner_uuid'] = function (t) {
 
 exports['provisioning nic with same owner_uuid'] = function (t) {
     provisionNetworkNicWithOwner(owner, t);
+};
+
+
+exports['provisioning nic with second owner_uuid'] = function (t) {
+    provisionNetworkNicWithOwner(owner3, t);
 };
 
 

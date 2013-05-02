@@ -198,14 +198,14 @@ Creates a new logical network
 ||nic_tag||String||Name of the nic tag that this logical network is over||
 ||gateway||IP||Gateway IP address (Optional)||
 ||resolvers||Array of IPs||Resolver IP addresses (Optional)||
-||owner_uuid||UUID||UFDS user UUID of network's owner (Optional)||
+||owner_uuids||Array of UUIDs||UFDS user UUIDs allowed to provision on this network (Optional)||
 ||description||String||Description (Optional)||
 
 **Notes:**
 
 * The provisioning range of provision_start_ip to provision_end_ip is inclusive.
-* Specifying owner_uuid for a network limits the owner_uuid of nics and IPs
-  created on the network to either that owner_uuid or the UFDS admin UUID.
+* Specifying owner_uuids for a network limits the owner_uuid of nics and IPs
+  created on the network to those owner_uuids or the UFDS admin UUID.
 
 ### Example
 
@@ -671,14 +671,14 @@ Creates a new logical network provisioning pool.
 ||**Field**||**Type**||**Description**||
 ||name||String||network provisioning pool name||
 ||networks||Array of UUIDs||Logical Network UUIDs||
-||owner_uuid||UUID||UFDS user UUID of network's owner (Optional)||
+||owner_uuids||Array of UUIDs||UFDS user UUIDs allowed to provision on this network pool (Optional)||
 
 **Notes:**
 
-* Specifying owner_uuid for a pool limits the networks in that pool to those
-  with either no owner_uuid or a matching owner_uuid. You can therefore only
-  provision nics or IPs on a network in the pool according to its [owner_uuid
-  limitations](#CreateNetwork).
+* Specifying owner_uuids for a pool limits the networks in that pool to those
+  with either no owner_uuid or matching one of the owner_uuids. You can
+  therefore only provision nics or IPs on a network in the pool according to
+  its [owner_uuid limitations](#CreateNetwork).
 
 ### Example
 
@@ -777,3 +777,7 @@ No response payload, only a "204 No Content" response status.
 
   * Added network owner_uuid parameter
   * Added provisionable_by parameter to NetworkList endpoint
+
+## 2013-05-01
+
+  * Changed network and network owner_uuid parameter to owner_uuids
