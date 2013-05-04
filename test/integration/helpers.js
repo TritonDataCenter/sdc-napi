@@ -50,6 +50,7 @@ function addNetParamsToNic(state, params) {
  */
 function createNAPIclient() {
     return new NAPI({
+        agent: false,
         url: 'http://localhost:' + CONF.port
     });
 }

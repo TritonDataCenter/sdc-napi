@@ -231,6 +231,20 @@ FakeMoray.prototype.updateBucket =
 };
 
 
+
+// --- Fake workflow client object
+
+
+
+function FakeWFclient(opts) {
+    assert.object(opts, 'opts');
+    assert.object(opts.log, 'opts.log');
+
+    this.log = opts.log;
+}
+
+
+
 // --- Exports
 
 
@@ -267,6 +281,7 @@ function createClientAndServer(callback) {
 
     server.initialDataLoaded = true;
     server.moray = new FakeMoray({ log: log });
+    server.wfapi = new FakeWFclient({ log: log });
 
     server.on('initialized', function () {
         server.start(function (err) {
@@ -276,6 +291,7 @@ function createClientAndServer(callback) {
 
             SERVER = server;
             return callback(null, new napiClient({
+                agent: false,
                 url: server.info().url
             }));
         });

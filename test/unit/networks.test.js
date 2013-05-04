@@ -320,6 +320,14 @@ exports['Create network - provision start IP after end IP'] = function (t) {
 };
 
 
+
+// --- Update tests
+
+// XXX: can't update gateway to outside subnet
+// XXX: can't remove an owner_uuid from a network if its parent network
+//      pool has that owner
+
+
 // XXX: can't delete if in use by a network pool
 
 
