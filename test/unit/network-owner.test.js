@@ -87,12 +87,15 @@ function provisionNetwork(newNetParams, t) {
 }
 
 
-function provisionNicWithOwner(newOwner, provisionOn, t, callback) {
+function provisionNic(provisionOn, params, t, callback) {
+    var p;
     var provParams = {
         belongs_to_type: 'zone',
-        belongs_to_uuid: mod_uuid.v4(),
-        owner_uuid: newOwner
+        belongs_to_uuid: mod_uuid.v4()
     };
+    for (p in params) {
+        provParams[p] = params[p];
+    }
 
     NAPI.provisionNic(provisionOn, provParams, function (err, res) {
         t.ifError(err, 'error returned');
@@ -102,7 +105,8 @@ function provisionNicWithOwner(newOwner, provisionOn, t, callback) {
         }
 
         delete provParams.network_uuid;
-        for (var p in provParams) {
+        delete provParams.check_owner;
+        for (p in provParams) {
             t.equal(res[p], provParams[p], p);
         }
         nic = res;
@@ -113,8 +117,8 @@ function provisionNicWithOwner(newOwner, provisionOn, t, callback) {
 
 
 function provisionNetworkNicWithOwner(newOwner, t) {
-    return provisionNicWithOwner(newOwner, nets[0].uuid, t,
-        function (err, res) {
+    return provisionNic(nets[0].uuid, { owner_uuid: newOwner },
+        t, function (err, res) {
         if (err) {
             return t.done();
         }
@@ -161,12 +165,16 @@ function updateNicFailure(params, t) {
 }
 
 
-function createNicWithOwner(newOwner, ip, t) {
+function createNic(params, ip, t) {
+    var p;
     var provParams = {
         belongs_to_type: 'zone',
-        belongs_to_uuid: mod_uuid.v4(),
-        owner_uuid: newOwner
+        belongs_to_uuid: mod_uuid.v4()
     };
+
+    for (p in params) {
+        provParams[p] = params[p];
+    }
 
     if (ip !== null) {
         provParams.ip = ip;
@@ -180,7 +188,7 @@ function createNicWithOwner(newOwner, ip, t) {
             return t.done();
         }
 
-        for (var p in provParams) {
+        for (p in provParams) {
             t.equal(res[p], provParams[p], p);
         }
         nic = res;
@@ -212,11 +220,17 @@ function updateIPWithDifferentOwner(t) {
 }
 
 
-function successfulReserve(newOwner, t) {
-    NAPI.updateIP(nets[0].uuid, ip1, {
-        owner_uuid: newOwner,
+function successfulReserve(params, t) {
+    var updateParams = {
         reserved: true
-    }, function (err, res) {
+    };
+    for (var p in params) {
+        updateParams[p] = params[p];
+    }
+
+    t.ok(updateParams.owner_uuid, 'passed owner_uuid');
+
+    NAPI.updateIP(nets[0].uuid, ip1, updateParams, function (err, res) {
         t.ifError(err, 'error returned');
         if (err) {
             t.deepEqual(err.body, {}, 'error body for debugging');
@@ -226,7 +240,7 @@ function successfulReserve(newOwner, t) {
         t.deepEqual(res, {
                 free: false,
                 ip: ip1,
-                owner_uuid: newOwner,
+                owner_uuid: updateParams.owner_uuid,
                 reserved: true
             }, 'result');
 
@@ -515,7 +529,8 @@ exports['update network pool: remove owner_uuids'] = function (t) {
 
 exports['provisioning nic on network pool with same owner_uuid'] =
     function (t) {
-    return provisionNicWithOwner(owner, pools[0].uuid, t, function (err, res) {
+    return provisionNic(pools[0].uuid, { owner_uuid: owner }, t,
+        function (err, res) {
         if (err) {
             return t.done();
         }
@@ -545,6 +560,45 @@ exports['provisioning nic with a different owner_uuid'] = function (t) {
                 mod_err.invalidParam('owner_uuid', constants.OWNER_MATCH_MSG)
             ]
         }), 'Error body');
+
+        return t.done();
+    });
+};
+
+
+exports['provision nic on network with check_owner = false'] =
+    function (t) {
+    var otherOwner = mod_uuid.v4();
+    // XXX return provisionNic(pools[0].uuid, { owner_uuid: owner }, t,
+    return provisionNic(nets[0].uuid, {
+        owner_uuid: otherOwner,
+        check_owner: false
+    }, t, function (err, res) {
+        if (err) {
+            return t.done();
+        }
+
+        t.equal(res.owner_uuid, otherOwner, 'owner_uuid');
+        t.equal(res.network_uuid, nets[0].uuid, 'network_uuid');
+
+        return t.done();
+    });
+};
+
+
+exports['provision nic on network pool with check_owner = false'] =
+    function (t) {
+    var otherOwner = mod_uuid.v4();
+    return provisionNic(pools[0].uuid, {
+        owner_uuid: otherOwner,
+        check_owner: false
+    }, t, function (err, res) {
+        if (err) {
+            return t.done();
+        }
+
+        t.ok(pools[0].networks.indexOf(res.network_uuid) !== -1,
+            'provisioned on one of the pool networks');
 
         return t.done();
     });
@@ -586,6 +640,11 @@ exports['updating nic back to network owner_uuid'] = function (t) {
 };
 
 
+exports['updating nic with check_owner = false'] = function (t) {
+    updateNic({ owner_uuid: mod_uuid.v4(), check_owner: false }, t);
+};
+
+
 
 // --- Nic create tests
 
@@ -621,17 +680,17 @@ exports['creating nic with different owner_uuid'] = function (t) {
 
 
 exports['creating nic with network owner_uuid'] = function (t) {
-    createNicWithOwner(owner, ip2, t);
+    createNic({ owner_uuid: owner }, ip2, t);
 };
 
 
 exports['creating nic with admin owner_uuid'] = function (t) {
-    createNicWithOwner(owner, ip3, t);
+    createNic({ owner_uuid: owner }, ip3, t);
 };
 
 
 exports['create nic: different owner and no IP (1)'] = function (t) {
-    createNicWithOwner(mod_uuid.v4(), null, t);
+    createNic({ owner_uuid: mod_uuid.v4() }, null, t);
 };
 
 
@@ -645,7 +704,7 @@ exports['update nic with admin owner_uuid and IP'] = function (t) {
 
 
 exports['create nic: different owner and no IP (2)'] = function (t) {
-    createNicWithOwner(mod_uuid.v4(), null, t);
+    createNic({ owner_uuid: mod_uuid.v4() }, null, t);
 };
 
 
@@ -677,7 +736,7 @@ exports['reserving IP for a different owner_uuid'] = updateIPWithDifferentOwner;
 
 
 exports['reserving IP for same owner_uuid'] = function (t) {
-    successfulReserve(owner, t);
+    successfulReserve({ owner_uuid: owner }, t);
 };
 
 
@@ -686,9 +745,13 @@ exports['updating IP to a different owner_uuid'] = updateIPWithDifferentOwner;
 
 
 exports['reserving IP for admin owner_uuid'] = function (t) {
-    successfulReserve(CONF.ufdsAdminUuid, t);
+    successfulReserve({ owner_uuid: CONF.ufdsAdminUuid }, t);
 };
 
+
+exports['reserving IP with check_owner = false'] = function (t) {
+    successfulReserve({ owner_uuid: mod_uuid.v4(), check_owner: false }, t);
+};
 
 
 

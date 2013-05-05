@@ -278,6 +278,7 @@ Creates a new nic, provisioning an IP and MAC address in the process.
 ||ip||String||IP address to assign to the nic||
 ||reserved||Boolean||Whether the IP address should be reserved||
 ||nic_tags_provided||Array of nic tag names||Nic tags this nic provides||
+||check_owner||Boolean||If set to false, skips network ownership checks (optional)||
 
 **Notes:**
 
@@ -374,6 +375,7 @@ Modifies a specific IP on a Logical Network.
 ||belongs_to_type||String||The type that this belongs to (eg: 'zone', 'server')||
 ||reserved||Boolean||Whether the IP address should be reserved||
 ||unassign||Boolean||When set, removes belongs_to_uuid and belongs_to_type, ignoring all other parameters in the request||
+||check_owner||Boolean||If set to false, skips network ownership checks (optional)||
 
 ### Reserved IPs
 
@@ -522,6 +524,7 @@ Creates a new nic.
 ||reserved||Boolean||Whether the IP address should be reserved||
 ||nic_tags_provided||Array of nic tag names||Nic tags this nic provides||
 ||model||String||Nic model for KVM VMs (optional for other VM types)||
+||check_owner||Boolean||If set to false, skips network ownership checks (optional)||
 
 
 ### Example
@@ -580,6 +583,7 @@ Changes properties of the nic with the given MAC address.
 ||network_uuid||UUID||The network UUID the nic's IP should be on||
 ||nic_tags_provided||Array of nic tag names||Nic tags this nic provides||
 ||model||String||Nic model for KVM VMs (optional for other VM types)||
+||check_owner||Boolean||If set to false, skips network ownership checks (optional)||
 
 
 **Note: this is the MAC address with all colons removed.**
