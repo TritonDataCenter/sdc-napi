@@ -24,6 +24,7 @@ var vasync = require('vasync');
 // plus setup and teardown
 var runOne;
 var MORAY_IP = '10.0.2.15';
+var NON_MORAY_IP = '10.0.2.115';
 var NAPI;
 var NET;
 var INVALID_PARAMS = [
@@ -170,6 +171,44 @@ exports['Get IP - invalid'] = function (t) {
             });
         }
     }, function () {
+        return t.done();
+    });
+};
+
+
+exports['Get IP - record not in moray'] = function (t) {
+    NAPI.getIP(NET.uuid, NON_MORAY_IP, function (err, obj, req, res) {
+        t.ifError(err, 'error returned');
+        if (err) {
+            return t.done();
+        }
+
+        t.equal(res.statusCode, 200, 'status code');
+        t.deepEqual(obj, {
+            ip: NON_MORAY_IP,
+            reserved: false,
+            free: true
+        }, 'response');
+
+        return t.done();
+    });
+};
+
+
+exports['Get IP - record in moray'] = function (t) {
+    NAPI.getIP(NET.uuid, MORAY_IP, function (err, obj, req, res) {
+        t.ifError(err, 'error returned');
+        if (err) {
+            return t.done();
+        }
+
+        t.equal(res.statusCode, 200, 'status code');
+        t.deepEqual(obj, {
+            ip: MORAY_IP,
+            reserved: true,
+            free: false
+        }, 'response');
+
         return t.done();
     });
 };

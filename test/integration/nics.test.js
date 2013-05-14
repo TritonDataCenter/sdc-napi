@@ -673,16 +673,21 @@ exports['PUT /nics (with network_uuid set to admin)'] = function (t) {
         var desc = util.format(' [%s: with network_uuid set to admin]', mac);
         t.ifError(err, 'provision nic' + desc);
         if (err) {
+            t.deepEqual(err.body, {}, 'error body for debugging');
             return t.done();
         }
 
         state.nic.putIPwithName = params;
         state.desc.putIPwithName = desc;
 
-        var updateParams = { network_uuid: 'admin' };
+        var updateParams = {
+            network_uuid: 'admin',
+            owner_uuid: uuids.admin
+        };
         napi.updateNic(mac, updateParams, function (err2, res2) {
             t.ifError(err2, 'update nic' + desc);
             if (err2) {
+                t.deepEqual(err2.body, {}, 'error body for debugging');
                 return t.done();
             }
 
@@ -697,6 +702,7 @@ exports['PUT /nics (with network_uuid set to admin)'] = function (t) {
                 }
             }
             params.network_uuid = state.adminNet.uuid;
+            params.owner_uuid = updateParams.owner_uuid;
 
             t.deepEqual(res2, params, 'nic params returned' + desc);
             state.nic.putIPwithName = params;
@@ -710,7 +716,7 @@ exports['PUT /nics (with network_uuid set to admin)'] = function (t) {
 
                 var exp = {
                     ip: res2.ip,
-                    owner_uuid: uuids.b,
+                    owner_uuid: updateParams.owner_uuid,
                     belongs_to_type: 'server',
                     belongs_to_uuid: uuids.a,
                     reserved: false,

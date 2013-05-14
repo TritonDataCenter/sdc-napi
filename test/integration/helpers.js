@@ -21,7 +21,8 @@ var vasync = require('vasync');
 
 
 
-var NIC_NET_PARAMS = ['gateway', 'netmask', 'vlan_id', 'nic_tag', 'resolvers'];
+var NIC_NET_PARAMS = ['gateway', 'netmask', 'vlan_id', 'nic_tag', 'resolvers',
+    'routes'];
 var CONFIG_FILE = path.normalize(__dirname + '/../../config.json');
 var CONF = config.load(CONFIG_FILE);
 
