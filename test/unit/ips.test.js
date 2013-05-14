@@ -186,6 +186,7 @@ exports['Get IP - record not in moray'] = function (t) {
         t.equal(res.statusCode, 200, 'status code');
         t.deepEqual(obj, {
             ip: NON_MORAY_IP,
+            network_uuid: NET.uuid,
             reserved: false,
             free: true
         }, 'response');
@@ -205,6 +206,7 @@ exports['Get IP - record in moray'] = function (t) {
         t.equal(res.statusCode, 200, 'status code');
         t.deepEqual(obj, {
             ip: MORAY_IP,
+            network_uuid: NET.uuid,
             reserved: true,
             free: false
         }, 'response');
@@ -513,6 +515,7 @@ exports['Update IP - valid param combinations (IP in moray)'] =
     NAPI.updateIP(NET.uuid, '10.0.2.25', ipParams, function (err, ipRes) {
         t.ifError(err);
         ipParams.free = false;
+        ipParams.network_uuid = NET.uuid;
 
         t.deepEqual(ipRes, ipParams, 'response');
 
@@ -574,6 +577,7 @@ exports['Update IP - valid param combinations (IP not in moray)'] =
             updateData.free =
                 updateData.hasOwnProperty('reserved') ? true : false;
             updateData.reserved = false;
+            updateData.network_uuid = NET.uuid;
             updateData.ip = ip;
             t.deepEqual(obj, updateData, 'Response');
 
@@ -607,8 +611,9 @@ exports['Update IP - free (IP in moray)'] = function (t) {
 
             t.equal(res.statusCode, 200, 'status code');
             t.deepEqual(obj, {
-                ip: '10.0.2.55',
                 free: true,
+                ip: '10.0.2.55',
+                network_uuid: NET.uuid,
                 reserved: false
             }, 'Response');
 
@@ -629,8 +634,9 @@ exports['Update IP - free (IP not in moray)'] = function (t) {
 
         t.equal(res.statusCode, 200, 'status code');
         t.deepEqual(obj, {
-            ip: '10.0.2.4',
             free: true,
+            ip: '10.0.2.4',
+            network_uuid: NET.uuid,
             reserved: false
         }, 'Response');
 
@@ -661,6 +667,7 @@ exports['Update IP - unassign (IP in moray)'] = function (t) {
             t.deepEqual(obj, {
                 ip: '10.0.2.34',
                 free: false,
+                network_uuid: NET.uuid,
                 owner_uuid: params.owner_uuid,
                 reserved: false
             }, 'Response');
@@ -684,6 +691,7 @@ exports['Update IP - unassign (IP not in moray)'] = function (t) {
         t.deepEqual(obj, {
             ip: '10.0.2.35',
             free: true,
+            network_uuid: NET.uuid,
             reserved: false
         }, 'Response');
 

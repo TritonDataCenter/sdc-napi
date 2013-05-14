@@ -21,6 +21,22 @@ set -o pipefail
 
 
 
+#---- guard
+
+guard_file=/var/tmp/.sdc-test-no-production-data
+if [[ ! -f "$guard_file" ]]; then
+    cat <<EOF
+To run this test you must create the file:
+
+    $guard_file
+
+after ensuring you have no production data on this SDC.
+EOF
+    exit 2
+fi
+
+
+
 #---- support functions
 
 function fatal
@@ -36,6 +52,7 @@ function usage
     echo ""
     echo "Options:"
     echo "  -f FILTER   Filter pattern (substring match) for test files to run."
+    echo "  -s          Stop on first error."
 }
 
 
@@ -51,7 +68,8 @@ NODEUNIT=$TOP/node_modules/.bin/nodeunit
 
 # Options.
 opt_test_pattern=
-while getopts "hcqpf:" opt
+opt_stop_on_failure=
+while getopts "hf:s" opt
 do
     case "$opt" in
         h)
@@ -60,6 +78,9 @@ do
             ;;
         f)
             opt_test_pattern=$OPTARG
+            ;;
+        s)
+            opt_stop_on_failure="true"
             ;;
         *)
             usage
@@ -85,10 +106,17 @@ if [[ -n "$opt_test_pattern" ]]; then
     echo "# Running filtered set of test files: $test_files"
 fi
 
-if [[ -n "$test_files" ]]; then
-    PATH=$NODE_INSTALL/bin:$PATH $NODEUNIT --reporter=tap $test_files \
-        | tee $OUTPUT_DIR/napi-integration-tests.tap
-fi
+set +o errexit
+
+for file in $test_files; do
+    test_file=$(basename $file)
+    echo "# $test_file"
+    PATH=$NODE_INSTALL/bin:$PATH $NODEUNIT --reporter=tap $file \
+        | tee $OUTPUT_DIR/$test_file.tap
+    [[ "$?" != "0" ]] && [[ -n "$opt_stop_on_failure" ]] && break
+done
+
+set -o errexit
 
 echo ""
 echo "# test output:"

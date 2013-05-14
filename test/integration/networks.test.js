@@ -115,14 +115,15 @@ exports['Create network on second nic tag'] = function (t) {
 
 exports['validate IPs created with network'] = function (t) {
     var ips = [ '10.99.99.1', '10.99.99.2'].reduce(function (arr, i) {
-            arr.push(
-                { ip: i,
-                  belongs_to_uuid: ufdsAdminUuid,
-                  belongs_to_type: 'other',
-                  owner_uuid: ufdsAdminUuid,
-                  reserved: true,
-                  free: false
-                });
+            arr.push({
+                ip: i,
+                belongs_to_uuid: ufdsAdminUuid,
+                belongs_to_type: 'other',
+                network_uuid: state.network.uuid,
+                owner_uuid: ufdsAdminUuid,
+                reserved: true,
+                free: false
+            });
             return arr;
         }, []);
 

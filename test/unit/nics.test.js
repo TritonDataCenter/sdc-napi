@@ -507,6 +507,7 @@ exports['Update nic - IP parameters updated'] = function (t) {
                     belongs_to_uuid: exp.belongs_to_uuid,
                     free: false,
                     ip: exp.ip,
+                    network_uuid: NET.uuid,
                     owner_uuid: exp.owner_uuid,
                     reserved: false
                 }, 'get IP after update');

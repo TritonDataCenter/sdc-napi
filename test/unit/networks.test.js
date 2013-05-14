@@ -95,6 +95,7 @@ exports['Create network'] = function (t) {
                             belongs_to_uuid: CONF.ufdsAdminUuid,
                             free: false,
                             ip: ip,
+                            network_uuid: obj.uuid,
                             owner_uuid: CONF.ufdsAdminUuid,
                             reserved: true
                         }, util.format('IP %s params', ip));

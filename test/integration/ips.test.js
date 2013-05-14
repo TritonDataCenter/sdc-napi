@@ -46,9 +46,10 @@ exports['GET /networks/:uuid/ips/:ip (free IP)'] = function (t) {
     napi.getIP(state.network.uuid, '10.99.99.57', function (err, res) {
         t.ifError(err, 'getting IP: 10.99.99.57');
         var exp = {
+            free: true,
             ip: '10.99.99.57',
-            reserved: false,
-            free: true
+            network_uuid: state.network.uuid,
+            reserved: false
         };
         t.deepEqual(res, exp, 'GET on a free IP');
 
@@ -73,6 +74,7 @@ exports['PUT /networks/:uuid/ips/:ip'] = function (t) {
 
         params.ip = '10.99.99.59';
         params.free = false;
+        params.network_uuid = state.network.uuid;
         state.ip = params;
         t.deepEqual(res, params, 'reserving an IP');
 
@@ -100,6 +102,7 @@ exports['GET /networks/:uuid/ips'] = function (t) {
             belongs_to_uuid: uuids.admin,
             free: false,
             ip: '10.99.99.255',
+            network_uuid: state.network.uuid,
             owner_uuid: uuids.admin,
             reserved: true
         };
@@ -125,6 +128,7 @@ exports['PUT /networks/:uuid/ips/:ip (free an IP)'] = function (t) {
             params.ip = '10.99.99.59';
             params.free = true;
             params.reserved = false;
+            params.network_uuid = state.network.uuid;
             t.deepEqual(res, params, 'freeing an IP');
 
             return napi.getIP(state.network.uuid, params.ip,

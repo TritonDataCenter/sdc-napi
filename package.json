@@ -13,7 +13,7 @@
     "nodeunit": "git://github.com/rgulewich/nodeunit.git#80a3876",
     "nopt": "1.0",
     "restify": "git://github.com/mcavage/node-restify.git#631662b",
-    "sdc-clients": "git+ssh://git@git.joyent.com:node-sdc-clients.git#30e72f3",
+    "sdc-clients": "git+ssh://git@git.joyent.com:node-sdc-clients.git#8c6b08f",
     "vasync": "1.3",
     "verror": "1.3.5",
     "wf-client": "git+ssh://git@git.joyent.com:wf-client.git#48f100b",

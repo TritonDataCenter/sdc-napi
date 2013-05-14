@@ -240,6 +240,7 @@ function successfulReserve(params, t) {
         t.deepEqual(res, {
                 free: false,
                 ip: ip1,
+                network_uuid: nets[0].uuid,
                 owner_uuid: updateParams.owner_uuid,
                 reserved: true
             }, 'result');

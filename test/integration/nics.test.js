@@ -177,10 +177,11 @@ exports['POST /nics (with IP already reserved)'] = function (t) {
             }
 
             var exp = {
-                ip: params.ip,
-                owner_uuid: params.owner_uuid,
                 belongs_to_type: params.belongs_to_type,
                 belongs_to_uuid: params.belongs_to_uuid,
+                ip: params.ip,
+                network_uuid: state.network.uuid,
+                owner_uuid: params.owner_uuid,
                 reserved: true,
                 free: false
             };
@@ -260,10 +261,11 @@ exports['Check IPs are created along with nics'] = function (t) {
             }
 
             var exp = {
-                ip: ip,
-                owner_uuid: uuids.b,
                 belongs_to_type: 'server',
                 belongs_to_uuid: uuids.a,
+                ip: ip,
+                network_uuid: state.network.uuid,
+                owner_uuid: uuids.b,
                 reserved: false,
                 free: false
             };
@@ -315,10 +317,11 @@ exports['POST /nics (with reserved IP)'] = function (t) {
             }
 
             var exp = {
-                ip: params.ip,
-                owner_uuid: params.owner_uuid,
                 belongs_to_type: params.belongs_to_type,
                 belongs_to_uuid: params.belongs_to_uuid,
+                ip: params.ip,
+                network_uuid: state.network.uuid,
+                owner_uuid: params.owner_uuid,
                 reserved: true,
                 free: false
             };
@@ -452,10 +455,11 @@ exports['DELETE /nics/:mac (with reserved IP)'] = function (t) {
 
                 // A reserved IP should keep its owner information
                 var exp = {
+                    free: false,
                     ip: nic.ip,
+                    network_uuid: state.network.uuid,
                     owner_uuid: nic.owner_uuid,
-                    reserved: true,
-                    free: false
+                    reserved: true
                 };
                 t.deepEqual(res2, exp, 'IP params correct: ' + nic.ip
                     + desc);
@@ -559,10 +563,11 @@ exports['Check IPs are updated along with nics'] = function (t) {
             }
 
             var exp = {
-                ip: ip,
-                owner_uuid: uuids.c,
                 belongs_to_uuid: uuids.d,
                 belongs_to_type: 'other',
+                ip: ip,
+                network_uuid: state.network.uuid,
+                owner_uuid: uuids.c,
                 reserved: false,
                 free: false
             };
@@ -628,10 +633,11 @@ exports['PUT /nics (with network_uuid)'] = function (t) {
                 }
 
                 var exp = {
-                    ip: res2.ip,
-                    owner_uuid: uuids.b,
                     belongs_to_type: 'server',
                     belongs_to_uuid: uuids.a,
+                    ip: res2.ip,
+                    network_uuid: state.network.uuid,
+                    owner_uuid: uuids.b,
                     reserved: false,
                     free: false
                 };
@@ -715,10 +721,11 @@ exports['PUT /nics (with network_uuid set to admin)'] = function (t) {
                 }
 
                 var exp = {
-                    ip: res2.ip,
-                    owner_uuid: updateParams.owner_uuid,
                     belongs_to_type: 'server',
                     belongs_to_uuid: uuids.a,
+                    ip: res2.ip,
+                    network_uuid: state.adminNet.uuid,
+                    owner_uuid: updateParams.owner_uuid,
                     reserved: false,
                     free: false
                 };
@@ -1021,9 +1028,10 @@ exports['Check IPs are freed along with nics'] = function (t) {
             }
 
             var exp = {
+                free: true,
                 ip: ip,
-                reserved: false,
-                free: true
+                network_uuid: state.network.uuid,
+                reserved: false
             };
             t.deepEqual(res, exp, 'Updated IP params correct' + desc);
             return cb();
