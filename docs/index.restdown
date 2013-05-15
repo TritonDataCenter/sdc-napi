@@ -1,6 +1,6 @@
 ---
 title: Networking API (NAPI)
-apisections: Nic Tags, Networks, IPs, Nics, Network Pools
+apisections: Nic Tags, Networks, IPs, Nics, Network Pools, Search
 markdown2extras: wiki-tables, code-friendly
 ---
 
@@ -198,6 +198,7 @@ Creates a new logical network
 ||nic_tag||String||Name of the nic tag that this logical network is over||
 ||gateway||IP||Gateway IP address (Optional)||
 ||resolvers||Array of IPs||Resolver IP addresses (Optional)||
+||routes||Routes Object||Static routes for hosts on this network (Optional)||
 ||owner_uuids||Array of UUIDs||UFDS user UUIDs allowed to provision on this network (Optional)||
 ||description||String||Description (Optional)||
 
@@ -207,16 +208,33 @@ Creates a new logical network
 * Specifying owner_uuids for a network limits the owner_uuid of nics and IPs
   created on the network to those owner_uuids or the UFDS admin UUID.
 
+
+### Routes object
+
+The routes object is a JSON object where the keys are the IP or subnet
+destinations, and the values are the gateways for those destinations. For
+example:
+
+    {
+        "10.88.88.0/24": "10.99.99.7",
+        "10.77.77.2": "10.99.99.254"
+    }
+
+This sets two static routes:
+* subnet 10.88.88.0/24 through the gateway 10.99.99.7
+* host 10.77.77.2 through the gateway 10.99.99.254
+
+
 ### Example
 
     POST /networks
-        -d name=internal
-        -d vlan_id=401
-        -d subnet=10.0.2.0/24
-        -d provision_start_ip=10.0.2.5
-        -d provision_end_ip=10.0.2.250
-        -d nic_tag=internal
-        -d gateway=10.0.2.1
+        name=internal
+        vlan_id=401
+        subnet=10.0.2.0/24
+        provision_start_ip=10.0.2.5
+        provision_end_ip=10.0.2.250
+        nic_tag=internal
+        gateway=10.0.2.1
     {
       "uuid": "dcb499bd-1caf-4ff6-8d70-4e6d5c02dff3",
       "name": "internal",
@@ -228,6 +246,64 @@ Creates a new logical network
       "nic_tag": "internal",
       "resolvers": [],
       "gateway": "10.0.2.1"
+    }
+
+
+## UpdateNetwork (PUT /networks/:network_uuid)
+
+Updates a logical network.  Note updating the following parameters will cause
+a workflow to be run to update VMs on that network with the changes:
+* resolvers
+* routes
+* gateway
+
+### Inputs
+
+All fields are optional. At least one must be specified.
+
+||**Field**||**Type**||**Description**||
+||name||String||network name||
+||gateway||IP||Gateway IP address||
+||resolvers||Array of IPs||Resolver IP addresses||
+||routes||Routes Object||Static routes for hosts on this network (See the Routes Object description above)||
+||owner_uuids||Array of UUIDs||UFDS user UUIDs allowed to provision on this network||
+||description||String||Description||
+
+**Notes:**
+
+* The provisioning range of provision_start_ip to provision_end_ip is inclusive.
+* Specifying owner_uuids for a network limits the owner_uuid of nics and IPs
+  created on the network to those owner_uuids or the UFDS admin UUID.
+* If one of the parameters causing a workflow to run is changed, the response
+  will include a *job_uuid* field that can be used to obtain the job details
+  from the workflow API.
+
+### Example
+
+    PUT /networks/2c670e67-bcd1-44c8-b59c-aaf7d8cfa17b
+        description="Admin network"
+        routes={ "10.88.88.0/24": "10.99.99.7" }
+
+    {
+      "uuid": "2c670e67-bcd1-44c8-b59c-aaf7d8cfa17b",
+      "name": "admin",
+      "vlan_id": 0,
+      "subnet": "10.99.99.0/24",
+      "netmask": "255.255.255.0",
+      "provision_start_ip": "10.99.99.37",
+      "provision_end_ip": "10.99.99.253",
+      "nic_tag": "admin",
+      "resolvers": [
+        "10.99.99.11"
+      ],
+      "routes": {
+        "10.88.88.0/24": "10.99.99.7"
+      },
+      "owner_uuids": [
+        "930896af-bf8c-48d4-885c-6573a94b1853"
+      ],
+      "description": "Admin network",
+      "job_uuid": "fdeb7f1a-24ee-40a0-899f-736e68ffae39"
     }
 
 
@@ -755,6 +831,46 @@ None.
 No response payload, only a "204 No Content" response status.
 
 
+
+# Search
+
+These endpoints are for searching the various components of NAPI.
+
+
+## SearchIPs (GET /search/ips)
+
+Searches IPs across all logical networks.
+
+
+### Inputs
+
+||**Field**||**Type**||**Description**||
+||ip||IP address||IP address to search for (required)||
+
+
+### Example
+
+    GET /search/ips?ip=10.77.77.1
+    [
+      {
+        "ip": "10.77.77.1",
+        "reserved": false,
+        "free": false,
+        "belongs_to_type": "zone",
+        "belongs_to_uuid": "807223ae-bcc7-11e2-841a-3bf662b0a0c3",
+        "owner_uuid": "8d40ace0-bcc7-11e2-9bae-575fff7de171",
+        "network_uuid": "1d0dd3de-1d8b-4f31-a58a-284eb2d9335f"
+      },
+      {
+        "ip": "10.77.77.1",
+        "reserved": false,
+        "free": true,
+        "network_uuid": "210ed836-737a-4dfe-97f9-a9f5f6811581"
+      }
+    ]
+
+
+
 # Changelog
 
 ## 2012-07-04
@@ -785,3 +901,8 @@ No response payload, only a "204 No Content" response status.
 ## 2013-05-01
 
   * Changed network and network owner_uuid parameter to owner_uuids
+
+## 2013-05-14
+
+  * Added SearchIPs endpoint
+  * Added UpdateNetwork endpoint

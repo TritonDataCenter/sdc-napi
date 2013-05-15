@@ -409,6 +409,7 @@ function validNetworkParams(override) {
 module.exports = {
     createClientAndServer: createClientAndServer,
     fieldSort: fieldSort,
+    ifErr: common.ifErr,
     invalidParamErr: common.invalidParamErr,
     missingParam: missingParam,
     morayBuckets: morayBuckets,

@@ -33,7 +33,11 @@ exports['create test nic tag'] = function (t) {
 
 
 exports['create test network'] = function (t) {
-    helpers.createNetwork(t, napi, state);
+    helpers.createNetwork(t, napi, state, {
+        subnet: '10.1.1.0/24',
+        provision_start_ip: '10.1.1.5',
+        provision_end_ip: '10.1.1.250'
+    });
 };
 
 
@@ -43,17 +47,25 @@ exports['create test network'] = function (t) {
 
 
 exports['GET /networks/:uuid/ips/:ip (free IP)'] = function (t) {
-    napi.getIP(state.network.uuid, '10.99.99.57', function (err, res) {
-        t.ifError(err, 'getting IP: 10.99.99.57');
+    napi.getIP(state.network.uuid, '10.1.1.57', function (err, res) {
+        t.ifError(err, 'getting IP: 10.1.1.57');
         var exp = {
             free: true,
-            ip: '10.99.99.57',
+            ip: '10.1.1.57',
             network_uuid: state.network.uuid,
             reserved: false
         };
         t.deepEqual(res, exp, 'GET on a free IP');
 
-        return t.done();
+        napi.searchIPs('10.1.1.57', function (err2, res2) {
+            if (helpers.ifErr(t, err2, 'searchIPs')) {
+                return t.done();
+            }
+
+            t.deepEqual(res2, [ exp ], 'search response');
+
+            return t.done();
+        });
     });
 };
 
@@ -66,13 +78,13 @@ exports['PUT /networks/:uuid/ips/:ip'] = function (t) {
         belongs_to_uuid: uuids.a
     };
 
-    napi.updateIP(state.network.uuid, '10.99.99.59', params,
+    napi.updateIP(state.network.uuid, '10.1.1.59', params,
         function (err, res) {
         if (err) {
-            return helpers.doneWithError(err, 'updating IP: 10.99.99.59');
+            return helpers.doneWithError(err, 'updating IP: 10.1.1.59');
         }
 
-        params.ip = '10.99.99.59';
+        params.ip = '10.1.1.59';
         params.free = false;
         params.network_uuid = state.network.uuid;
         state.ip = params;
@@ -101,7 +113,7 @@ exports['GET /networks/:uuid/ips'] = function (t) {
             belongs_to_type: 'other',
             belongs_to_uuid: uuids.admin,
             free: false,
-            ip: '10.99.99.255',
+            ip: '10.1.1.255',
             network_uuid: state.network.uuid,
             owner_uuid: uuids.admin,
             reserved: true
@@ -119,13 +131,13 @@ exports['PUT /networks/:uuid/ips/:ip (free an IP)'] = function (t) {
             free: true
         };
 
-        napi.updateIP(state.network.uuid, '10.99.99.59', params,
+        napi.updateIP(state.network.uuid, '10.1.1.59', params,
             function (err, res) {
             if (err) {
-                return helpers.doneWithError(t, err, 'freeing IP: 10.99.99.59');
+                return helpers.doneWithError(t, err, 'freeing IP: 10.1.1.59');
             }
 
-            params.ip = '10.99.99.59';
+            params.ip = '10.1.1.59';
             params.free = true;
             params.reserved = false;
             params.network_uuid = state.network.uuid;
@@ -133,7 +145,7 @@ exports['PUT /networks/:uuid/ips/:ip (free an IP)'] = function (t) {
 
             return napi.getIP(state.network.uuid, params.ip,
                 function (err2, res2) {
-                t.ifError(err2, 'getting free IP: 10.99.99.59');
+                t.ifError(err2, 'getting free IP: 10.1.1.59');
                 if (err2) {
                     return cb(err2);
                 }

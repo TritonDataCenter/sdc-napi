@@ -281,6 +281,7 @@ module.exports = {
     deleteNicTag: deleteNicTag,
     deleteNicTags: deleteNicTags,
     doneWithError: doneWithError,
+    ifErr: common.ifErr,
     invalidParamErr: common.invalidParamErr,
     nicNetParams: NIC_NET_PARAMS,
     randomMAC: common.randomMAC,

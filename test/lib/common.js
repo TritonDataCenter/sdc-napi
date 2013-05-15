@@ -5,6 +5,7 @@
  */
 
 var assert = require('assert-plus');
+var mod_err = require('../../lib/util/errors');
 
 
 // --- Exported functions
@@ -30,6 +31,21 @@ function randomMAC() {
 
 
 /**
+ * Calls t.ifError, outputs the error body for diagnostic purposes, and
+ * returns true if there was an error
+ */
+function ifErr(t, err, desc) {
+    t.ifError(err, desc);
+    if (err) {
+        t.deepEqual(err.body, {}, desc + ': error body');
+        return true;
+    }
+
+    return false;
+}
+
+
+/**
  * Returns an invalid parameter error body, overriding with fields in
  * extra
  */
@@ -38,7 +54,7 @@ function invalidParamErr(extra) {
 
     var newErr = {
         code: 'InvalidParameters',
-        message: 'Invalid parameters'
+        message: mod_err.INVALID_MSG
     };
 
     for (var e in extra) {
@@ -51,6 +67,7 @@ function invalidParamErr(extra) {
 
 
 module.exports = {
+    ifErr: ifErr,
     invalidParamErr: invalidParamErr,
     randomMAC: randomMAC
 };
