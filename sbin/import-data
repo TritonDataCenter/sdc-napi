@@ -23,13 +23,6 @@ var CONFIG;
 var DIRECTORY;
 var DRY_RUN = false;
 var FILES;
-var LOG = bunyan.createLogger({
-    name: path.basename(process.argv[1]),
-    level: (process.env.LOG_LEVEL || 'info'),
-    stream: process.stderr,
-    serializers: bunyan.stdSerializers
-});
-var MORAY;
 var NAPI;
 var NETWORKS = {};
 var NETWORK_MAP = {};
@@ -118,15 +111,17 @@ function process_argv() {
     DIRECTORY = dir;
 }
 
-
-
-// --- Main functions
-
-
 function morayClient(callback) {
+    var log = bunyan.createLogger({
+        name: path.basename(process.argv[1]),
+        level: (process.env.LOG_LEVEL || 'info'),
+        stream: process.stderr,
+        serializers: bunyan.stdSerializers
+    });
+
     var conf = {
         connectTimeout: 10000,
-        log: LOG,
+        log: log,
         host: CONFIG.moray.host,
         noCache: true,
         port: CONFIG.moray.port,
@@ -163,33 +158,10 @@ function morayClient(callback) {
     client.once('error', onMorayError);
 }
 
-function morayClientInit(_, callback) {
-    var conf = {
-        connectTimeout: 10000,
-        log: LOG,
-        host: CONFIG.moray.host,
-        noCache: true,
-        port: CONFIG.moray.port,
-        retry: {
-            retries: Infinity,
-            minTimeout: 1000,
-            maxTimeout: 60000
-        }
-    };
-    MORAY = moray.createClient(conf);
 
-    function onMorayError(err) {
-        return callback(err);
-    }
 
-    function onMorayConnect() {
-        MORAY.removeListener('error', onMorayError);
-        return callback();
-    }
+// --- Main functions
 
-    MORAY.once('connect', onMorayConnect);
-    MORAY.once('error', onMorayError);
-}
 
 
 function getFiles(_, callback) {
@@ -468,16 +440,32 @@ function createNetworkIPs(file, cb) {
 
             started++;
 
-            console.log('  bucket: %s: batch length=%d',
-                bucketName, batch.length);
+            console.log('  adding %d IPs to bucket %s',
+                batch.length, bucketName);
 
             if (DRY_RUN) {
                 finished++;
                 return _returnIfDone();
             }
 
-            client.batch(batch, function (err2) {
+            vasync.forEachParallel({
+                inputs: batch,
+                func: function _createIP(rec, cb2) {
+                    // console.log('creating IP %s', rec.key);
+                    client.putObject(rec.bucket, rec.key, rec.value,
+                        { etag: null }, function (err3) {
+                        if (err3 && err3.name === 'EtagConflictError') {
+                            console.log('  IP %s/%s already exists: ignoring',
+                                rec.bucket, rec.key);
+                            return cb2();
+                        }
+
+                        return cb2(err3);
+                   });
+                }
+            }, function (err2) {
                 finished++;
+
                 if (err2) {
                     console.error('Error adding batch to %s: %s', bucketName,
                         err2.toString());
@@ -486,6 +474,7 @@ function createNetworkIPs(file, cb) {
 
                 _returnIfDone();
             });
+
         }, function () {
             closed = true;
 
@@ -498,16 +487,6 @@ function createNetworkIPs(file, cb) {
 function createIPs(_, callback) {
     enter('creating IPs');
     var ipFiles = FILES.filter(function (f) { return /^napi_ips/.test(f); });
-
-    /*
-     * vasync.pipeline({
-     *   funcs: ipFiles.map(function (f) {
-     *     return function (_, cb ) {
-     *       createNetworkIPs(f, cb);
-     *     }
-     *   })
-     * }, callback);
-     */
 
     vasync.forEachParallel({
         inputs: ipFiles,
@@ -563,17 +542,34 @@ function createNics(file, cb) {
 
             started++;
 
-            console.log('  bucket: napi_nics: batch length=%d', batch.length);
+            console.log('  adding %d nics to bucket napi_nics', batch.length);
+
             if (DRY_RUN) {
                 finished++;
                 return _returnIfDone();
             }
 
-            client.batch(batch, function (err2) {
+            vasync.forEachParallel({
+                inputs: batch,
+                func: function _createNic(rec, cb2) {
+                    // console.log('creating nic %s', rec.key);
+                    client.putObject(rec.bucket, rec.key, rec.value,
+                        { etag: null }, function (err3) {
+                        if (err3 && err3.name === 'EtagConflictError') {
+                            // Already exists - ignore
+                            console.log('  nic %s already exists: ignoring',
+                                rec.key);
+                            return cb2();
+                        }
+
+                        return cb2(err3);
+                   });
+                }
+            }, function (err2) {
                 finished++;
+
                 if (err2) {
-                    console.error('Error adding batch to napi_nics: %s',
-                        err2.toString());
+                    console.error('Error creating nic: %s', err2.toString());
                     stream.destroy();
                 }
 
@@ -599,7 +595,6 @@ function main() {
 
     vasync.pipeline({
     funcs: [
-        // morayClientInit,
         getFiles,
         getNicTags,
         getNetworks,
@@ -625,8 +620,8 @@ function main() {
             }
         }
 
-        if (MORAY) {
-            MORAY.close();
+        if (NAPI) {
+            NAPI.client.close();
         }
 
         if (err) {
