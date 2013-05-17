@@ -221,6 +221,7 @@ example:
     }
 
 This sets two static routes:
+
 * subnet 10.88.88.0/24 through the gateway 10.99.99.7
 * host 10.77.77.2 through the gateway 10.99.99.254
 
