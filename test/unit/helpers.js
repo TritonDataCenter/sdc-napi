@@ -10,9 +10,12 @@ var common = require('../lib/common');
 var fs = require('fs');
 var EventEmitter = require('events').EventEmitter;
 var ldapjs = require('ldapjs');
+var mod_ip = require('../../lib/models/ip');
 var NAPI = require('../../lib/napi').NAPI;
 var napiClient = require('sdc-clients/lib/napi');
 var restify = require('restify');
+var util = require('util');
+var util_ip = require('../../lib/util/ip');
 var verror = require('verror');
 
 
@@ -24,6 +27,7 @@ var verror = require('verror');
 var BUCKETS = {};
 // Set to log messages to stderr
 var LOG = process.env.LOG || false;
+var MORAY_ERRORS = {};
 var SERVER;
 
 
@@ -76,6 +80,11 @@ FakeMoray.prototype._put = function _store(bucket, key, val) {
 FakeMoray.prototype.batch = function batch(data, callback) {
     assert.arrayOfObject(data, 'data');
 
+    var err = getNextMorayError('batch');
+    if (err) {
+        return callback(err);
+    }
+
     for (var b in data) {
         var item = data[b];
         assert.string(item.bucket, 'item.bucket');
@@ -99,12 +108,22 @@ FakeMoray.prototype.batch = function batch(data, callback) {
 FakeMoray.prototype.createBucket =
     function createBucket(bucket, schema, callback) {
 
+    var err = getNextMorayError('createBucket');
+    if (err) {
+        return callback(err);
+    }
+
     BUCKETS[bucket] = {};
     return callback();
 };
 
 
 FakeMoray.prototype.delObject = function delObject(bucket, key, callback) {
+    var err = getNextMorayError('delObject');
+    if (err) {
+        return callback(err);
+    }
+
     if (!BUCKETS.hasOwnProperty(bucket)) {
         return callback(bucketNotFoundErr(bucket));
     }
@@ -123,6 +142,12 @@ FakeMoray.prototype.findObjects = function findObjects(bucket, filter, opts) {
     var filterObj = ldapjs.parseFilter(filter);
 
     process.nextTick(function () {
+        var err = getNextMorayError('findObjects');
+        if (err) {
+            res.emit('error', err);
+            return;
+        }
+
         if (!BUCKETS.hasOwnProperty(bucket)) {
             res.emit('error', bucketNotFoundErr(bucket));
             return;
@@ -142,6 +167,11 @@ FakeMoray.prototype.findObjects = function findObjects(bucket, filter, opts) {
 
 
 FakeMoray.prototype.getBucket = function getBucket(bucket, callback) {
+    var err = getNextMorayError('getBucket');
+    if (err) {
+        return callback(err);
+    }
+
     if (!BUCKETS.hasOwnProperty(bucket)) {
         return callback(bucketNotFoundErr(bucket));
     }
@@ -153,6 +183,11 @@ FakeMoray.prototype.getBucket = function getBucket(bucket, callback) {
 
 
 FakeMoray.prototype.getObject = function getObject(bucket, key, callback) {
+    var err = getNextMorayError('getObject');
+    if (err) {
+        return callback(err);
+    }
+
     if (!BUCKETS.hasOwnProperty(bucket)) {
         return callback(bucketNotFoundErr(bucket));
     }
@@ -172,12 +207,16 @@ FakeMoray.prototype.putObject =
         opts = {};
     }
 
+    var err = getNextMorayError('putObject');
+    if (err) {
+        return callback(err);
+    }
+
     if (!BUCKETS.hasOwnProperty(bucket)) {
         return callback(bucketNotFoundErr(bucket));
     }
 
     this._put(bucket, key, value);
-    // XXX: allow returning an error here
     return callback();
 };
 
@@ -198,6 +237,12 @@ FakeMoray.prototype.sql = function sql(str) {
     assert.number(lt, 'lt');
 
     process.nextTick(function () {
+        var err = getNextMorayError('sql');
+        if (err) {
+            res.emit('error', err);
+            return;
+        }
+
         if (!BUCKETS.hasOwnProperty(bucket)) {
             res.emit('error', bucketNotFoundErr(bucket));
             return;
@@ -226,8 +271,7 @@ FakeMoray.prototype.sql = function sql(str) {
 FakeMoray.prototype.updateBucket =
     function updateBucket(bucket, schema, callback) {
 
-        // XXX: throw here?
-    return callback();
+    return callback(new Error('FakeMoray: not implemented'));
 };
 
 
@@ -310,6 +354,33 @@ function fieldSort(a, b) {
 
 
 /**
+ * Gets an IP record from fake moray
+ */
+function getIPrecord(network, ip) {
+    var bucketName = mod_ip.bucket(network).name;
+    if (!BUCKETS.hasOwnProperty(bucketName)) {
+        return util.format('Bucket %s not found', bucketName);
+    }
+
+    return BUCKETS[bucketName][util_ip.aton(ip).toString()];
+}
+
+
+/**
+ * If there's an error in MORAY_ERRORS for the given operation, return it.
+ */
+function getNextMorayError(op) {
+    if (!MORAY_ERRORS.hasOwnProperty(op) ||
+        typeof (MORAY_ERRORS[op]) !== 'object' ||
+        MORAY_ERRORS.length === 0) {
+        return;
+    }
+
+    return MORAY_ERRORS[op].shift();
+}
+
+
+/**
  * Returns a missing parameter error array element
  */
 function missingParam(field, message) {
@@ -329,6 +400,14 @@ function missingParam(field, message) {
  */
 function morayBuckets() {
     return BUCKETS;
+}
+
+
+/**
+ * Sets moray to return errors for the given operations
+ */
+function setMorayErrors(obj) {
+    MORAY_ERRORS = obj;
 }
 
 
@@ -410,10 +489,12 @@ module.exports = {
     createClientAndServer: createClientAndServer,
     fieldSort: fieldSort,
     ifErr: common.ifErr,
+    getIPrecord: getIPrecord,
     invalidParamErr: common.invalidParamErr,
     missingParam: missingParam,
     morayBuckets: morayBuckets,
     randomMAC: common.randomMAC,
+    setMorayErrors: setMorayErrors,
     stopServer: stopServer,
     validIPparams: validIPparams,
     validNicparams: validNicparams,

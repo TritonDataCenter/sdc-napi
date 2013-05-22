@@ -119,8 +119,9 @@ done
 set -o errexit
 
 echo ""
-echo "# test output:"
-ls $OUTPUT_DIR/*.tap
+echo "# test output in $OUTPUT_DIR:"
+cd $OUTPUT_DIR
+ls *.tap
 
 
 # Colored summary of results (borrowed from smartos-live.git/src/vm/run-tests).

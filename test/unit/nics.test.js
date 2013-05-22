@@ -30,6 +30,7 @@ var NAPI;
 var NET;
 var NET2;
 var NET3;
+var PROV_MAC_NET;
 
 
 
@@ -92,6 +93,14 @@ exports['Initial setup'] = function (t) {
                 var params = helpers.validNetworkParams({ name: 'admin' });
                 NAPI.createNetwork(params, function (err2, res2) {
                     ADMIN_NET = res2;
+                    cb(err2);
+                });
+            },
+
+            function _macNet3(_, cb) {
+                NAPI.createNetwork(helpers.validNetworkParams({ vlan_id: 48 }),
+                    function (err2, res2) {
+                    PROV_MAC_NET = res2;
                     cb(err2);
                 });
             }
@@ -335,6 +344,55 @@ exports['Provision nic'] = function (t) {
         }, 'result');
 
         return t.done();
+    });
+};
+
+
+exports['Provision nic: exceed MAC retries'] = function (t) {
+    var params = {
+        belongs_to_type: 'zone',
+        belongs_to_uuid: mod_uuid.v4(),
+        owner_uuid:  mod_uuid.v4()
+    };
+
+    // One null error so that we can provision an IP
+    var errs = [ null ];
+    for (var i = 0; i < constants.MAC_RETRIES + 1; i++) {
+        var fakeErr = new Error('Already exists');
+        fakeErr.name = 'EtagConflictError';
+        errs.push(fakeErr);
+    }
+    helpers.setMorayErrors({ putObject: errs });
+
+    NAPI.provisionNic(PROV_MAC_NET.uuid, params, function (err) {
+        t.ok(err, 'error returned');
+        if (!err) {
+            return t.done();
+        }
+
+        t.equal(err.statusCode, 500, 'status code');
+        t.deepEqual(err.body, {
+            code: 'InternalError',
+            message: 'no more free MAC addresses'
+        }, 'Error body');
+
+        // Confirm that the IP was freed
+        NAPI.getIP(PROV_MAC_NET.uuid, PROV_MAC_NET.provision_start_ip,
+            function (err2, res) {
+            if (helpers.ifErr(t, err2, 'getIP error')) {
+                return t.done();
+            }
+
+            t.equal(res.free, true, 'IP has been freed');
+            var ipRec = helpers.getIPrecord(PROV_MAC_NET.uuid,
+                PROV_MAC_NET.provision_start_ip);
+            t.ok(ipRec, 'IP record exists in moray');
+            if (ipRec) {
+                t.equal(ipRec.reserved, false, 'IP is not reserved');
+            }
+
+            return t.done();
+        });
     });
 };
 
