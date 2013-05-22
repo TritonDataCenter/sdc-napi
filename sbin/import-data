@@ -16,6 +16,7 @@ var path = require('path');
 var util = require('util');
 var util_ip = require('../lib/util/ip');
 var vasync = require('vasync');
+var VError = require('verror').VError;
 
 
 
@@ -159,6 +160,15 @@ function morayClient(callback) {
 }
 
 
+function subnetEndIP(start, bits) {
+    var startNum = Number(start);
+    var bitsNum = Number(bits);
+    if (!startNum || !bitsNum) {
+        return null;
+    }
+    return startNum + Math.pow(2, 32 - bitsNum) - 1;
+}
+
 
 // --- Main functions
 
@@ -219,6 +229,10 @@ function createNicTags(_, callback) {
         vasync.forEachParallel({
             inputs: lines,
             func: function _create(line, cb) {
+                if (line === '') {
+                    return cb();
+                }
+
                 try {
                     var json = JSON.parse(line);
                 } catch (err2) {
@@ -259,10 +273,40 @@ function createNetworks(_, callback) {
         vasync.forEachParallel({
             inputs: lines,
             func: function _create(line, cb) {
+                if (line === '') {
+                    return cb();
+                }
+
                 try {
                     var json = JSON.parse(line);
                 } catch (err2) {
                     return cb(err2);
+                }
+
+                // Before we fix change numbers into IP addresses, look for
+                // networks with bad provision_end_ips
+                if (json.hasOwnProperty('provision_end_ip') &&
+                    json.hasOwnProperty('subnet_start_ip') &&
+                    json.hasOwnProperty('subnet_bits')) {
+                    var broadcast = subnetEndIP(json.subnet_start_ip,
+                        json.subnet_bits);
+                    if (!broadcast) {
+                        return cb(new VError(
+                            'Network "%s" has invalid subnet "%s/%s"',
+                            json.uuid, json.subnet_start_ip,
+                            json.subnet_bits));
+                    }
+
+                    console.log('UUID: %s, end=%s, broad=%s',
+                            json.uuid, json.provision_end_ip, broadcast);
+                    if (Number(broadcast) == Number(json.provision_end_ip)) {
+                        var oldEnd = util_ip.ntoa(broadcast);
+                        var newEnd = util_ip.ntoa(broadcast - 1);
+                        console.log('Network "%s": provision_end_ip "%s" is '
+                            + 'the broadcast address: setting to "%s"',
+                            json.uuid, oldEnd, newEnd);
+                        json.provision_end_ip = broadcast - 1;
+                    }
                 }
 
                 ['gateway', 'provision_start_ip', 'provision_end_ip',
@@ -336,6 +380,10 @@ function createNetworkPools(_, callback) {
         vasync.forEachParallel({
             inputs: lines,
             func: function _create(line, cb) {
+                if (line === '') {
+                    return cb();
+                }
+
                 try {
                     var json = JSON.parse(line);
                 } catch (err2) {
@@ -347,6 +395,19 @@ function createNetworkPools(_, callback) {
                         JSON.stringify(json, null, 2));
                     return cb();
                 }
+
+                var nets = [];
+                json.networks.forEach(function (network) {
+                    if (NETWORK_MAP.hasOwnProperty(network)) {
+                        console.log('> network %s is actually existing '
+                            + 'network', network,
+                            NETWORK_MAP[network]);
+                        nets.push(NETWORK_MAP[network]);
+                    } else {
+                        nets.push(network);
+                    }
+                });
+                json.networks = nets;
 
                 NAPI.createNetworkPool(json.name, json, function (err3, res) {
                     if (res) {
