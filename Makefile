@@ -22,7 +22,7 @@ SMF_MANIFESTS_IN = smf/manifests/napi.xml.in
 BASH_FILES	:= sbin/napid bin/napictl
 
 ifeq ($(shell uname -s),SunOS)
-	NODE_PREBUILT_VERSION := v0.8.22
+	NODE_PREBUILT_VERSION := v0.8.23
 	NODE_PREBUILT_TAG := zone
 endif
 
