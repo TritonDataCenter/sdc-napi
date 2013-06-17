@@ -14,6 +14,7 @@ var Network = require('../../lib/models/network').Network;
 var NicTag = require('../../lib/models/nic-tag').NicTag;
 var restify = require('restify');
 var util = require('util');
+var util_mac = require('../../lib/util/mac');
 var vasync = require('vasync');
 
 
@@ -393,6 +394,34 @@ exports['Provision nic: exceed MAC retries'] = function (t) {
 
             return t.done();
         });
+    });
+};
+
+
+exports['Provision nic: retry'] = function (t) {
+    var params = {
+        belongs_to_type: 'zone',
+        belongs_to_uuid: mod_uuid.v4(),
+        owner_uuid:  mod_uuid.v4()
+    };
+
+    var fakeErr = new Error('Already exists');
+    fakeErr.name = 'EtagConflictError';
+    // One null error so that we can provision an IP
+    helpers.setMorayErrors({ putObject: [ null, fakeErr, fakeErr ] });
+
+    NAPI.provisionNic(PROV_MAC_NET.uuid, params, function (err, res) {
+        if (helpers.ifErr(t, err, 'provision nic with retry')) {
+            return t.done();
+        }
+
+        t.ok(res.mac, 'MAC address');
+        var macNum = util_mac.aton(res.mac);
+        var morayObj = helpers.morayBuckets()['napi_nics'][macNum];
+        t.ok(morayObj, 'found moray object');
+        t.equal(morayObj.mac, macNum, 'correct mac in moray object');
+
+        return t.done();
     });
 };
 
