@@ -14,6 +14,14 @@ var vasync = require('vasync');
 
 
 
+var IPS = {
+    start: '10.1.1.5',
+    reserved: '10.1.1.20',
+    free: '10.1.1.57',
+    zone: '10.1.1.59',
+    end: '10.1.1.250',
+    broadcast: '10.1.1.255'
+};
 var napi = helpers.createNAPIclient();
 var state = {};
 var uuids = {
@@ -35,8 +43,8 @@ exports['create test nic tag'] = function (t) {
 exports['create test network'] = function (t) {
     helpers.createNetwork(t, napi, state, {
         subnet: '10.1.1.0/24',
-        provision_start_ip: '10.1.1.5',
-        provision_end_ip: '10.1.1.250'
+        provision_start_ip: IPS.start,
+        provision_end_ip: IPS.end
     });
 };
 
@@ -47,17 +55,17 @@ exports['create test network'] = function (t) {
 
 
 exports['GET /networks/:uuid/ips/:ip (free IP)'] = function (t) {
-    napi.getIP(state.network.uuid, '10.1.1.57', function (err, res) {
-        t.ifError(err, 'getting IP: 10.1.1.57');
+    napi.getIP(state.network.uuid, IPS.free, function (err, res) {
+        t.ifError(err, 'getting IP: ' + IPS.free);
         var exp = {
             free: true,
-            ip: '10.1.1.57',
+            ip: IPS.free,
             network_uuid: state.network.uuid,
             reserved: false
         };
         t.deepEqual(res, exp, 'GET on a free IP');
 
-        napi.searchIPs('10.1.1.57', function (err2, res2) {
+        napi.searchIPs(IPS.free, function (err2, res2) {
             if (helpers.ifErr(t, err2, 'searchIPs')) {
                 return t.done();
             }
@@ -78,13 +86,13 @@ exports['PUT /networks/:uuid/ips/:ip'] = function (t) {
         belongs_to_uuid: uuids.a
     };
 
-    napi.updateIP(state.network.uuid, '10.1.1.59', params,
+    napi.updateIP(state.network.uuid, IPS.zone, params,
         function (err, res) {
         if (err) {
-            return helpers.doneWithError(err, 'updating IP: 10.1.1.59');
+            return helpers.doneWithError(err, 'updating IP: ' + IPS.zone);
         }
 
-        params.ip = '10.1.1.59';
+        params.ip = IPS.zone;
         params.free = false;
         params.network_uuid = state.network.uuid;
         state.ip = params;
@@ -113,7 +121,7 @@ exports['GET /networks/:uuid/ips'] = function (t) {
             belongs_to_type: 'other',
             belongs_to_uuid: uuids.admin,
             free: false,
-            ip: '10.1.1.255',
+            ip: IPS.broadcast,
             network_uuid: state.network.uuid,
             owner_uuid: uuids.admin,
             reserved: true
@@ -131,13 +139,13 @@ exports['PUT /networks/:uuid/ips/:ip (free an IP)'] = function (t) {
             free: true
         };
 
-        napi.updateIP(state.network.uuid, '10.1.1.59', params,
+        napi.updateIP(state.network.uuid, IPS.zone, params,
             function (err, res) {
             if (err) {
-                return helpers.doneWithError(t, err, 'freeing IP: 10.1.1.59');
+                return helpers.doneWithError(t, err, 'freeing IP: ' + IPS.zone);
             }
 
-            params.ip = '10.1.1.59';
+            params.ip = IPS.zone;
             params.free = true;
             params.reserved = false;
             params.network_uuid = state.network.uuid;
@@ -145,7 +153,7 @@ exports['PUT /networks/:uuid/ips/:ip (free an IP)'] = function (t) {
 
             return napi.getIP(state.network.uuid, params.ip,
                 function (err2, res2) {
-                t.ifError(err2, 'getting free IP: 10.1.1.59');
+                t.ifError(err2, 'getting free IP: ' + IPS.zone);
                 if (err2) {
                     return cb(err2);
                 }
@@ -167,6 +175,42 @@ exports['PUT /networks/:uuid/ips/:ip (free an IP)'] = function (t) {
     });
 };
 
+
+exports['GET /networks/:uuid/ips: reserved IP'] = function (t) {
+    var params = {
+        reserved: true
+    };
+
+    napi.updateIP(state.network.uuid, IPS.reserved, params,
+        function (err, res) {
+        if (err) {
+            return helpers.doneWithError(err, 'updating IP: ' + IPS.reserved);
+        }
+
+        params.ip = IPS.reserved;
+        params.free = false;
+        params.network_uuid = state.network.uuid;
+        t.deepEqual(res, params, 'reserving IP: ' + IPS.reserved);
+
+        return napi.listIPs(state.network.uuid, function (err2, ips) {
+            if (helpers.ifErr(t, err2, 'listing IPs')) {
+                return t.done();
+            }
+
+            var found = false;
+            for (var i in ips) {
+                if (ips[i].ip == params.ip) {
+                    found = true;
+                    t.deepEqual(ips[i], params, 'IP in list is correct');
+                    break;
+                }
+            }
+
+            t.ok(found, 'found IP in list');
+            return t.done();
+        });
+    });
+};
 
 // XXX: tests to add:
 // * exhaust a subnet test:
