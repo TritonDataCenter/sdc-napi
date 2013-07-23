@@ -329,8 +329,6 @@ exports['Create network - provision start IP after end IP'] = function (t) {
 //      pool has that owner
 
 
-// XXX: can't delete if in use by a network pool
-
 
 // --- Teardown
 

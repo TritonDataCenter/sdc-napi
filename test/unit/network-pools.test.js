@@ -270,6 +270,28 @@ exports['Update pool'] = function (t) {
 };
 
 
+exports['Update pool: no networks'] = function (t) {
+    var params = {
+        networks: [ ]
+    };
+
+    NAPI.updateNetworkPool(POOL1.uuid, params, function (err, res) {
+        t.ok(err, 'error returned');
+        if (!err) {
+            return t.done();
+        }
+
+        t.equal(err.statusCode, 422, 'status code');
+        t.deepEqual(err.body, helpers.invalidParamErr({
+            errors: [ mod_err.invalidParam('networks',
+                constants.POOL_MIN_NETS_MSG) ]
+        }), 'error body');
+
+        return t.done();
+    });
+};
+
+
 
 // --- Get tests
 
@@ -401,6 +423,29 @@ exports['Provision nic - on network pool'] = function (t) {
                 return t.done();
             });
         });
+};
+
+
+
+// --- Delete tests
+
+
+
+exports['Delete network in pool'] = function (t) {
+    NAPI.deleteNetwork(NET1.uuid, function (err, res) {
+        t.ok(err, 'error returned');
+        if (!err) {
+            return t.done();
+        }
+
+        t.equal(err.statusCode, 422, 'status code');
+        t.deepEqual(err.body, {
+            code: 'InUse',
+            message: 'Network is in use',
+            errors: [ mod_err.usedBy('network pool', POOL1.uuid) ]
+        }, 'error body');
+        return t.done();
+    });
 };
 
 

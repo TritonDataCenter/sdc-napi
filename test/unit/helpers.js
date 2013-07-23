@@ -118,6 +118,21 @@ FakeMoray.prototype.createBucket =
 };
 
 
+FakeMoray.prototype.delBucket = function delBucket(bucket, callback) {
+    var err = getNextMorayError('delBucket');
+    if (err) {
+        return callback(err);
+    }
+
+    if (!BUCKETS.hasOwnProperty(bucket)) {
+        return callback(bucketNotFoundErr(bucket));
+    }
+
+    delete BUCKETS[bucket];
+    return callback();
+};
+
+
 FakeMoray.prototype.delObject = function delObject(bucket, key, callback) {
     var err = getNextMorayError('delObject');
     if (err) {
