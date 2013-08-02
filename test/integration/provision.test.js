@@ -25,6 +25,7 @@ var runOne;
 var napi = helpers.createNAPIclient();
 var state = {
     deleted: [],
+    delayed: [],
     nics: []
 };
 var uuids = {
@@ -203,6 +204,77 @@ exports['reprovision'] = function (t) {
         t.deepEqual(provisioned.sort(ipSort), state.deleted.map(function (n) {
             return n.ip;
         }).sort(ipSort), 'IPs reprovisioned');
+
+        // Subnet should be full again
+        expProvisionFail(t, function () {
+            return t.done();
+        });
+    });
+};
+
+
+
+exports['delete: in order'] = function (t) {
+    var toDel = [
+        state.nics.pop(),
+        state.nics.pop()
+    ];
+
+    function delNext(_, cb) {
+        var nic = toDel.pop();
+        napi.deleteNic(nic.mac, function (err) {
+            t.ifError(err);
+            if (err) {
+                t.deepEqual(err.body, {}, 'error body');
+            }
+
+            state.delayed.push(nic);
+            return cb(err);
+        });
+    }
+
+    function waitOneSecond(_, cb) {
+        setTimeout(cb, 1000);
+    }
+
+    vasync.pipeline({
+        funcs: [
+            delNext,
+            waitOneSecond,
+            delNext
+        ]
+    }, function (err) {
+        return t.done();
+    });
+};
+
+
+exports['reprovision: by modification time'] = function (t) {
+    var provisioned = [];
+
+    function provisionNext(_, cb) {
+        napi.createNic(helpers.randomMAC(), NIC_PARAMS,
+            function (err, res) {
+            t.ifError(err, 'error returned');
+            if (err) {
+                return cb(err);
+            }
+
+            provisioned.push(res.ip);
+            state.nics.push(res);
+            return cb();
+        });
+    }
+
+    vasync.pipeline({
+        funcs: [
+            provisionNext,
+            provisionNext
+        ]
+    }, function (err) {
+        t.deepEqual(state.delayed.map(function (n) {
+            return n.ip;
+        }), provisioned, 'IPs reprovisioned in modification order');
 
         // Subnet should be full again
         expProvisionFail(t, function () {
