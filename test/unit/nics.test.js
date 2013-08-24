@@ -736,6 +736,35 @@ exports['Update nic - invalid params'] = function (t) {
 };
 
 
+exports['Update nic - same params'] = function (t) {
+    var params = {
+        belongs_to_type: 'zone',
+        belongs_to_uuid: mod_uuid.v4(),
+        owner_uuid:  mod_uuid.v4()
+    };
+
+    NAPI.provisionNic(NET2.uuid, params, function (err, res) {
+        if (helpers.ifErr(t, err, 'provision new nic')) {
+            return t.done();
+        }
+
+        for (var p in params) {
+            t.equal(res[p], params[p], p + ' correct');
+        }
+
+        NAPI.updateNic(res.mac, res, function (err2, res2) {
+            if (helpers.ifErr(t, err2, 'update nic')) {
+                return t.done();
+            }
+
+            t.deepEqual(res2, res, 'Nic paramaters unchanged');
+
+            return t.done();
+        });
+    });
+};
+
+
 
 // XXX: More tests:
 // - create nic with IP, then create another nic with the same IP.  Old nic
