@@ -92,11 +92,9 @@ pkg: all $(SMF_MANIFESTS)
 	cp -r $(TOP)/test/integration/* $(INSTDIR)/test/integration/
 	cp -r $(TOP)/test/lib/* $(INSTDIR)/test/lib/
 	cp -PR $(NODE_INSTALL) $(INSTDIR)/node
-	@mkdir -p $(PKGDIR)/root/opt/smartdc/sdc-boot/scripts
-	cp $(TOP)/sdc-boot/*.sh \
-	    $(PKGDIR)/root/opt/smartdc/sdc-boot/
-	cp $(TOP)/deps/sdc-scripts/*.sh \
-	    $(PKGDIR)/root/opt/smartdc/sdc-boot/scripts/
+	mkdir -p $(PKGDIR)/root/opt/smartdc/boot
+	cp -R $(TOP)/deps/sdc-scripts/* $(PKGDIR)/root/opt/smartdc/boot/
+	cp -R $(TOP)/boot/* $(PKGDIR)/root/opt/smartdc/boot/
 	# Clean up some dev / build bits
 	find $(INSTDIR) -name "*.pyc" | xargs rm -f
 	find $(INSTDIR) -name "*.o" | xargs rm -f
@@ -126,3 +124,5 @@ ifeq ($(shell uname -s),SunOS)
 endif
 include ./tools/mk/Makefile.smf.targ
 include ./tools/mk/Makefile.targ
+
+sdc-scripts: deps/sdc-scripts/.git
