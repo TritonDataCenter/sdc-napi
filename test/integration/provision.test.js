@@ -7,10 +7,10 @@
 var constants = require('../../lib/util/constants');
 var helpers = require('./helpers');
 var mod_err = require('../../lib/util/errors');
+var mod_uuid = require('node-uuid');
 var util = require('util');
 var util_ip = require('../../lib/util/ip');
 var util_mac = require('../../lib/util/mac');
-var UUID = require('node-uuid');
 var vasync = require('vasync');
 
 
@@ -33,7 +33,7 @@ var uuids = {
     a: '564d69b1-a178-07fe-b36f-dfe5fa3602e2',
     b: '91abd897-566a-4ae5-80d2-1ba103221bbc',
     c: 'e8e2deb9-2d68-4e4e-9aa6-4962c879d9b1',
-    d: UUID.v4()
+    d: mod_uuid.v4()
 };
 var NIC_PARAMS = {
     owner_uuid: uuids.b,
@@ -56,21 +56,28 @@ function ipSort(a, b) {
 
 
 /**
+ * Checks to make sure the error matches the subnet full error
+ */
+function expSubnetFull(t, err) {
+    t.ok(err, 'error returned');
+    if (!err) {
+        return;
+    }
+
+    t.equal(err.statusCode, 507, 'status code');
+    t.deepEqual(err.body, {
+        code: 'SubnetFull',
+        message: constants.SUBNET_FULL_MSG
+    }, 'error');
+}
+
+
+/**
  * Try to provision a nic, and make sure it fails
  */
 function expProvisionFail(t, callback) {
     napi.createNic(helpers.randomMAC(), NIC_PARAMS, function (err, res) {
-        t.ok(err, 'error returned');
-        if (!err) {
-            return callback();
-        }
-
-        t.equal(err.statusCode, 507, 'status code');
-        t.deepEqual(err.body, {
-            code: 'SubnetFull',
-            message: constants.SUBNET_FULL_MSG
-        }, 'error');
-
+        expSubnetFull(t, err);
         return callback();
     });
 }
@@ -98,6 +105,18 @@ exports.setup = function (t) {
             };
 
             helpers.createNetwork(t, napi, state, params, cb);
+        },
+
+        function _net2(_, cb) {
+            var params = {
+                name: 'network-integration-2-' + process.pid,
+                provision_start_ip: '10.0.2.20',
+                provision_end_ip: '10.0.2.50',
+                subnet: '10.0.2.0/26',
+                nic_tag: state.nicTag.name
+            };
+
+            helpers.createNetwork(t, napi, state, params, 'net2', cb);
         }
 
     ] }, function (err, res) {
@@ -284,6 +303,96 @@ exports['reprovision: by modification time'] = function (t) {
 };
 
 
+exports['update network provision range'] = function (t) {
+
+    function prov(expected, cb) {
+        var params = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            owner_uuid: mod_uuid.v4()
+        };
+
+        napi.provisionNic(state.net2.uuid, params, function (err, res) {
+            // If we pass in null, we expect the provision to fail
+            if (!expected) {
+                expSubnetFull(t, err);
+                return cb();
+            }
+
+            if (helpers.ifErr(t, err, 'provision nic')) {
+                return cb(err);
+            }
+
+            t.equal(res.ip, expected, 'expected IP');
+            state.nics.push(res);
+            return cb();
+        });
+    }
+
+    function updateParam(param, newVal, cb) {
+        var toUpdate = {};
+        toUpdate[param] = newVal;
+
+        napi.updateNetwork(state.net2.uuid, toUpdate, function (err, res) {
+            if (helpers.ifErr(t, err, 'update network')) {
+                return cb(err);
+            }
+
+            t.equal(res[param], newVal,
+                param + ' changed');
+
+            napi.getNetwork(state.net2.uuid, function (err2, res2) {
+                if (helpers.ifErr(t, err2, 'get network')) {
+                    return cb(err2);
+                }
+
+                t.equal(res2[param], newVal,
+                    'get: ' + param + ' changed');
+                return cb();
+            });
+        });
+    }
+
+    vasync.pipeline({
+    funcs: [
+        // First provision should take provision_start_ip
+        function (_, cb) { prov('10.0.2.20', cb); },
+
+        // Now move provision_start_ip to before to previous start
+        function (_, cb) {
+            updateParam('provision_start_ip', '10.0.2.10', cb);
+        },
+        function (_, cb) { prov('10.0.2.10', cb); },
+        function (_, cb) { prov('10.0.2.11', cb); },
+
+        // Now move provision_start_ip to after
+        function (_, cb) {
+            updateParam('provision_start_ip', '10.0.2.30', cb);
+        },
+        function (_, cb) { prov('10.0.2.30', cb); },
+        function (_, cb) { prov('10.0.2.31', cb); },
+
+        // Now fill up the rest of the subnet
+        function (_, cb) { updateParam('provision_end_ip', '10.0.2.34', cb); },
+        function (_, cb) { prov('10.0.2.32', cb); },
+        function (_, cb) { prov('10.0.2.33', cb); },
+        function (_, cb) { prov('10.0.2.34', cb); },
+
+        // Subnet is now full, so expect a failure:
+        function (_, cb) { prov(null, cb); },
+
+        // Add 2 more available IPs
+        function (_, cb) { updateParam('provision_end_ip', '10.0.2.36', cb); },
+        function (_, cb) { prov('10.0.2.35', cb); },
+        function (_, cb) { prov('10.0.2.36', cb); },
+        function (_, cb) { prov(null, cb); }
+
+    ] }, function () {
+        return t.done();
+    });
+};
+
+
 
 // --- Teardown
 
@@ -304,7 +413,9 @@ exports['teardown'] = function (t) {
         }
     }, function () {
         helpers.deleteNetwork(t, napi, state, function () {
-            helpers.deleteNicTags(t, napi, state);
+            helpers.deleteNetwork(t, napi, state, 'net2', function () {
+                helpers.deleteNicTags(t, napi, state);
+            });
         });
     });
 };

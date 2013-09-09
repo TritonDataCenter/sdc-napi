@@ -238,7 +238,7 @@ function deleteNetwork(t, napi, state, name, callback) {
     }
 
     napi.deleteNetwork(net.uuid, { force: true }, function (err) {
-        t.ifError(err, 'delete network');
+        common.ifErr(t, err, 'delete network ' + name);
         if (callback) {
             return callback(err);
         }

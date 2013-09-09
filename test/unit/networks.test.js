@@ -4,13 +4,16 @@
  * Unit tests for network endpoints
  */
 
-var p = console.log;
-var fs = require('fs');
 var assert = require('assert-plus');
+var async = require('async');
+var clone = require('clone');
 var constants = require('../../lib/util/constants');
+var fs = require('fs');
 var helpers = require('./helpers');
 var mod_err = require('../../lib/util/errors');
+var mod_uuid = require('node-uuid');
 var util = require('util');
+var util_ip = require('../../lib/util/ip');
 var vasync = require('vasync');
 
 
@@ -25,7 +28,13 @@ var CONF = JSON.parse(fs.readFileSync(__dirname + '/test-config.json'));
 var runOne;
 var NAPI;
 var TAG;
+var MSG = {
+    end_outside: 'provision_end_ip cannot be outside subnet',
+    end_broadcast: 'provision_end_ip cannot be the broadcast address',
+    start_outside: 'provision_start_ip cannot be outside subnet',
+    start_broadcast: 'provision_start_ip cannot be the broadcast address'
 
+};
 
 
 // --- Setup
@@ -214,6 +223,9 @@ exports['Create network - all invalid parameters'] = function (t) {
 
 exports['Create network - invalid parameters'] = function (t) {
     var invalid = [
+        ['gateway', '10.0.1.254', constants.GATEWAY_SUBNET_MSG],
+        ['gateway', '10.0.3.1', constants.GATEWAY_SUBNET_MSG],
+
         ['subnet', '1.2.3.4/a', 'Subnet bits invalid'],
         ['subnet', '1.2.3.4/7', 'Subnet bits invalid'],
         ['subnet', '1.2.3.4/33', 'Subnet bits invalid'],
@@ -225,19 +237,13 @@ exports['Create network - invalid parameters'] = function (t) {
         ['vlan_id', '1', constants.VLAN_MSG],
         ['vlan_id', '4095', constants.VLAN_MSG],
 
-        ['provision_start_ip', '10.0.1.254',
-            'provision_start_ip cannot be outside subnet'],
-        ['provision_start_ip', '10.0.3.1',
-            'provision_start_ip cannot be outside subnet'],
-        ['provision_start_ip', '10.0.2.255',
-            'provision_start_ip cannot be the broadcast address'],
+        ['provision_start_ip', '10.0.1.254', MSG.start_outside],
+        ['provision_start_ip', '10.0.3.1', MSG.start_outside],
+        ['provision_start_ip', '10.0.2.255', MSG.start_broadcast],
 
-        ['provision_end_ip', '10.0.1.254',
-            'provision_end_ip cannot be outside subnet'],
-        ['provision_end_ip', '10.0.3.1',
-            'provision_end_ip cannot be outside subnet'],
-        ['provision_end_ip', '10.0.2.255',
-            'provision_end_ip cannot be the broadcast address'],
+        ['provision_end_ip', '10.0.1.254', MSG.end_outside],
+        ['provision_end_ip', '10.0.3.1', MSG.end_outside],
+        ['provision_end_ip', '10.0.2.255', MSG.end_broadcast],
 
         ['routes', { 'asdf': 'asdf', 'foo': 'bar' },
             [ 'asdf', 'asdf', 'foo', 'bar' ],
@@ -309,9 +315,9 @@ exports['Create network - provision start IP after end IP'] = function (t) {
         t.deepEqual(err.body, helpers.invalidParamErr({
             errors: [
                 mod_err.invalidParam('provision_end_ip',
-                    'provision_start_ip must be before provision_end_ip'),
+                    constants.PROV_RANGE_ORDER_MSG),
                 mod_err.invalidParam('provision_start_ip',
-                    'provision_start_ip must be before provision_end_ip')
+                    constants.PROV_RANGE_ORDER_MSG)
             ],
             message: 'Invalid parameters'
         }), 'Error body');
@@ -324,7 +330,577 @@ exports['Create network - provision start IP after end IP'] = function (t) {
 
 // --- Update tests
 
-// XXX: can't update gateway to outside subnet
+
+
+exports['Update network'] = function (t) {
+    var before, expected, nets, p, updateParams;
+    var vals = helpers.validNetworkParams({
+        name: 'updateme',
+        provision_start_ip: '10.1.2.10',
+        provision_end_ip: '10.1.2.250',
+        subnet: '10.1.2.0/24'
+    });
+    delete vals.resolvers;
+
+    vasync.pipeline({
+    funcs: [
+        function _getNetworksBefore(_, cb) {
+            // Get the list of networks before creating the new network - these
+            // are added to the workflow parameters so that zone resolvers can
+            // be updated
+            NAPI.listNetworks(function (err, res) {
+                if (helpers.ifErr(t, err, 'listing networks')) {
+                    return cb(err);
+                }
+
+                nets = res;
+                return cb();
+            });
+
+        }, function _create(_, cb) {
+            NAPI.createNetwork(vals, function (err, res) {
+                if (helpers.ifErr(t, err, 'creating network')) {
+                    return cb(err);
+                }
+
+                before = res;
+                expected = clone(res);
+                return cb();
+            });
+
+        }, function _firstUpdate(_, cb) {
+            updateParams = {
+                description: 'description here',
+                gateway: '10.1.2.1',
+                owner_uuids: [ mod_uuid.v4() ],
+                resolvers: ['8.8.4.4'],
+                routes: {
+                    '10.2.0.0/16': '10.1.2.1'
+                }
+            };
+
+            for (p in updateParams) {
+                expected[p] = updateParams[p];
+            }
+
+            // First, an update from no value to value
+            NAPI.updateNetwork(before.uuid, updateParams,
+                function (err2, res2) {
+                if (helpers.ifErr(t, err2, 'updating network')) {
+                    return cb(err2);
+                }
+
+                t.ok(res2.job_uuid, 'job_uuid present');
+                expected.job_uuid = res2.job_uuid;
+
+                t.deepEqual(res2, expected, 'params updated');
+                delete expected.job_uuid;
+
+                var jobs = helpers.wfJobs;
+                jobs[0].params.networks.sort(helpers.uuidSort);
+                t.deepEqual(jobs, [ {
+                    name: 'net-update',
+                    params: {
+                        original_network: before,
+                        target: 'net-update-' + before.uuid,
+                        task: 'update',
+                        networks:
+                            [ expected ].concat(nets).sort(helpers.uuidSort),
+                        update_params: {
+                            gateway: updateParams.gateway,
+                            resolvers: updateParams.resolvers,
+                            routes: updateParams.routes
+                        }
+                    },
+                    uuid: res2.job_uuid
+                } ], 'params updated');
+                helpers.wfJobs = [];
+                before = res2;
+                delete before.job_uuid;
+
+                return cb();
+            });
+
+        }, function _secondUpdate(_, cb) {
+            // Now update again to make sure we can go from existing value
+            // to a different value
+            updateParams = {
+                description: 'description 2',
+                gateway: '10.1.2.2',
+                owner_uuids: [ mod_uuid.v4(), mod_uuid.v4() ].sort(),
+                provision_start_ip: '10.1.2.9',
+                provision_end_ip: '10.1.2.251',
+                resolvers: ['8.8.8.8', '10.1.2.1'],
+                routes: {
+                    '10.2.0.0/16': '10.1.2.2',
+                    '10.3.0.0/16': '10.1.2.2'
+                }
+            };
+
+            for (p in updateParams) {
+                expected[p] = updateParams[p];
+            }
+
+            NAPI.updateNetwork(before.uuid, updateParams,
+                function (err3, res3) {
+                if (helpers.ifErr(t, err3, 'second update')) {
+                    return cb(err3);
+                }
+
+                t.ok(res3.job_uuid, 'job_uuid present');
+                expected.job_uuid = res3.job_uuid;
+
+                t.deepEqual(res3, expected, 'params updated');
+                delete expected.job_uuid;
+
+                var jobs = helpers.wfJobs;
+                jobs[0].params.networks.sort(helpers.uuidSort);
+                t.deepEqual(jobs, [ {
+                    name: 'net-update',
+                    params: {
+                        original_network: before,
+                        target: 'net-update-' + before.uuid,
+                        task: 'update',
+                        networks:
+                            [ expected ].concat(nets).sort(helpers.uuidSort),
+                        update_params: {
+                            gateway: updateParams.gateway,
+                            resolvers: updateParams.resolvers,
+                            routes: updateParams.routes
+                        }
+                    },
+                    uuid: res3.job_uuid
+                } ], 'params updated');
+                helpers.wfJobs = [];
+
+                return cb();
+            });
+        }, function _checkResult(_, cb) {
+            NAPI.getNetwork(before.uuid, function (err4, res4) {
+                if (helpers.ifErr(t, err4, 'second update')) {
+                    return cb(err4);
+                }
+
+                t.deepEqual(res4, expected, 'params saved');
+                return cb();
+            });
+        }
+    ] }, function () {
+        return t.done();
+    });
+};
+
+
+exports['Update provision range'] = function (t) {
+    // IPs expected from the API when listing IPs for the network
+    var ipList;
+    var net;
+    var owner = mod_uuid.v4();
+    var vals = helpers.validNetworkParams({
+        name: 'provision_range_test',
+        provision_start_ip: '10.1.2.10',
+        provision_end_ip: '10.1.2.250',
+        subnet: '10.1.2.0/24',
+        vlan_id: 42
+    });
+    var zone = mod_uuid.v4();
+
+    // IP record owned by the admin, type 'other'
+    function adminOtherIP(ip) {
+        return {
+            belongs_to_type: 'other',
+            belongs_to_uuid: CONF.ufdsAdminUuid,
+            free: false,
+            ip: ip,
+            network_uuid: net.uuid,
+            owner_uuid: CONF.ufdsAdminUuid,
+            reserved: true
+        };
+    }
+
+    // IP record for a zone owned by owner
+    function zoneIP(ip) {
+        return {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: zone,
+            free: false,
+            ip: ip,
+            network_uuid: net.uuid,
+            owner_uuid: owner,
+            reserved: false
+        };
+    }
+
+    // moray placeholder record
+    function placeholderRec(ip) {
+        return {
+            ip: util_ip.aton(ip),
+            reserved: false
+        };
+    }
+
+    // moray placeholder for an admin 'other' IP
+    function adminOtherRec(ip) {
+        var ser = adminOtherIP(ip);
+        ser.ip = util_ip.aton(ip);
+        delete ser.free;
+        delete ser.network_uuid;
+        return ser;
+    }
+
+    // moray placeholder for an admin 'other' IP
+    function zoneRec(ip) {
+        var ser = zoneIP(ip);
+        ser.ip = util_ip.aton(ip);
+        delete ser.free;
+        delete ser.network_uuid;
+        return ser;
+    }
+
+    vasync.pipeline({
+    funcs: [
+        function _create(_, cb) {
+            NAPI.createNetwork(vals, function (err, res) {
+                if (helpers.ifErr(t, err, 'creating network')) {
+                    return cb(err);
+                }
+
+                ['provision_start_ip', 'provision_start_ip'].forEach(
+                    function (ip) {
+                    t.equal(res[ip], vals[ip], ip);
+                });
+
+                net = clone(res);
+                return cb();
+            });
+
+        }, function (_, cb) {
+            NAPI.listIPs(net.uuid, function (err, ips) {
+                if (helpers.ifErr(t, err, 'listing IPs')) {
+                    return cb(err);
+                }
+
+                t.deepEqual(ips, [ adminOtherIP('10.1.2.255') ], 'IP list');
+                return cb();
+            });
+
+        }, function (_, cb) {
+            t.deepEqual(helpers.getIPrecords(net.uuid), [
+                placeholderRec('10.1.2.9'),
+                placeholderRec('10.1.2.251'),
+                adminOtherRec('10.1.2.255')
+            ]);
+
+            return cb();
+
+        }, function (_, cb) {
+            var ip = '10.1.2.19';
+            var params = {
+                belongs_to_type: 'zone',
+                belongs_to_uuid: zone,
+                owner_uuid: owner
+            };
+
+            NAPI.updateIP(net.uuid, ip, params, function (err, res) {
+                if (helpers.ifErr(t, err, 'update: ' + ip)) {
+                    return cb(err);
+                }
+
+                Object.keys(params).forEach(function (p) {
+                    t.equal(res[p], params[p], ip + ': ' + p);
+                });
+
+                return cb();
+            });
+
+        }, function (_, cb) {
+            var ip = '10.1.2.241';
+            var params = {
+                belongs_to_type: 'zone',
+                belongs_to_uuid: zone,
+                owner_uuid: owner
+            };
+
+            NAPI.updateIP(net.uuid, ip, params, function (err, res) {
+                if (helpers.ifErr(t, err, 'update: ' + ip)) {
+                    return cb(err);
+                }
+
+                Object.keys(params).forEach(function (p) {
+                    t.equal(res[p], params[p], ip + ': ' + p);
+                });
+
+                return cb();
+            });
+
+
+        }, function (_, cb) {
+            NAPI.listIPs(net.uuid, function (err, ips) {
+                if (helpers.ifErr(t, err, 'listing IPs')) {
+                    return cb(err);
+                }
+
+                ipList = [
+                    zoneIP('10.1.2.19'),
+                    zoneIP('10.1.2.241'),
+                    adminOtherIP('10.1.2.255')
+                ];
+                t.deepEqual(ips, ipList, 'IP list');
+                return cb();
+            });
+
+        }, function (_, cb) {
+            t.deepEqual(helpers.getIPrecords(net.uuid), [
+                placeholderRec('10.1.2.9'),
+                zoneRec('10.1.2.19'),
+                zoneRec('10.1.2.241'),
+                placeholderRec('10.1.2.251'),
+                adminOtherRec('10.1.2.255')
+            ]);
+
+            return cb();
+
+
+        }, function (_, cb) {
+            var updates = [
+                {
+                    desc: 'one below original',
+                    provision_start_ip: '10.1.2.9',
+                    provision_end_ip: '10.1.2.249',
+                    morayAfter: [
+                        placeholderRec('10.1.2.8'),
+                        zoneRec('10.1.2.19'),
+                        zoneRec('10.1.2.241'),
+                        placeholderRec('10.1.2.250'),
+                        adminOtherRec('10.1.2.255')
+                    ]
+                },
+                {
+                    desc: 'back to original',
+                    provision_start_ip: '10.1.2.10',
+                    provision_end_ip: '10.1.2.250',
+                    morayAfter: [
+                        placeholderRec('10.1.2.9'),
+                        zoneRec('10.1.2.19'),
+                        zoneRec('10.1.2.241'),
+                        placeholderRec('10.1.2.251'),
+                        adminOtherRec('10.1.2.255')
+                    ]
+                },
+                {
+                    desc: 'no change',
+                    provision_start_ip: '10.1.2.10',
+                    provision_end_ip: '10.1.2.250',
+                    morayAfter: [
+                        placeholderRec('10.1.2.9'),
+                        zoneRec('10.1.2.19'),
+                        zoneRec('10.1.2.241'),
+                        placeholderRec('10.1.2.251'),
+                        adminOtherRec('10.1.2.255')
+                    ]
+                },
+                {
+                    desc: 'one after original',
+                    provision_start_ip: '10.1.2.11',
+                    provision_end_ip: '10.1.2.251',
+                    morayAfter: [
+                        placeholderRec('10.1.2.10'),
+                        zoneRec('10.1.2.19'),
+                        zoneRec('10.1.2.241'),
+                        placeholderRec('10.1.2.252'),
+                        adminOtherRec('10.1.2.255')
+                    ]
+                },
+                {
+                    // If the placeholder records on either side of the
+                    // provision range already exist, reuse the records
+                    desc: 'placeholders exist',
+                    provision_start_ip: '10.1.2.20',
+                    provision_end_ip: '10.1.2.240',
+                    morayAfter: [
+                        zoneRec('10.1.2.19'),
+                        zoneRec('10.1.2.241'),
+                        adminOtherRec('10.1.2.255')
+                    ]
+                },
+                {
+                    desc: 'non-placeholder to placeholder',
+                    provision_start_ip: '10.1.2.30',
+                    provision_end_ip: '10.1.2.230',
+                    morayAfter: [
+                        zoneRec('10.1.2.19'),
+                        placeholderRec('10.1.2.29'),
+                        placeholderRec('10.1.2.231'),
+                        zoneRec('10.1.2.241'),
+                        adminOtherRec('10.1.2.255')
+                    ]
+                },
+                {
+                    desc: 'back to outside zone IPs',
+                    provision_start_ip: '10.1.2.16',
+                    provision_end_ip: '10.1.2.244',
+                    morayAfter: [
+                        placeholderRec('10.1.2.15'),
+                        zoneRec('10.1.2.19'),
+                        zoneRec('10.1.2.241'),
+                        placeholderRec('10.1.2.245'),
+                        adminOtherRec('10.1.2.255')
+                    ]
+                }
+            ];
+            async.forEachSeries(updates, function (u, cb2) {
+                var p = {
+                    provision_end_ip: u.provision_end_ip,
+                    provision_start_ip: u.provision_start_ip
+                };
+
+                NAPI.updateNetwork(net.uuid, p, function (err2, res2) {
+                    if (helpers.ifErr(t, err2, u.desc + ': update network')) {
+                        return cb2(err2);
+                    }
+
+                    ['provision_start_ip', 'provision_start_ip'].forEach(
+                        function (ip) {
+                        t.equal(res2[ip], p[ip], u.desc + ': ' + ip);
+                    });
+
+                    t.deepEqual(helpers.getIPrecords(net.uuid), u.morayAfter,
+                        u.desc + ': moray');
+
+                    NAPI.listIPs(net.uuid, function (err3, ips) {
+                        if (helpers.ifErr(t, err3, u.desc + ': listing IPs')) {
+                            return cb2(err3);
+                        }
+
+                        t.deepEqual(ips, ipList, u.desc + ': IP list');
+                        return cb2();
+                    });
+                });
+            }, function () {
+                return cb();
+            });
+        }
+    ] }, function () {
+        return t.done();
+    });
+};
+
+
+exports['Update network - invalid parameters'] = function (t) {
+    var invalid = [
+        [ { provision_start_ip: '10.1.2.254' },
+          { provision_start_ip: MSG.start_outside }
+        ],
+        [ { provision_start_ip: '10.1.4.1' },
+          { provision_start_ip: MSG.start_outside }
+        ],
+        [ { provision_start_ip: '10.1.3.255' },
+          { provision_start_ip: MSG.start_broadcast }
+        ],
+        [ { provision_end_ip: '10.1.2.254' },
+          { provision_end_ip: MSG.end_outside }
+        ],
+        [ { provision_end_ip: '10.1.4.1' },
+          { provision_end_ip: MSG.end_outside }
+        ],
+        [ { provision_end_ip: '10.1.3.255' },
+          { provision_end_ip: MSG.end_broadcast }
+        ],
+
+        [ {
+            provision_start_ip: '10.1.3.40',
+            provision_end_ip: '10.1.3.30'
+          },
+          {
+              provision_start_ip: constants.PROV_RANGE_ORDER_MSG,
+              provision_end_ip: constants.PROV_RANGE_ORDER_MSG
+          }
+        ],
+        [ { provision_start_ip: '10.1.3.251' },
+          {
+              provision_start_ip: constants.PROV_RANGE_ORDER_MSG,
+              provision_end_ip: constants.PROV_RANGE_ORDER_MSG
+          }
+        ],
+        [ { provision_end_ip: '10.1.3.9' },
+          {
+              provision_start_ip: constants.PROV_RANGE_ORDER_MSG,
+              provision_end_ip: constants.PROV_RANGE_ORDER_MSG
+          }
+        ],
+
+        [ { routes: { 'asdf': 'asdf', 'foo': 'bar' } },
+          { routes: [ 'invalid routes', [ 'asdf', 'asdf', 'foo', 'bar' ] ] }
+        ],
+        [ { routes: { '10.2.0.0/16': '10.0.1.256' } },
+          { routes: ['invalid route', [ '10.0.1.256' ] ] }
+        ],
+        [ { routes: { '10.2.0.0/7': '10.0.1.2' } },
+          { routes: ['invalid route', [ '10.2.0.0/7' ] ] }
+        ],
+        [ { routes: { '10.2.0.0/33': '10.0.1.2' } },
+          { routes: ['invalid route', [ '10.2.0.0/33' ] ] }
+        ],
+
+        [ { gateway: '10.1.2.254' },
+          { gateway: constants.GATEWAY_SUBNET_MSG }
+        ],
+        [ { gateway: '10.1.4.1' },
+          { gateway: constants.GATEWAY_SUBNET_MSG }
+        ]
+    ];
+
+    var vals = helpers.validNetworkParams({
+        name: 'update-invalid',
+        provision_start_ip: '10.1.3.10',
+        provision_end_ip: '10.1.3.250',
+        subnet: '10.1.3.0/24'
+    });
+
+    NAPI.createNetwork(vals, function (err, net) {
+        if (helpers.ifErr(t, err, 'creating network')) {
+            return t.done();
+        }
+
+        vasync.forEachParallel({
+            inputs: invalid,
+            func: function (data, cb) {
+                NAPI.updateNetwork(net.uuid, data[0], function (err2, res) {
+                    t.ok(err2, util.format('error returned: %s',
+                        JSON.stringify(data[0])));
+                    if (!err2) {
+                        return cb();
+                    }
+
+                    t.equal(err2.statusCode, 422, 'status code');
+                    var invalidErrs = [];
+
+                    Object.keys(data[1]).sort().forEach(function (k) {
+                        var iErr = mod_err.invalidParam(k,
+                            util.isArray(data[1][k]) ?
+                                data[1][k][0] : data[1][k]);
+                        if (util.isArray(data[1][k])) {
+                            iErr.invalid = data[1][k][1];
+                        }
+
+                        invalidErrs.push(iErr);
+                    });
+
+                    t.deepEqual(err2.body, helpers.invalidParamErr({
+                        errors: invalidErrs,
+                        message: 'Invalid parameters'
+                    }), 'Error body');
+
+                    return cb();
+                });
+            }
+        }, function () {
+            return t.done();
+        });
+    });
+};
+
+
 // XXX: can't remove an owner_uuid from a network if its parent network
 //      pool has that owner
 

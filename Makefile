@@ -87,6 +87,7 @@ pkg: all $(SMF_MANIFESTS)
 		$(TOP)/sbin \
 		$(INSTDIR)/
 	cp -P smf/manifests/*.xml $(INSTDIR)/smf/manifests
+	cp $(TOP)/test/runtest $(INSTDIR)/test/
 	cp $(TOP)/test/runtests $(INSTDIR)/test/
 	cp -r $(TOP)/test/integration/* $(INSTDIR)/test/integration/
 	cp -r $(TOP)/test/lib/* $(INSTDIR)/test/lib/

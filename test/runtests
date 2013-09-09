@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Copyright (c) 2012, Joyent, Inc. All rights reserved.
+# Copyright (c) 2013, Joyent, Inc. All rights reserved.
 #
 # Run the NAPI tests. This is expected to be run from the NAPI
 # install dir: /opt/smartdc/napi
@@ -98,7 +98,7 @@ mkdir -p /var/tmp/napitest
 
 cd $TOP
 
-# Run the tests included with the amon-relay.
+# Run the integration tests
 echo ""
 test_files=$(ls -1 test/integration/*.test.js)
 if [[ -n "$opt_test_pattern" ]]; then

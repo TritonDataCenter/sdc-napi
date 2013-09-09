@@ -265,6 +265,8 @@ All fields are optional. At least one must be specified.
 ||**Field**||**Type**||**Description**||
 ||name||String||network name||
 ||gateway||IP||Gateway IP address||
+||provision_start_ip||IP||First IP address to allow provisioning on||
+||provision_end_ip||IP||Last IP address to allow provisioning on||
 ||resolvers||Array of IPs||Resolver IP addresses||
 ||routes||Routes Object||Static routes for hosts on this network (See the Routes Object description above)||
 ||owner_uuids||Array of UUIDs||UFDS user UUIDs allowed to provision on this network||

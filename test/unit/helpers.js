@@ -10,7 +10,9 @@ var common = require('../lib/common');
 var fs = require('fs');
 var EventEmitter = require('events').EventEmitter;
 var ldapjs = require('ldapjs');
+var mock_moray = require('../lib/mock-moray');
 var mod_ip = require('../../lib/models/ip');
+var mod_uuid = require('node-uuid');
 var NAPI = require('../../lib/napi').NAPI;
 var napiClient = require('sdc-clients/lib/napi');
 var restify = require('restify');
@@ -24,270 +26,10 @@ var verror = require('verror');
 
 
 
-var BUCKETS = {};
+var JOBS = [];
 // Set to log messages to stderr
 var LOG = process.env.LOG || false;
-var MORAY_ERRORS = {};
 var SERVER;
-
-
-
-// --- Internal helpers
-
-
-
-function bucketNotFoundErr(bucket) {
-    var err = new verror.VError('bucket "%s" does not exist', bucket);
-    err.name = 'BucketNotFoundError';
-    return err;
-}
-
-
-function objectNotFoundErr(key) {
-    var err = new verror.VError('key "%s" does not exist', key);
-    err.name = 'ObjectNotFoundError';
-    return err;
-}
-
-
-
-// --- Fake moray object
-
-
-
-function FakeMoray(opts) {
-    assert.object(opts, 'opts');
-    assert.object(opts.log, 'opts.log');
-
-    this.log = opts.log;
-    BUCKETS = {};
-}
-
-
-FakeMoray.prototype._put = function _store(bucket, key, val) {
-    var newVal = {};
-    for (var k in val) {
-        if (typeof (val[k]) === 'object') {
-            newVal[k] = val[k];
-        } else {
-            newVal[k] = val[k].toString();
-        }
-    }
-    BUCKETS[bucket][key] = newVal;
-};
-
-
-FakeMoray.prototype.batch = function batch(data, callback) {
-    assert.arrayOfObject(data, 'data');
-
-    var err = getNextMorayError('batch');
-    if (err) {
-        return callback(err);
-    }
-
-    for (var b in data) {
-        var item = data[b];
-        assert.string(item.bucket, 'item.bucket');
-        assert.string(item.key, 'item.key');
-        assert.string(item.operation, 'item.operation');
-        assert.object(item.value, 'item.value');
-
-        if (item.operation === 'put') {
-            if (!BUCKETS.hasOwnProperty(item.bucket)) {
-                return callback(bucketNotFoundErr(item.bucket));
-            }
-
-            this._put(item.bucket, item.key, item.value);
-        }
-    }
-
-    return callback();
-};
-
-
-FakeMoray.prototype.createBucket =
-    function createBucket(bucket, schema, callback) {
-
-    var err = getNextMorayError('createBucket');
-    if (err) {
-        return callback(err);
-    }
-
-    BUCKETS[bucket] = {};
-    return callback();
-};
-
-
-FakeMoray.prototype.delBucket = function delBucket(bucket, callback) {
-    var err = getNextMorayError('delBucket');
-    if (err) {
-        return callback(err);
-    }
-
-    if (!BUCKETS.hasOwnProperty(bucket)) {
-        return callback(bucketNotFoundErr(bucket));
-    }
-
-    delete BUCKETS[bucket];
-    return callback();
-};
-
-
-FakeMoray.prototype.delObject = function delObject(bucket, key, callback) {
-    var err = getNextMorayError('delObject');
-    if (err) {
-        return callback(err);
-    }
-
-    if (!BUCKETS.hasOwnProperty(bucket)) {
-        return callback(bucketNotFoundErr(bucket));
-    }
-
-    if (!BUCKETS[bucket].hasOwnProperty(key)) {
-        return callback(objectNotFoundErr(key));
-    }
-
-    delete BUCKETS[bucket][key];
-    return callback();
-};
-
-
-FakeMoray.prototype.findObjects = function findObjects(bucket, filter, opts) {
-    var res = new EventEmitter;
-    var filterObj = ldapjs.parseFilter(filter);
-
-    process.nextTick(function () {
-        var err = getNextMorayError('findObjects');
-        if (err) {
-            res.emit('error', err);
-            return;
-        }
-
-        if (!BUCKETS.hasOwnProperty(bucket)) {
-            res.emit('error', bucketNotFoundErr(bucket));
-            return;
-        }
-
-        for (var r in BUCKETS[bucket]) {
-            if (filterObj.matches(BUCKETS[bucket][r])) {
-                res.emit('record', { value: BUCKETS[bucket][r] });
-            }
-        }
-
-        res.emit('end');
-    });
-
-    return res;
-};
-
-
-FakeMoray.prototype.getBucket = function getBucket(bucket, callback) {
-    var err = getNextMorayError('getBucket');
-    if (err) {
-        return callback(err);
-    }
-
-    if (!BUCKETS.hasOwnProperty(bucket)) {
-        return callback(bucketNotFoundErr(bucket));
-    }
-
-    // The real moray returns the bucket schema here, but NAPI only
-    // uses this for an existence check, so this suffices
-    return callback(null, BUCKETS[bucket]);
-};
-
-
-FakeMoray.prototype.getObject = function getObject(bucket, key, callback) {
-    var err = getNextMorayError('getObject');
-    if (err) {
-        return callback(err);
-    }
-
-    if (!BUCKETS.hasOwnProperty(bucket)) {
-        return callback(bucketNotFoundErr(bucket));
-    }
-
-    if (!BUCKETS[bucket].hasOwnProperty(key)) {
-        return callback(objectNotFoundErr(key));
-    }
-
-    return callback(null, { value: BUCKETS[bucket][key] });
-};
-
-
-FakeMoray.prototype.putObject =
-    function putObject(bucket, key, value, opts, callback) {
-    if (typeof (opts) === 'function') {
-        callback = opts;
-        opts = {};
-    }
-
-    var err = getNextMorayError('putObject');
-    if (err) {
-        return callback(err);
-    }
-
-    if (!BUCKETS.hasOwnProperty(bucket)) {
-        return callback(bucketNotFoundErr(bucket));
-    }
-
-    this._put(bucket, key, value);
-    return callback();
-};
-
-
-FakeMoray.prototype.sql = function sql(str) {
-    // Mock out PG's gap detection
-
-    /* JSSTYLED */
-    var bucket = str.match(/from ([a-z0-9_]+)/)[1];
-    /* JSSTYLED */
-    var gt = Number(str.match(/>= (\d+)/)[1]);
-    /* JSSTYLED */
-    var lt = Number(str.match(/<= (\d+)/)[1]);
-    var res = new EventEmitter;
-
-    assert.string(bucket, 'bucket');
-    assert.number(gt, 'gt');
-    assert.number(lt, 'lt');
-
-    process.nextTick(function () {
-        var err = getNextMorayError('sql');
-        if (err) {
-            res.emit('error', err);
-            return;
-        }
-
-        if (!BUCKETS.hasOwnProperty(bucket)) {
-            res.emit('error', bucketNotFoundErr(bucket));
-            return;
-        }
-
-        var bucketKeys = Object.keys(BUCKETS[bucket]).map(function (k) {
-            return Number(k); }).sort();
-        var last = bucketKeys[0];
-
-        for (var i in bucketKeys) {
-            var ip = bucketKeys[i];
-            if ((ip - last) > 1 && (last + 1) <= lt && (last + 1) >= gt) {
-                res.emit('record', { gap_start: last + 1 });
-                break;
-            }
-            last = ip;
-        }
-
-        res.emit('end');
-    });
-
-    return res;
-};
-
-
-FakeMoray.prototype.updateBucket =
-    function updateBucket(bucket, schema, callback) {
-
-    return callback(new Error('FakeMoray: not implemented'));
-};
 
 
 
@@ -301,6 +43,20 @@ function FakeWFclient(opts) {
 
     this.log = opts.log;
 }
+
+
+FakeWFclient.prototype.createJob = function createJob(name, params, callback) {
+    var uuid = mod_uuid.v4();
+    JOBS.push({
+        uuid: uuid,
+        name: name,
+        params: params
+    });
+
+    process.nextTick(function () {
+        return callback(null, { uuid: uuid });
+    });
+};
 
 
 
@@ -339,7 +95,7 @@ function createClientAndServer(callback) {
     });
 
     server.initialDataLoaded = true;
-    server.moray = new FakeMoray({ log: log });
+    server.moray = new mock_moray.FakeMoray({ log: log });
     server.wfapi = new FakeWFclient({ log: log });
 
     server.on('initialized', function () {
@@ -372,26 +128,29 @@ function fieldSort(a, b) {
  * Gets an IP record from fake moray
  */
 function getIPrecord(network, ip) {
+    var buckets = mock_moray._buckets;
     var bucketName = mod_ip.bucket(network).name;
-    if (!BUCKETS.hasOwnProperty(bucketName)) {
+    if (!buckets.hasOwnProperty(bucketName)) {
         return util.format('Bucket %s not found', bucketName);
     }
 
-    return BUCKETS[bucketName][util_ip.aton(ip).toString()];
+    return buckets[bucketName][util_ip.aton(ip).toString()];
 }
 
 
 /**
- * If there's an error in MORAY_ERRORS for the given operation, return it.
+ * Gets all IP records for a network from fake moray
  */
-function getNextMorayError(op) {
-    if (!MORAY_ERRORS.hasOwnProperty(op) ||
-        typeof (MORAY_ERRORS[op]) !== 'object' ||
-        MORAY_ERRORS.length === 0) {
-        return;
+function getIPrecords(network) {
+    var buckets = mock_moray._buckets;
+    var bucketName = mod_ip.bucket(network).name;
+    if (!buckets.hasOwnProperty(bucketName)) {
+        return util.format('Bucket %s not found', bucketName);
     }
 
-    return MORAY_ERRORS[op].shift();
+    return Object.keys(buckets[bucketName]).map(function (key) {
+        return buckets[bucketName][key];
+    }).sort(function (a, b) { return Number(a.ip) > Number(b.ip); });
 }
 
 
@@ -414,7 +173,7 @@ function missingParam(field, message) {
  * Returns the moray buckets
  */
 function morayBuckets() {
-    return BUCKETS;
+    return mock_moray._buckets;
 }
 
 
@@ -422,7 +181,7 @@ function morayBuckets() {
  * Sets moray to return errors for the given operations
  */
 function setMorayErrors(obj) {
-    MORAY_ERRORS = obj;
+    mock_moray._errors = obj;
 }
 
 
@@ -435,6 +194,14 @@ function stopServer(callback) {
     }
 
     return SERVER.stop(callback);
+}
+
+
+/**
+ * Sort by uuid property
+ */
+function uuidSort(a, b) {
+    return (a.uuid > b.uuid) ? 1 : -1;
 }
 
 
@@ -505,13 +272,22 @@ module.exports = {
     fieldSort: fieldSort,
     ifErr: common.ifErr,
     getIPrecord: getIPrecord,
+    getIPrecords: getIPrecords,
     invalidParamErr: common.invalidParamErr,
     missingParam: missingParam,
     morayBuckets: morayBuckets,
     randomMAC: common.randomMAC,
     setMorayErrors: setMorayErrors,
     stopServer: stopServer,
+    uuidSort: uuidSort,
     validIPparams: validIPparams,
     validNicparams: validNicparams,
-    validNetworkParams: validNetworkParams
+    validNetworkParams: validNetworkParams,
+    get wfJobs() {
+        return JOBS;
+
+    },
+    set wfJobs(val) {
+        JOBS = val;
+    }
 };

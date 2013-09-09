@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+#
+# Copyright (c) 2013, Joyent, Inc. All rights reserved.
+#
+# Run a single NAPI test of any type.
+
+TOP=$(cd $(dirname $0)/../; pwd)
+NODE_INSTALL=$TOP/node
+NODEUNIT=$TOP/node_modules/.bin/nodeunit
+UNAME=$(uname -s)
+
+guard_file=/var/tmp/.sdc-test-no-production-data
+if [[ $UNAME == "SunOS" ]] && [[ ! -f "$guard_file" ]]; then
+    cat <<EOF
+To run this test you must create the file:
+
+    $guard_file
+
+after ensuring you have no production data on this SDC.
+EOF
+    exit 2
+fi
+
+PATH=$NODE_INSTALL/bin:$PATH $NODEUNIT --reporter=tap $1
