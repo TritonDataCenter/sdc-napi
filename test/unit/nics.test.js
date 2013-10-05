@@ -765,6 +765,116 @@ exports['Update nic - same params'] = function (t) {
 };
 
 
+// Provision a nic, then change that IP's belongs_to_uuid to something
+// else.  Deleting the nic should not free the IP (since it now belongs
+// to something else).
+exports['Delete nic - IP ownership changed underneath'] = function (t) {
+    var ip;
+    var nic;
+    var other = mod_uuid.v4();
+    var params = {
+        belongs_to_type: 'zone',
+        belongs_to_uuid: mod_uuid.v4(),
+        owner_uuid:  mod_uuid.v4()
+    };
+
+    vasync.pipeline({ funcs: [
+
+    function (_, cb) {
+        NAPI.provisionNic(NET2.uuid, params, function (err, res) {
+            if (helpers.ifErr(t, err, 'provision new nic')) {
+                return cb(err);
+            }
+
+            nic = res;
+            for (var p in params) {
+                t.equal(nic[p], params[p], p + ' correct');
+            }
+
+            return cb();
+        });
+    },
+
+     function (_, cb) {
+        NAPI.getIP(NET2.uuid, nic.ip, function (err, res) {
+            if (helpers.ifErr(t, err, 'update IP')) {
+                return cb(err);
+            }
+
+            ip = res;
+            t.equal(res.ip, nic.ip, 'IP');
+            t.equal(res.belongs_to_uuid, params.belongs_to_uuid, 'IP');
+
+            return cb();
+        });
+     },
+
+     function (_, cb) {
+        NAPI.updateIP(NET2.uuid, nic.ip, { belongs_to_uuid: other },
+            function (err, res) {
+            if (helpers.ifErr(t, err, 'update IP')) {
+                return cb(err);
+            }
+
+            ip.belongs_to_uuid = other;
+            t.deepEqual(res, ip, 'only belongs_to_uuid updated');
+
+            return cb();
+        });
+     },
+
+     function (_, cb) {
+        NAPI.getIP(NET2.uuid, nic.ip, function (err, res) {
+            if (helpers.ifErr(t, err, 'update IP')) {
+                return cb(err);
+            }
+
+            t.deepEqual(res, ip, 'IP unchanged');
+
+            return cb();
+        });
+     },
+
+     function (_, cb) {
+        NAPI.deleteNic(nic.mac, function (err, res) {
+            if (helpers.ifErr(t, err, 'delete nic')) {
+                return cb(err);
+            }
+
+            return cb();
+        });
+     },
+
+     function (_, cb) {
+        NAPI.getNic(nic.mac, function (err, res) {
+            t.ok(err, 'error expected');
+            if (!err) {
+                return cb();
+            }
+            t.equal(err.statusCode, 404, '404 returned');
+
+            return cb();
+        });
+     },
+
+     function (_, cb) {
+        NAPI.getIP(NET2.uuid, nic.ip, function (err, res) {
+            if (helpers.ifErr(t, err, 'update IP')) {
+                return cb(err);
+            }
+
+            t.deepEqual(res, ip, 'IP unchanged');
+
+            return cb();
+        });
+     }
+
+     ] }, function () {
+         return t.done();
+     });
+};
+
+
 
 // XXX: More tests:
 // - create nic with IP, then create another nic with the same IP.  Old nic
