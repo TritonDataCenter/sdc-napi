@@ -29,6 +29,7 @@ var verror = require('verror');
 var JOBS = [];
 // Set to log messages to stderr
 var LOG = process.env.LOG || false;
+var NET_NUM = 2;
 var SERVER;
 
 
@@ -251,10 +252,10 @@ function validNetworkParams(override) {
     var newNet = {
         name: 'myname',
         nic_tag: 'nic_tag',
-        provision_end_ip: '10.0.2.254',
-        provision_start_ip: '10.0.2.1',
+        provision_end_ip: util.format('10.0.%d.254', NET_NUM),
+        provision_start_ip: util.format('10.0.%d.1', NET_NUM),
         resolvers: ['8.8.8.8', '8.8.4.4'],
-        subnet: '10.0.2.0/24',
+        subnet: util.format('10.0.%d.0/24', NET_NUM),
         vlan_id: '0'
     };
 

@@ -35,10 +35,6 @@ var PROV_MAC_NET;
 
 
 
-// --- Internal helpers
-
-
-
 // --- Setup
 
 
@@ -466,31 +462,38 @@ exports['Provision nic - with IP'] = function (t) {
 
 
 exports['Update nic - add IP'] = function (t) {
+    var mac = helpers.randomMAC();
+    var nic;
     var params = {
         belongs_to_type: 'zone',
         belongs_to_uuid: mod_uuid.v4(),
         owner_uuid:  mod_uuid.v4()
     };
-    var mac = helpers.randomMAC();
 
-    NAPI.createNic(mac, params, function (err, res) {
-        t.ifError(err);
-        if (err) {
-            t.deepEqual(err.body, {}, 'error body');
-            return t.done();
-        }
+    vasync.pipeline({ funcs: [
+    function (_, cb) {
+        NAPI.createNic(mac, params, function (err, res) {
+            if (helpers.ifErr(t, err, 'create nic')) {
+                return cb(err);
+            }
 
+            for (var p in params) {
+                t.equal(res[p], params[p], p + ' correct');
+            }
+
+            return cb();
+        });
+
+    }, function (_, cb) {
         NAPI.updateNic(mac, { network_uuid: NET3.uuid }, function (err2, res2) {
-            t.ifError(err2);
-            if (err2) {
-                t.deepEqual(err2.body, {}, 'error body');
-                return t.done();
+            if (helpers.ifErr(t, err2, 'update nic')) {
+                return cb(err2);
             }
 
             t.deepEqual(res2, {
                 belongs_to_type: params.belongs_to_type,
                 belongs_to_uuid: params.belongs_to_uuid,
-                ip: NET2.provision_start_ip,
+                ip: NET3.provision_start_ip,
                 mac: res2.mac,
                 netmask: '255.255.255.0',
                 network_uuid: NET3.uuid,
@@ -500,9 +503,33 @@ exports['Update nic - add IP'] = function (t) {
                 resolvers: NET3.resolvers,
                 vlan_id: NET3.vlan_id
             }, 'result');
+            nic = res2;
 
-            return t.done();
+            return cb();
         });
+
+    }, function (_, cb) {
+        NAPI.getIP(NET3.uuid, nic.ip, function (err, res) {
+            if (helpers.ifErr(t, err, 'get IP')) {
+                return cb(err);
+            }
+
+            t.deepEqual(res, {
+                belongs_to_type: nic.belongs_to_type,
+                belongs_to_uuid: nic.belongs_to_uuid,
+                free: false,
+                ip: nic.ip,
+                network_uuid: NET3.uuid,
+                owner_uuid: nic.owner_uuid,
+                reserved: false
+            }, 'get IP after update');
+
+            return cb();
+        });
+    }
+
+    ] }, function () {
+        return t.done();
     });
 };
 
@@ -532,7 +559,7 @@ exports['Update nic - IP parameters updated'] = function (t) {
 
     vasync.pipeline({
         funcs: [
-        function _create(_, cb) {
+        function (_, cb) {
             NAPI.createNic(mac, params, function (err, res) {
                 t.ifError(err);
                 if (err) {
@@ -545,7 +572,7 @@ exports['Update nic - IP parameters updated'] = function (t) {
             });
         },
 
-        function _update(_, cb) {
+        function (_, cb) {
             var updateParams = {
                 belongs_to_type: 'other',
                 belongs_to_uuid: mod_uuid.v4(),
@@ -568,7 +595,7 @@ exports['Update nic - IP parameters updated'] = function (t) {
             });
         },
 
-        function _getNic(_, cb) {
+        function (_, cb) {
             NAPI.getNic(mac, function (err, res) {
                 t.ifError(err);
                 if (err) {
@@ -581,7 +608,7 @@ exports['Update nic - IP parameters updated'] = function (t) {
             });
         },
 
-        function _getIP(_, cb) {
+        function (_, cb) {
             NAPI.getIP(NET.uuid, exp.ip, function (err, res) {
                 t.ifError(err);
                 if (err) {
@@ -601,6 +628,236 @@ exports['Update nic - IP parameters updated'] = function (t) {
                 return cb();
             });
         }
+    ] }, function () {
+        return t.done();
+    });
+};
+
+
+exports['Update nic - change IP'] = function (t) {
+    var ip1 = '10.0.2.196';
+    var ip2 = '10.0.2.197';
+    var ip3 = '10.0.2.198';
+    var expIP1, expIP2, expIP3;
+
+    var other = mod_uuid.v4();
+    var params = {
+        belongs_to_type: 'zone',
+        belongs_to_uuid: mod_uuid.v4(),
+        ip: ip1,
+        network_uuid: NET.uuid,
+        owner_uuid:  mod_uuid.v4()
+    };
+    var mac = helpers.randomMAC();
+    var exp = {
+        belongs_to_type: params.belongs_to_type,
+        belongs_to_uuid: params.belongs_to_uuid,
+        ip: params.ip,
+        mac: mac,
+        netmask: '255.255.255.0',
+        network_uuid: NET.uuid,
+        nic_tag: NET.nic_tag,
+        owner_uuid: params.owner_uuid,
+        primary: false,
+        resolvers: NET.resolvers,
+        vlan_id: NET.vlan_id
+    };
+
+    vasync.pipeline({
+    funcs: [
+    function (_, cb) {
+        NAPI.createNic(mac, params, function (err, res) {
+            if (helpers.ifErr(t, err, 'create nic')) {
+                return cb(err);
+            }
+
+            t.deepEqual(res, exp, 'create nic result');
+            return cb();
+        });
+    },
+
+    function (_, cb) {
+        var updateParams = {
+            ip: ip2,
+            network_uuid: NET.uuid
+        };
+
+        for (var k in updateParams) {
+            exp[k] = updateParams[k];
+        }
+
+        NAPI.updateNic(mac, updateParams, function (err, res) {
+            if (helpers.ifErr(t, err, 'update nic')) {
+                return cb(err);
+            }
+
+            t.deepEqual(res, exp, 'result after update');
+            return cb();
+        });
+    },
+
+    function (_, cb) {
+        NAPI.getNic(mac, function (err, res) {
+            if (helpers.ifErr(t, err, 'get nic')) {
+                return cb(err);
+            }
+
+            t.deepEqual(res, exp, 'get nic after update');
+            return cb();
+        });
+    },
+
+    function (_, cb) {
+        expIP1 = {
+            free: true,
+            ip: ip1,
+            network_uuid: NET.uuid,
+            reserved: false
+        };
+
+        NAPI.getIP(NET.uuid, ip1, function (err, res) {
+            if (helpers.ifErr(t, err, 'get old IP')) {
+                return cb(err);
+            }
+
+            t.deepEqual(res, expIP1, 'old IP after update');
+            return cb();
+        });
+    },
+
+    function (_, cb) {
+        expIP2 = {
+            belongs_to_type: exp.belongs_to_type,
+            belongs_to_uuid: exp.belongs_to_uuid,
+            free: false,
+            ip: ip2,
+            network_uuid: NET.uuid,
+            owner_uuid: exp.owner_uuid,
+            reserved: false
+        };
+
+        NAPI.getIP(NET.uuid, ip2, function (err, res) {
+            if (helpers.ifErr(t, err, 'get new IP')) {
+                return cb(err);
+            }
+
+            t.deepEqual(res, expIP2, 'new IP after update');
+            return cb();
+        });
+    },
+
+    // Reserve ip3 so that it exists in moray
+    function (_, cb) {
+        NAPI.updateIP(NET.uuid, ip3, { reserved: true },
+            function (err, res) {
+            if (helpers.ifErr(t, err, 'update ip3')) {
+                return cb(err);
+            }
+
+            t.equal(res.reserved, true, 'set reserved');
+            t.equal(res.free, false, 'free updated');
+
+            return cb();
+        });
+    },
+
+    // Change belongs_to_uuid of ip2: the next update should leave it
+    // alone, since the nic no longer owns it
+    function (_, cb) {
+        NAPI.updateIP(NET.uuid, ip2, { belongs_to_uuid: other },
+            function (err, res) {
+            if (helpers.ifErr(t, err, 'update ip2: 1')) {
+                return cb(err);
+            }
+
+            expIP2.belongs_to_uuid = other;
+            t.deepEqual(res, expIP2, 'belongs_to_uuid changed');
+
+            return cb();
+        });
+    },
+
+    // confirm the change
+    function (_, cb) {
+        NAPI.getIP(NET.uuid, ip2, function (err, res) {
+            if (helpers.ifErr(t, err, 'get: ip2')) {
+                return cb(err);
+            }
+
+            t.deepEqual(res, expIP2, 'ip2: belongs_to_uuid changed');
+            return cb();
+        });
+    },
+
+    // Now update the nic so that it points to ip3
+    function (_, cb) {
+        var updateParams = {
+            ip: ip3,
+            network_uuid: NET.uuid
+        };
+
+        for (var k in updateParams) {
+            exp[k] = updateParams[k];
+        }
+
+        NAPI.updateNic(mac, updateParams, function (err, res) {
+            if (helpers.ifErr(t, err, 'update nic: 2')) {
+                return cb(err);
+            }
+
+            t.deepEqual(res, exp, 'result after update');
+            return cb();
+        });
+    },
+
+    // ip1 should be unchanged
+    function (_, cb) {
+        NAPI.getIP(NET.uuid, ip1, function (err, res) {
+            if (helpers.ifErr(t, err, 'get: ip1')) {
+                return cb(err);
+            }
+
+            t.deepEqual(res, expIP1, 'ip1 unchanged');
+            return cb();
+        });
+    },
+
+    // ip2 should be unchanged as well, since it's no longer owned
+    // by the nic we updated
+    function (_, cb) {
+        NAPI.getIP(NET.uuid, ip2, function (err, res) {
+            if (helpers.ifErr(t, err, 'get: ip2')) {
+                return cb(err);
+            }
+
+            t.deepEqual(res, expIP2, 'ip2 unchanged');
+            return cb();
+        });
+    },
+
+    // And finally, ip3 should have the nic as its owner now and still have
+    // reserved set to true
+    function (_, cb) {
+        expIP3 = {
+            belongs_to_type: exp.belongs_to_type,
+            belongs_to_uuid: exp.belongs_to_uuid,
+            free: false,
+            ip: ip3,
+            network_uuid: NET.uuid,
+            owner_uuid: exp.owner_uuid,
+            reserved: true
+        };
+
+        NAPI.getIP(NET.uuid, ip3, function (err, res) {
+            if (helpers.ifErr(t, err, 'get: ip3')) {
+                return cb(err);
+            }
+
+            t.deepEqual(res, expIP3, 'ip3 unchanged');
+            return cb();
+        });
+    }
+
     ] }, function () {
         return t.done();
     });
@@ -779,7 +1036,6 @@ exports['Delete nic - IP ownership changed underneath'] = function (t) {
     };
 
     vasync.pipeline({ funcs: [
-
     function (_, cb) {
         NAPI.provisionNic(NET2.uuid, params, function (err, res) {
             if (helpers.ifErr(t, err, 'provision new nic')) {
