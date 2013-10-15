@@ -10,7 +10,6 @@ set -o xtrace
 PATH=/opt/local/bin:/opt/local/sbin:/usr/bin:/usr/sbin
 
 role=napi
-app_name=$role
 CONFIG_AGENT_LOCAL_MANIFESTS_DIRS=/opt/smartdc/$role
 
 echo "Finishing setup of $role zone"
@@ -27,8 +26,11 @@ echo "" >>/root/.profile
 echo "export PATH=\$PATH:/opt/smartdc/$role/node/bin:/opt/smartdc/$role/node_modules/.bin:/opt/smartdc/$role/bin" >>/root/.profile
 
 echo "Adding log rotation"
-logadm -w napi -C 48 -s 100m -p 1h \
-   /var/svc/log/smartdc-application-napi:default.log
+sdc_log_rotation_add amon-agent /var/svc/log/*amon-agent*.log 1g
+sdc_log_rotation_add config-agent /var/svc/log/*config-agent*.log 1g
+sdc_log_rotation_add registrar /var/svc/log/*registrar*.log 1g
+sdc_log_rotation_add $role /var/svc/log/*$role*.log 1g
+sdc_log_rotation_setup_end
 
 # All done, run boilerplate end-of-setup
 sdc_setup_complete
