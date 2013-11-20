@@ -22,11 +22,52 @@ var vasync = require('vasync');
 // plus setup and teardown
 var runOne;
 var NAPI;
-var NET1;
-var NET2;
-var NET3;
-var NET4;
-var POOL1;
+var NETS = [];
+var POOLS = [];
+
+
+
+// --- Internal helpers
+
+
+function netParams(extra) {
+    if (!extra) {
+        extra = {};
+    }
+
+    var l = NETS.length;
+    var params = {
+        name: 'net' + l,
+        subnet: util.format('10.0.%d.0/28', l),
+        provision_end_ip: util.format('10.0.%d.12', l),
+        provision_start_ip: util.format('10.0.%d.9', l),
+        // Ensure the networks sort in order of creation:
+        uuid: util.format('%d%d%d%d7862-54fa-4667-89ae-c981cd5ada9a',
+            l, l, l, l)
+    };
+
+    for (var e in extra) {
+        params[e] = extra[e];
+    }
+
+    return helpers.validNetworkParams(params);
+}
+
+
+function createNet(extra, callback) {
+    if (!callback) {
+        callback = extra;
+        extra = {};
+    }
+
+    NAPI.createNetwork(netParams(extra), function (err, res) {
+        if (res) {
+            NETS.push(res);
+        }
+
+        return callback(err);
+    });
+}
 
 
 
@@ -44,13 +85,10 @@ exports['Initial setup'] = function (t) {
             return t.done();
         }
 
-        var net1Params = helpers.validNetworkParams({
-            name: 'net1',
-            provision_end_ip: '10.0.1.5',
-            provision_start_ip: '10.0.1.2',
-            subnet: '10.0.1.0/29',
-            // Explicitly pick a UUID to make sure it sorts before NET2
-            uuid: '0d281aa3-8d70-4666-a118-b1b88669f11f'
+        var net1Params = netParams({
+            subnet: '10.0.0.0/28',
+            provision_start_ip: '10.0.0.2',
+            provision_end_ip: '10.0.0.5'
         });
         var otherTag = 'othertag' + process.pid;
 
@@ -64,74 +102,72 @@ exports['Initial setup'] = function (t) {
                 NAPI.createNicTag(otherTag, cb);
             },
 
-            function _testNet(_, cb) {
+            function _testNet0(_, cb) {
                 NAPI.createNetwork(net1Params, function (err2, res2) {
-                    NET1 = res2;
+                    if (res2) {
+                        NETS.push(res2);
+                    }
+
                     cb(err2);
                 });
+            },
+
+            function _testNet1(_, cb) {
+                createNet(cb);
             },
 
             function _testNet2(_, cb) {
-                var params = helpers.validNetworkParams({
-                    name: 'net2',
-                    provision_end_ip: '10.0.1.12',
-                    provision_start_ip: '10.0.1.9',
-                    subnet: '10.0.1.8/29',
-                    uuid: 'b8e57862-54fa-4667-89ae-c981cd5ada9a'
-                });
-
-                NAPI.createNetwork(params, function (err2, res2) {
-                    NET2 = res2;
-                    cb(err2);
-                });
+                createNet(cb);
             },
 
             function _testNet3(_, cb) {
-                var params = helpers.validNetworkParams({
-                    name: 'net3',
-                    provision_end_ip: '10.0.1.12',
-                    provision_start_ip: '10.0.1.9',
-                    subnet: '10.0.1.8/29',
-                    uuid: 'ccc57862-54fa-4667-89ae-c981cd5ada9a'
-                });
-
-                NAPI.createNetwork(params, function (err3, res3) {
-                    NET3 = res3;
-                    cb(err3);
-                });
+                createNet({ nic_tag: otherTag }, cb);
             },
 
             function _testNet4(_, cb) {
-                var params = helpers.validNetworkParams({
-                    name: 'net4',
-                    nic_tag: otherTag,
-                    provision_end_ip: '10.0.1.12',
-                    provision_start_ip: '10.0.1.9',
-                    subnet: '10.0.1.8/29',
-                    uuid: 'dddd7862-54fa-4667-89ae-c981cd5ada9a'
-                });
+                createNet(cb);
+            },
 
-                NAPI.createNetwork(params, function (err4, res4) {
-                    NET4 = res4;
-                    cb(err4);
-                });
+            function _testNet5(_, cb) {
+                createNet(cb);
             },
 
             function _netPool1(_, cb) {
                 var name = 'pool1-' + process.pid;
                 var params = {
-                    networks: [ NET1.uuid, NET2.uuid, NET3.uuid ]
+                    networks: [ NETS[0].uuid, NETS[1].uuid, NETS[2].uuid ]
                 };
 
                 NAPI.createNetworkPool(name, params, function (err2, res2) {
                     if (!err2) {
-                        POOL1 = res2;
+                        POOLS.push(res2);
                         params.name = name;
                         params.uuid = res2.uuid;
-                        params.nic_tag = NET1.nic_tag;
+                        params.nic_tag = NETS[0].nic_tag;
                         t.deepEqual(res2, params, 'result');
                     }
-                    cb(err2);
+
+                    return cb(err2);
+                });
+            },
+
+            function _netPool2(_, cb) {
+                var name = 'pool2-' + process.pid;
+                var params = {
+                    networks: [ NETS[4].uuid, NETS[5].uuid ],
+                    owner_uuids: [ mod_uuid.v4() ]
+                };
+
+                NAPI.createNetworkPool(name, params, function (err2, res2) {
+                    if (!err2) {
+                        POOLS.push(res2);
+                        params.name = name;
+                        params.uuid = res2.uuid;
+                        params.nic_tag = NETS[4].nic_tag;
+                        t.deepEqual(res2, params, 'result');
+                    }
+
+                    return cb(err2);
                 });
             }
 
@@ -154,7 +190,7 @@ exports['Initial setup'] = function (t) {
 
 exports['Create pool - non-existent network'] = function (t) {
     var params = {
-        networks: [ NET1.uuid, mod_uuid.v4() ]
+        networks: [ NETS[0].uuid, mod_uuid.v4() ]
     };
     NAPI.createNetworkPool('pool-fail-1-' + process.pid, params,
         function (err, res) {
@@ -204,7 +240,7 @@ exports['Create pool - too many networks'] = function (t) {
 
 exports['Create pool - mismatched nic tags'] = function (t) {
     var params = {
-        networks: [ NET1.uuid, NET4.uuid ]
+        networks: [ NETS[0].uuid, NETS[3].uuid ]
     };
 
     NAPI.createNetworkPool('pool-fail-2-' + process.pid, params,
@@ -232,7 +268,7 @@ exports['Create pool - mismatched nic tags'] = function (t) {
 
 exports['Update non-existent pool'] = function (t) {
     var params = {
-        networks: [ NET1.uuid ]
+        networks: [ NETS[0].uuid ]
     };
 
     NAPI.updateNetworkPool(mod_uuid.v4(), params, function (err, res) {
@@ -254,17 +290,17 @@ exports['Update non-existent pool'] = function (t) {
 
 exports['Update pool'] = function (t) {
     var params = {
-        networks: [ NET1.uuid, NET2.uuid ]
+        networks: [ NETS[0].uuid, NETS[1].uuid ]
     };
 
-    NAPI.updateNetworkPool(POOL1.uuid, params, function (err, res) {
+    NAPI.updateNetworkPool(POOLS[0].uuid, params, function (err, res) {
         t.ifError(err, 'error returned');
         if (err) {
             return t.done();
         }
 
-        POOL1.networks = params.networks;
-        t.deepEqual(res, POOL1, 'updated result');
+        POOLS[0].networks = params.networks;
+        t.deepEqual(res, POOLS[0], 'updated result');
         return t.done();
     });
 };
@@ -275,7 +311,7 @@ exports['Update pool: no networks'] = function (t) {
         networks: [ ]
     };
 
-    NAPI.updateNetworkPool(POOL1.uuid, params, function (err, res) {
+    NAPI.updateNetworkPool(POOLS[0].uuid, params, function (err, res) {
         t.ok(err, 'error returned');
         if (!err) {
             return t.done();
@@ -292,19 +328,89 @@ exports['Update pool: no networks'] = function (t) {
 };
 
 
+exports['Update pool: remove owner_uuids'] = function (t) {
+    var params = {
+        owner_uuids: [ ]
+    };
+
+    vasync.pipeline({
+    funcs: [
+    function (_, cb) {
+        NAPI.updateNetworkPool(POOLS[1].uuid, params, function (err, res) {
+            if (helpers.ifErr(t, err, 'update pool')) {
+                return cb(err);
+            }
+
+            delete POOLS[1].owner_uuids;
+            t.deepEqual(res, POOLS[1], 'owner_uuids removed');
+
+            var morayObj =
+                helpers.morayBuckets()['napi_network_pools'][POOLS[1].uuid];
+
+            t.ok(!morayObj.hasOwnProperty('owner_uuids'),
+                'owner_uuids property no longer present in moray');
+            return cb();
+        });
+
+    }, function (_, cb) {
+        NAPI.getNetworkPool(POOLS[1].uuid, function (err, res) {
+            if (helpers.ifErr(t, err, 'get pool')) {
+                return cb(err);
+            }
+
+            t.deepEqual(res, POOLS[1], 'get result');
+            return cb();
+        });
+
+    }, function (_, cb) {
+        params.owner_uuids = [ mod_uuid.v4(), mod_uuid.v4() ];
+
+        NAPI.updateNetworkPool(POOLS[1].uuid, params, function (err, res) {
+            if (helpers.ifErr(t, err, 'update pool')) {
+                return cb(err);
+            }
+
+            POOLS[1].owner_uuids = params.owner_uuids.sort();
+            t.deepEqual(res, POOLS[1], 'owner_uuids added');
+
+            var morayObj =
+                helpers.morayBuckets()['napi_network_pools'][POOLS[1].uuid];
+
+            t.equal(morayObj.owner_uuids, ','
+                + params.owner_uuids.sort().join(',') + ',',
+                'owner_uuids property no longer present in moray');
+            return cb();
+        });
+
+    }, function (_, cb) {
+        NAPI.getNetworkPool(POOLS[1].uuid, function (err, res) {
+            if (helpers.ifErr(t, err, 'get pool')) {
+                return cb(err);
+            }
+
+            t.deepEqual(res, POOLS[1], 'get result');
+            return cb();
+        });
+
+    } ] }, function () {
+        return t.done();
+    });
+};
+
+
 
 // --- Get tests
 
 
 
 exports['Get pool'] = function (t) {
-    NAPI.getNetworkPool(POOL1.uuid, function (err, res) {
+    NAPI.getNetworkPool(POOLS[0].uuid, function (err, res) {
         t.ifError(err, 'error returned');
         if (err) {
             return t.done();
         }
 
-        t.deepEqual(res, POOL1, 'get result');
+        t.deepEqual(res, POOLS[0], 'get result');
         return t.done();
     });
 };
@@ -322,7 +428,7 @@ exports['List pools'] = function (t) {
             return t.done();
         }
 
-        t.deepEqual(res, [ POOL1 ], 'list result');
+        t.deepEqual(res, POOLS, 'list result');
         return t.done();
     });
 };
@@ -337,11 +443,11 @@ exports['Provision nic - on network pool with IP'] = function (t) {
     var params = {
         belongs_to_type: 'zone',
         belongs_to_uuid: mod_uuid.v4(),
-        ip: NET2.provision_start_ip,
+        ip: NETS[1].provision_start_ip,
         owner_uuid:  mod_uuid.v4()
     };
 
-    NAPI.provisionNic(POOL1.uuid, params, function (err, res) {
+    NAPI.provisionNic(POOLS[0].uuid, params, function (err, res) {
         t.ok(err);
         if (!err) {
             return t.done();
@@ -370,9 +476,11 @@ exports['Provision nic - on network pool'] = function (t) {
                 owner_uuid:  mod_uuid.v4()
             };
             var nextIPnum = ipNums.shift();
-            var nextIP = '10.0.1.' + nextIPnum;
+            var nextIP = util.format('10.0.%d.%d',
+                nextIPnum < 6 ? 0 : 1,
+                nextIPnum);
 
-            NAPI.provisionNic(POOL1.uuid, params, function (err, res) {
+            NAPI.provisionNic(POOLS[0].uuid, params, function (err, res) {
                 t.ifError(err);
                 if (err) {
                     earlyOutErr = err;
@@ -380,13 +488,13 @@ exports['Provision nic - on network pool'] = function (t) {
                     return cb();
                 }
 
-                var net = nextIPnum < 6 ? NET1 : NET2;
+                var net = nextIPnum < 6 ? NETS[0] : NETS[1];
                 t.deepEqual(res, {
                     belongs_to_type: params.belongs_to_type,
                     belongs_to_uuid: params.belongs_to_uuid,
                     ip: nextIP,
                     mac: res.mac,
-                    netmask: '255.255.255.248',
+                    netmask: '255.255.255.240',
                     network_uuid: net.uuid,
                     nic_tag: net.nic_tag,
                     owner_uuid: params.owner_uuid,
@@ -408,7 +516,7 @@ exports['Provision nic - on network pool'] = function (t) {
                 owner_uuid:  mod_uuid.v4()
             };
 
-            NAPI.provisionNic(POOL1.uuid, params, function (err, res) {
+            NAPI.provisionNic(POOLS[0].uuid, params, function (err, res) {
                 t.ok(err);
                 if (!err) {
                     return t.done();
@@ -432,7 +540,7 @@ exports['Provision nic - on network pool'] = function (t) {
 
 
 exports['Delete network in pool'] = function (t) {
-    NAPI.deleteNetwork(NET1.uuid, function (err, res) {
+    NAPI.deleteNetwork(NETS[0].uuid, function (err, res) {
         t.ok(err, 'error returned');
         if (!err) {
             return t.done();
@@ -442,7 +550,7 @@ exports['Delete network in pool'] = function (t) {
         t.deepEqual(err.body, {
             code: 'InUse',
             message: 'Network is in use',
-            errors: [ mod_err.usedBy('network pool', POOL1.uuid) ]
+            errors: [ mod_err.usedBy('network pool', POOLS[0].uuid) ]
         }, 'error body');
         return t.done();
     });

@@ -156,7 +156,7 @@ function deleteNicTags(t, napi, state) {
         inputs: state.nic_tags,
         func: function _delNicTag(tag, cb) {
             napi.deleteNicTag(tag.name, function (err) {
-                t.ifError(err, 'delete test nic tag: ' + tag.name);
+                common.ifErr(t, err, 'delete test nic tag: ' + tag.name);
 
                 // We're calling this in teardown, so plow on anyway with
                 // deleting the rest of the tags
