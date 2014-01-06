@@ -500,6 +500,7 @@ if it matches *all* of the input parameters.
 ||belongs_to_uuid||UUID||The UUID of what this Nic belongs to||
 ||belongs_to_type||String||The type that this belongs to (eg: 'zone', 'server')||
 ||nic_tag||String||The nic tag that this nic is on||
+||nic_tags_provided||Array of nic tag names||Nic tags provided by the nic||
 
 Note: all filter fields above can have multiple comma-separated values to search
 on (like a logical OR).
@@ -547,8 +548,7 @@ on (like a logical OR).
 
 ### Example: list all nics with a nic tag of external or admin
 
-    GET /nics
-      -d nic_tag=external,admin
+    GET /nics?nic_tag=external,admin
 
     [
       {
@@ -585,6 +585,19 @@ on (like a logical OR).
       },
       ...
     ]
+
+
+### Example: list all nics belonging to servers that provide an admin or external nic tag
+
+    GET /nics?belongs_to_type=server&nic_tags_provided=admin,external | json -Hamac nic_tags_provided
+
+    00:50:56:3d:a7:95 [
+      "external"
+    ]
+    00:50:56:34:60:4c [
+      "admin"
+    ]
+
 
 
 ## CreateNic (POST /nics)
