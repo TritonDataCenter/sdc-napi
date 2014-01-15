@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Joyent, Inc. All rights reserved.
+ * Copyright (c) 2014, Joyent, Inc. All rights reserved.
  *
  * Test helpers for NAPI unit tests
  */
@@ -30,6 +30,7 @@ var JOBS = [];
 // Set to log messages to stderr
 var LOG = process.env.LOG || false;
 var NET_NUM = 2;
+var NET_IPS = {};
 var SERVER;
 
 
@@ -179,6 +180,21 @@ function morayBuckets() {
 
 
 /**
+ * Get the next provisionable IP address for the network object passed in
+ */
+function nextProvisionableIP(net) {
+    assert.object(net, 'net');
+    if (!NET_IPS.hasOwnProperty(net.uuid)) {
+        assert.string(net.provision_start_ip, 'net.provision_start_ip');
+        NET_IPS[net.uuid] = util_ip.aton(net.provision_start_ip);
+        assert.number(NET_IPS[net.uuid], 'NET_IPS[net.uuid]');
+    }
+
+    return util_ip.ntoa(NET_IPS[net.uuid]++);
+}
+
+
+/**
  * Sets moray to return errors for the given operations
  */
 function setMorayErrors(obj) {
@@ -277,6 +293,7 @@ module.exports = {
     invalidParamErr: common.invalidParamErr,
     missingParam: missingParam,
     morayBuckets: morayBuckets,
+    nextProvisionableIP: nextProvisionableIP,
     randomMAC: common.randomMAC,
     setMorayErrors: setMorayErrors,
     stopServer: stopServer,

@@ -254,13 +254,15 @@ This sets two static routes:
 
 Updates a logical network.  Note updating the following parameters will cause
 a workflow to be run to update VMs on that network with the changes:
+
 * resolvers
 * routes
 * gateway
 
 ### Inputs
 
-All fields are optional. At least one must be specified.
+All fields are optional. At least one must be specified. Only the parameters
+specified in the update are changed, leaving all others unchanged.
 
 ||**Field**||**Type**||**Description**||
 ||name||String||network name||
@@ -617,6 +619,11 @@ Creates a new nic.
 ||nic_tags_provided||Array of nic tag names||Nic tags this nic provides||
 ||model||String||Nic model for KVM VMs (optional for other VM types)||
 ||check_owner||Boolean||If set to false, skips network ownership checks (optional)||
+||allow_dhcp_spoofing||Boolean||Allow operating a DHCP server on this nic||
+||allow_ip_spoofing||Boolean||Allow sending and receiving packets that don't match the nic's IP||
+||allow_mac_spoofing||Boolean||Allow sending and receiving packets that don't match the nic's MAC address||
+||allow_restricted_traffic||Boolean||Allow sending restricted network traffic (packets that are not IPv4, IPv6 or ARP)||
+||allow_unfiltered_promisc||Boolean||Allow this VM to have multiple MAC addresses||
 
 
 ### Example
@@ -676,6 +683,11 @@ Changes properties of the nic with the given MAC address.
 ||nic_tags_provided||Array of nic tag names||Nic tags this nic provides||
 ||model||String||Nic model for KVM VMs (optional for other VM types)||
 ||check_owner||Boolean||If set to false, skips network ownership checks (optional)||
+||allow_dhcp_spoofing||Boolean||Allow operating a DHCP server on this nic||
+||allow_ip_spoofing||Boolean||Allow sending and receiving packets that don't match the nic's IP||
+||allow_mac_spoofing||Boolean||Allow sending and receiving packets that don't match the nic's MAC address||
+||allow_restricted_traffic||Boolean||Allow sending restricted network traffic (packets that are not IPv4, IPv6 or ARP)||
+||allow_unfiltered_promisc||Boolean||Allow this VM to have multiple MAC addresses||
 
 
 **Note: this is the MAC address with all colons removed.**
