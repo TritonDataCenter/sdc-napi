@@ -8,7 +8,7 @@
     "assert-plus": "0.1.2",
     "bunyan": "0.21.3",
     "clone": "0.1.5",
-    "moray": "git+ssh://git@git.joyent.com:node-moray.git#6248cbe",
+    "moray": "git+ssh://git@git.joyent.com:node-moray.git#72b53a3",
     "node-uuid": "1.2.0",
     "nodeunit": "git://github.com/rgulewich/nodeunit.git#80a3876",
     "nopt": "1.0",
