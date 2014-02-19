@@ -64,7 +64,6 @@ var INVALID = {
     nic_tags_provided: [
         [ 5, arrMsg ],
         [ {}, arrMsg ],
-        [ '', 'must specify at least one nic tag' ],
         [ [ {} ], 'must be a string', [ {} ] ],
         [ [ 6 ], 'must be a string', [ 6 ] ],
         [ [ 'dne' ], 'nic tag does not exist', [ 'dne' ] ],
@@ -309,7 +308,8 @@ exports['create'] = {
         var params = {
             lacp_mode: 'passive',
             macs: [ state.nics[5].mac, state.nics[6].mac ],
-            name: 'aggr0'
+            name: 'aggr0',
+            nic_tags_provided: ''
         };
 
         mod_aggr.create(t, state, params, function (err, res) {

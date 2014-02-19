@@ -486,6 +486,32 @@ exports['Provision nic - with IP'] = function (t) {
 };
 
 
+exports['Create nic - empty nic_tags_provided'] = function (t) {
+    var params = {
+        belongs_to_type: 'zone',
+        belongs_to_uuid: mod_uuid.v4(),
+        nic_tags_provided: '',
+        owner_uuid: mod_uuid.v4()
+    };
+
+    NAPI.createNic(h.randomMAC(), params, function (err, res) {
+        if (h.ifErr(t, err, 'create nic with empty nic_tags_provided')) {
+            return t.done();
+        }
+
+        delete params.nic_tags_provided;
+        params.primary = false;
+        t.deepEqual(res, params, 'response');
+
+        NAPI.getNic(res.mac, function (err2, res2) {
+            t.ifError(err2);
+            t.deepEqual(res2, params, 'get response');
+            return t.done();
+        });
+
+    });
+};
+
 
 // --- Update tests
 
