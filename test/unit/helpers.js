@@ -5,6 +5,7 @@
  */
 
 var assert = require('assert-plus');
+var bunyan = require('bunyan');
 var clone = require('clone');
 var common = require('../lib/common');
 var fs = require('fs');
@@ -27,8 +28,6 @@ var verror = require('verror');
 
 
 var JOBS = [];
-// Set to log messages to stderr
-var LOG = process.env.LOG || false;
 var NET_NUM = 2;
 var NET_IPS = {};
 var SERVER;
@@ -70,26 +69,16 @@ FakeWFclient.prototype.createJob = function createJob(name, params, callback) {
  * Creates a test NAPI server, and returns a client for accessing it
  */
 function createClientAndServer(callback) {
-    var log;
-    if (LOG) {
-        log = require('bunyan').createLogger({
-            level: (process.env.LOG_LEVEL || 'warn'),
-            name: process.argv[1],
-            stream: process.stderr,
-            serializers: restify.bunyan.serializers,
-            src: true
-        });
-
-    } else {
-        log = {
-            child: function () { return log; },
-            debug: function () { return false; },
-            error: function () { return false; },
-            info: function () { return false; },
-            trace: function () { return false; },
-            warn: function () { return false; }
-        };
-    }
+    var log = require('bunyan').createLogger({
+        name: 'napi-test-server',
+        serializers: bunyan.stdSerializers,
+        streams: [
+            {
+                level: process.env.LOG_LEVEL || 'fatal',
+                stream: process.stderr
+            }
+        ]
+    });
 
     var server = new NAPI({
         config: JSON.parse(fs.readFileSync(__dirname + '/test-config.json')),
@@ -291,6 +280,7 @@ module.exports = {
     getIPrecord: getIPrecord,
     getIPrecords: getIPrecords,
     invalidParamErr: common.invalidParamErr,
+    missingParamErr: common.missingParamErr,
     missingParam: missingParam,
     morayBuckets: morayBuckets,
     nextProvisionableIP: nextProvisionableIP,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Joyent, Inc. All rights reserved.
+ * Copyright (c) 2014, Joyent, Inc. All rights reserved.
  *
  * Common test helpers shared between integration and unit tests
  */
@@ -65,9 +65,30 @@ function invalidParamErr(extra) {
 }
 
 
+/**
+ * Returns an missing parameter error body, overriding with fields in
+ * extra
+ */
+function missingParamErr(extra) {
+    assert.optionalObject(extra, 'extra');
+
+    var newErr = {
+        code: 'InvalidParameters',
+        message: mod_err.MISSING_MSG
+    };
+
+    for (var e in extra) {
+        newErr[e] = extra[e];
+    }
+
+    return newErr;
+}
+
+
 
 module.exports = {
     ifErr: ifErr,
     invalidParamErr: invalidParamErr,
+    missingParamErr: missingParamErr,
     randomMAC: randomMAC
 };

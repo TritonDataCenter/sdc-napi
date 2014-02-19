@@ -18,7 +18,7 @@ var vasync = require('vasync');
 // Set this to any of the exports in this file to only run that test,
 // plus setup and teardown
 var runOne;
-var INVALID_MSG = 'name must only contain numbers, letters and underscores';
+var INVALID_MSG = 'must only contain numbers, letters and underscores';
 var NAPI;
 var cur = 0;
 var curTag;
@@ -88,6 +88,25 @@ exports['Create nic tag - invalid name'] = function (t) {
         t.equal(err.statusCode, 422, '422 returned');
         t.deepEqual(err.body, helpers.invalidParamErr({
             errors: [ mod_err.invalidParam('name', INVALID_MSG) ]
+        }), 'Error body');
+
+        return t.done();
+    });
+};
+
+
+exports['Create nic tag - name too long'] = function (t) {
+    var tenBs = 'bbbbbbbbbb';
+    NAPI.createNicTag(tenBs + tenBs + tenBs + 'bb', function (err, res) {
+        t.ok(err, 'error returned');
+        if (!err) {
+            return t.done();
+        }
+
+        t.equal(err.statusCode, 422, '422 returned');
+        t.deepEqual(err.body, helpers.invalidParamErr({
+            errors: [ mod_err.invalidParam('name',
+                'must not be longer than 31 characters') ]
         }), 'Error body');
 
         return t.done();

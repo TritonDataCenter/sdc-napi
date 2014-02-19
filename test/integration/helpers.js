@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Joyent, Inc. All rights reserved.
+ * Copyright (c) 2014, Joyent, Inc. All rights reserved.
  *
  * Test helpers for NAPI integration tests
  */
@@ -62,7 +62,7 @@ function createNAPIclient() {
  * state[targetName] if targetName is specified
  */
 function createNicTag(t, napi, state, targetName, callback) {
-    var name = 'nictag_integration_' + process.pid;
+    var name = 'int_test_' + process.pid;
     if (targetName) {
         if (typeof (targetName) === 'function') {
             callback = targetName;
@@ -73,29 +73,29 @@ function createNicTag(t, napi, state, targetName, callback) {
     }
 
     napi.createNicTag(name, function (err, res) {
-            t.ifError(err, 'create test nic tag "' + name + '"');
-            if (res) {
-                t.ok(res.uuid,
-                    util.format('test nic tag: uuid=%s, name=%s', res.uuid,
-                        res.name));
-                if (targetName) {
-                    state[targetName] = res;
-                } else {
-                    state.nicTag = res;
-                }
-
-                if (!state.hasOwnProperty('nic_tags')) {
-                    state.nic_tags = [];
-                }
-
-                state.nic_tags.push(res);
-            }
-
-            if (callback) {
-                return callback(err, res);
+        common.ifErr(t, err, 'creating nic tag ' + name);
+        if (res) {
+            t.ok(res.uuid,
+                util.format('test nic tag: uuid=%s, name=%s', res.uuid,
+                    res.name));
+            if (targetName) {
+                state[targetName] = res;
             } else {
-                return t.done();
+                state.nicTag = res;
             }
+
+            if (!state.hasOwnProperty('nic_tags')) {
+                state.nic_tags = [];
+            }
+
+            state.nic_tags.push(res);
+        }
+
+        if (callback) {
+            return callback(err, res);
+        } else {
+            return t.done();
+        }
     });
 }
 

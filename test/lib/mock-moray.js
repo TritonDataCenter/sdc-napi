@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Joyent, Inc. All rights reserved.
+ * Copyright (c) 2014, Joyent, Inc. All rights reserved.
  *
  * Mock moray object for unit tests
  */
@@ -51,6 +51,16 @@ function bucketNotFoundErr(bucket) {
 
 
 /**
+ * Returns a not found error for the bucket
+ */
+function etagConflictErr(key) {
+    var err = new verror.VError('key "%s" already exists', key);
+    err.name = 'EtagConflictError';
+    return err;
+}
+
+
+/**
  * Returns an object not found error
  */
 function objectNotFoundErr(key) {
@@ -77,7 +87,7 @@ function FakeMoray(opts) {
 util.inherits(FakeMoray, EventEmitter);
 
 
-FakeMoray.prototype._put = function _store(bucket, key, val) {
+FakeMoray.prototype._put = function _store(bucket, key, val, opts) {
     BUCKETS[bucket][key] = clone(val);
 };
 
@@ -259,6 +269,12 @@ FakeMoray.prototype.putObject =
 
     if (!BUCKETS.hasOwnProperty(bucket)) {
         return callback(bucketNotFoundErr(bucket));
+    }
+
+    if (opts && opts.hasOwnProperty('etag') && opts.etag === null) {
+        if (BUCKETS[bucket].hasOwnProperty(key)) {
+            return callback(etagConflictErr(key));
+        }
     }
 
     this._put(bucket, key, value);

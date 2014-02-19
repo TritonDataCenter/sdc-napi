@@ -1,6 +1,6 @@
 ---
 title: Networking API (NAPI)
-apisections: Nic Tags, Networks, IPs, Nics, Network Pools, Search
+apisections: Nic Tags, Networks, IPs, Nics, Network Pools, Search, Link Aggregations
 markdown2extras: wiki-tables, code-friendly
 ---
 
@@ -13,7 +13,10 @@ markdown2extras: wiki-tables, code-friendly
 * Who: Rob Gulewich
 * Tickets/bugs: <https://devhub.joyent.com/jira/browse/NAPI>
 
+
+
 # Introduction to the Networking API
+
 
 ## What is NAPI?
 
@@ -24,6 +27,7 @@ The Networking API allows for administering the following:
 * Logical Network Pools
 * IPs
 * Nics
+* Link Aggregations
 
 NAPI itself is just a directory of the above - it does not handle communicating
 these changes to servers, which is the domain of
@@ -899,6 +903,183 @@ Searches IPs across all logical networks.
 
 
 
+# Link Aggregations
+
+These endpoints manage link aggregations.
+
+
+## ListAggregations (GET /aggregations)
+
+Returns a list of aggregations, optionally filtered by parameters.
+
+### Inputs
+
+All parameters are optional filters on the list.
+
+||**Field**||**Type**||**Description**||
+||belongs_to_uuid||UUID||The UUID of the Compute Node the aggregation belongs to||
+||macs||Array of MAC addresses||MAC addresses of nics in the aggregation||
+||nic_tags_provided||Array of nic tag names||Nic tags provided by the nic||
+
+### Example
+
+    GET /aggregations
+    [
+        {
+          "belongs_to_uuid": "564d4d2c-ddd0-7be7-40ae-bae473a1d53e",
+          "id": "564d4d2c-ddd0-7be7-40ae-bae473a1d53e-aggr0",
+          "lacp_mode": "active",
+          "name": "aggr0",
+          "macs": [
+            "00:0c:29:a1:d5:48",
+            "00:0c:29:a1:d5:52"
+          ],
+          "nic_tags_provided": [
+            "admin",
+            "internal"
+          ]
+        }
+    ]
+
+
+## GetAggregation (GET /aggregations/:id)
+
+Returns an aggregation.
+
+### Example
+
+    GET /aggregations/564d4d2c-ddd0-7be7-40ae-bae473a1d53e-aggr0
+    {
+      "belongs_to_uuid": "564d4d2c-ddd0-7be7-40ae-bae473a1d53e",
+      "id": "564d4d2c-ddd0-7be7-40ae-bae473a1d53e-aggr0",
+      "lacp_mode": "active",
+      "name": "aggr0",
+      "macs": [
+        "00:0c:29:a1:d5:48",
+        "00:0c:29:a1:d5:52"
+      ],
+      "nic_tags_provided": [
+        "admin",
+        "internal"
+      ]
+    }
+
+
+## CreateAggregation (POST /aggregations)
+
+Creates an aggregation.
+
+### Inputs
+
+||**Field**||**Type**||**Description**||
+||name||String||aggregation name (**required**)||
+||lacp_mode||String||aggregation LACP mode: can be active, passive or off (default: off)||
+||macs||Array of Strings||MAC addresses of links in the aggregation (**required**)||
+||nic_tags_provided||Array of nic tag names||nic tags that this aggregation provides (same parameter as in [CreateNic](#CreateNic))||
+
+### Example
+
+    POST /aggregations
+        name=aggr0
+        macs=00:0c:29:a1:d5:48,00:0c:29:a1:d5:52
+        lacp_mode=active
+        nic_tags_provided=admin,internal
+
+    {
+      "belongs_to_uuid": "564d4d2c-ddd0-7be7-40ae-bae473a1d53e",
+      "id": "564d4d2c-ddd0-7be7-40ae-bae473a1d53e-aggr0",
+      "lacp_mode": "active",
+      "name": "aggr0",
+      "macs": [
+        "00:0c:29:a1:d5:48",
+        "00:0c:29:a1:d5:52"
+      ],
+      "nic_tags_provided": [
+        "admin",
+        "internal"
+      ]
+    }
+
+
+## UpdateAggregation (PUT /aggregations/:id)
+
+Updates an aggregation.
+
+### Inputs
+
+||**Field**||**Type**||**Description**||
+||lacp_mode||String||aggregation LACP mode: can be active, passive or off (default: off)||
+||macs||Array of Strings||MAC addresses of links in the aggregation||
+||nic_tags_provided||Array of nic tag names||nic tags that this aggregation provides (same parameter as in [CreateNic](#CreateNic))||
+
+### Example
+
+    PUT /aggregations/564d4d2c-ddd0-7be7-40ae-bae473a1d53e-aggr0
+        lacp_mode=off
+
+    {
+      "belongs_to_uuid": "564d4d2c-ddd0-7be7-40ae-bae473a1d53e",
+      "id": "564d4d2c-ddd0-7be7-40ae-bae473a1d53e-aggr0",
+      "lacp_mode": "off",
+      "name": "aggr0",
+      "macs": [
+        "00:0c:29:a1:d5:48",
+        "00:0c:29:a1:d5:52"
+      ],
+      "nic_tags_provided": [
+        "admin",
+        "internal"
+      ]
+    }
+
+
+## DeleteAggregation (DELETE /aggregations/:id)
+
+Deletes an aggregation.
+
+### Inputs
+
+None.
+
+### Example
+
+    DELETE /aggregations/564d4d2c-ddd0-7be7-40ae-bae473a1d53e-aggr0
+    { }
+
+
+### Returns
+
+No response payload, only a "204 No Content" response status.
+
+
+## Enabling on a Compute Node
+
+To link aggregation for a compute node, you must perform the following steps:
+
+* Create a link aggregation with the *macs* property set to MAC addresses of
+  nics on that Compute Node
+* Reboot the Compute Node
+
+Before rebooting the Compute Node, you can confirm that it will get the
+correct bootparams on its next boot by using the "booter" command in the
+dhcpd zone, like so:
+
+    booter bootparams 00:0c:29:a1:d5:3e | json kernel_args | grep -v rabbit
+    {
+      "hostname": "00-0c-29-a1-d5-3e",
+      "admin_nic": "00:0c:29:a1:d5:3e",
+      "internal_nic": "aggr0",
+      "aggr0_aggr": "\"00:0c:29:a1:d5:48,00:0c:29:a1:d5:52\"",
+      "aggr0_lacp_mode": "off"
+    }
+
+In the example above, the node will boot with one aggregation, aggr0, with
+2 physical nics in the aggregation.
+
+**Note: changes to aggregations will only take effect at the next reboot
+of the Compute Node that hosts them.**
+
+
 # Changelog
 
 ## 2012-07-04
@@ -934,3 +1115,7 @@ Searches IPs across all logical networks.
 
   * Added SearchIPs endpoint
   * Added UpdateNetwork endpoint
+
+## 2014-02-18
+
+  * Added aggregations endpoints

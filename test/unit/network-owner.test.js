@@ -303,48 +303,52 @@ function updatePoolFailure(uuid, params, invalidNets, t) {
 
 
 
-exports['Initial setup'] = function (t) {
-    helpers.createClientAndServer(function (err, res) {
-        t.ifError(err, 'server creation');
-        t.ok(res, 'client');
-        NAPI = res;
-        if (!NAPI) {
+exports.setup = {
+    'create client and server': function (t) {
+        helpers.createClientAndServer(function (err, res) {
+            t.ifError(err, 'server creation');
+            t.ok(res, 'client');
+            NAPI = res;
             return t.done();
-        }
+        });
+    },
 
+
+    'create nic tag': function (t) {
         // Match the name of the nic tag in helpers.validNetworkParams()
         NAPI.createNicTag('nic_tag', function (err2, res2) {
             t.ifError(err2);
             TAG = res2;
             return t.done();
         });
-    });
+    },
+
+
+    'create network with owner_uuid': function (t) {
+        provisionNetwork(netParams, t);
+    },
+
+
+    'create second network with owner_uuid': function (t) {
+        provisionNetwork(net2Params, t);
+    },
+
+
+    'create third network with different owner_uuid': function (t) {
+        provisionNetwork(net3Params, t);
+    },
+
+
+    'create fourth network with no owner_uuid': function (t) {
+        provisionNetwork(net4Params, t);
+    },
+
+
+    'create fifth network with no owner_uuid': function (t) {
+        provisionNetwork(net5Params, t);
+    }
 };
 
-
-exports['create network with owner_uuid'] = function (t) {
-    provisionNetwork(netParams, t);
-};
-
-
-exports['create second network with owner_uuid'] = function (t) {
-    provisionNetwork(net2Params, t);
-};
-
-
-exports['create third network with different owner_uuid'] = function (t) {
-    provisionNetwork(net3Params, t);
-};
-
-
-exports['create fourth network with no owner_uuid'] = function (t) {
-    provisionNetwork(net4Params, t);
-};
-
-
-exports['create fifth network with no owner_uuid'] = function (t) {
-    provisionNetwork(net5Params, t);
-};
 
 
 
@@ -773,7 +777,7 @@ exports['Stop server'] = function (t) {
 // Use to run only one test in this file:
 if (runOne) {
     module.exports = {
-        setup: exports['Initial setup'],
+        setup: exports.setup,
         oneTest: runOne,
         teardown: exports['Stop server']
     };
