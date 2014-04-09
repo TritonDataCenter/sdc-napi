@@ -228,6 +228,45 @@ exports['get provisionable networks'] = function (t) {
 };
 
 
+exports['provisionable_by network: owner'] = function (t) {
+    var netUuid = state.ownerNet2.uuid;
+
+    napi.getNetwork(netUuid, { params: { provisionable_by: owner } },
+                    function (err, res) {
+        if (helpers.ifErr(t, err, 'get network')) {
+            return t.done();
+        }
+
+        t.deepEqual(res.uuid, netUuid);
+
+        return t.done();
+    });
+};
+
+
+exports['provisionable_by network: other owner'] = function (t) {
+    var netUuid = state.ownerNet3.uuid;
+
+    napi.getNetwork(netUuid, { params: { provisionable_by: owner } },
+                    function (err, res) {
+        t.deepEqual(err, {
+            message: 'network not found',
+            statusCode: 404,
+            body: {
+                code: 'ResourceNotFound',
+                message: 'network not found'
+            },
+            restCode: 'ResourceNotFound',
+            name: 'ResourceNotFoundError'
+        });
+
+        t.ifError(res);
+
+        return t.done();
+    });
+};
+
+
 exports['provisionable_by networks'] = function (t) {
     napi.listNetworks({ provisionable_by: owner }, function (err, res) {
         if (helpers.ifErr(t, err, 'list networks')) {
