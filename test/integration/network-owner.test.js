@@ -250,14 +250,14 @@ exports['provisionable_by network: other owner'] = function (t) {
     napi.getNetwork(netUuid, { params: { provisionable_by: owner } },
                     function (err, res) {
         t.deepEqual(err, {
-            message: 'network not found',
-            statusCode: 404,
+            message: 'Owner cannot provision on network',
+            statusCode: 403,
             body: {
-                code: 'ResourceNotFound',
-                message: 'network not found'
+                code: 'NotAuthorized',
+                message: 'Owner cannot provision on network'
             },
-            restCode: 'ResourceNotFound',
-            name: 'ResourceNotFoundError'
+            restCode: 'NotAuthorized',
+            name: 'NotAuthorizedError'
         });
 
         t.ifError(res);
