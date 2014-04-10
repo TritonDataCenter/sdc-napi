@@ -320,6 +320,13 @@ specified in the update are changed, leaving all others unchanged.
 
 Gets a logical network by UUID.
 
+### Inputs
+
+All fields are optional.
+
+|| **Field**        || **Type** || **Description** ||
+|| provisionable_by || UUID     || Check whether network is allowed to be provisioned by an owner UUID ||
+
 ### Example
 
     GET /networks/dcb499bd-1caf-4ff6-8d70-4e6d5c02dff3
