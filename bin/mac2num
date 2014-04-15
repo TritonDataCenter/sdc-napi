@@ -1,0 +1,18 @@
+#!/usr/bin/env node
+
+/*
+ * Copyright (c) 2014, Joyent, Inc. All rights reserved.
+ *
+ * Convert a MAC address into its numeric format
+ */
+
+var path = require('path');
+var util_mac = require('../lib/util/mac');
+
+
+if (!process.argv[2]) {
+    console.error('usage: %s <MAC address>', path.basename(process.argv[1]));
+    process.exit(1);
+}
+
+console.log(util_mac.aton(process.argv[2]));

@@ -1,0 +1,18 @@
+#!/usr/bin/env node
+
+/*
+ * Copyright (c) 2014, Joyent, Inc. All rights reserved.
+ *
+ * Convert an IP number into an address
+ */
+
+var path = require('path');
+var util_ip = require('../lib/util/ip');
+
+
+if (!process.argv[2]) {
+    console.error('usage: %s <ip number>', path.basename(process.argv[1]));
+    process.exit(1);
+}
+
+console.log(util_ip.ntoa(process.argv[2]));
