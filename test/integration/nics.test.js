@@ -74,6 +74,7 @@ exports['POST /nics (basic)'] = function (t) {
 
         params.primary = false;
         params.mac = mac;
+        params.status = 'running';
         t.deepEqual(res, params, 'nic params returned' + desc);
         state.nic.a = params;
         state.desc.a = desc;
@@ -83,13 +84,14 @@ exports['POST /nics (basic)'] = function (t) {
 };
 
 
-exports['POST /nics (with IP and network)'] = function (t) {
+exports['POST /nics (with IP, network and status)'] = function (t) {
     var params = {
         owner_uuid: uuids.b,
         belongs_to_uuid: uuids.a,
         belongs_to_type: 'server',
         ip: '10.99.99.77',
-        network_uuid: state.network.uuid
+        network_uuid: state.network.uuid,
+        status: 'incomplete'
     };
     var mac = helpers.randomMAC();
 
@@ -134,6 +136,7 @@ exports['POST /nics (with IP but no network)'] = function (t) {
 
         params.primary = false;
         params.mac = mac;
+        params.status = 'running';
         helpers.addNetParamsToNic(state, params);
         t.deepEqual(res, params, 'nic params returned' + desc);
         state.nic.c = params;
@@ -165,6 +168,7 @@ exports['POST /nics (with IP already reserved)'] = function (t) {
 
         params.primary = false;
         params.mac = mac;
+        params.status = 'running';
         helpers.addNetParamsToNic(state, params);
         t.deepEqual(res, params, 'nic params returned' + desc);
         state.resNic1 = params;
@@ -209,6 +213,7 @@ exports['POST /networks/:uuid/nics (basic)'] = function (t) {
         params.primary = false;
         params.mac = res.mac;
         params.ip = res.ip;
+        params.status = 'running';
         helpers.addNetParamsToNic(state, params);
 
         t.deepEqual(res, params, 'nic params returned' + desc);
@@ -236,6 +241,7 @@ exports['POST /networks/:uuid/nics (with IP)'] = function (t) {
 
         params.primary = false;
         params.mac = res.mac;
+        params.status = 'running';
         helpers.addNetParamsToNic(state, params);
 
         t.deepEqual(res, params, 'nic params returned' + desc);
@@ -304,6 +310,7 @@ exports['POST /nics (with reserved IP)'] = function (t) {
         params.primary = false;
         params.mac = mac;
         params.ip = res.ip;
+        params.status = 'running';
         helpers.addNetParamsToNic(state, params);
         t.deepEqual(res, params, 'nic params returned' + desc);
         state.resNic2 = res;
@@ -355,6 +362,7 @@ exports['POST /nics (with model)'] = function (t) {
 
                 params.primary = false;
                 params.mac = mac;
+                params.status = 'running';
                 t.deepEqual(res, params, 'nic params returned' + desc);
                 state.nic.model = params;
                 state.desc.model = desc;
@@ -585,7 +593,7 @@ exports['Check IPs are updated along with nics'] = function (t) {
 };
 
 
-exports['PUT /nics (with network_uuid)'] = function (t) {
+exports['PUT /nics (with network_uuid and status)'] = function (t) {
     var params = {
         owner_uuid: uuids.b,
         belongs_to_uuid: uuids.a,
@@ -603,7 +611,8 @@ exports['PUT /nics (with network_uuid)'] = function (t) {
         state.nic.putIPnetUUID = params;
         state.desc.putIPnetUUID = desc;
 
-        var updateParams = { network_uuid: state.network.uuid };
+        var updateParams = { network_uuid: state.network.uuid,
+                             status: 'installed' };
         napi.updateNic(mac, updateParams, function (err2, res2) {
             t.ifError(err2, 'update nic' + desc);
             if (err2) {
@@ -613,6 +622,7 @@ exports['PUT /nics (with network_uuid)'] = function (t) {
             params.primary = false;
             params.mac = mac;
             params.ip = res2.ip;
+            params.status = 'installed';
             helpers.addNetParamsToNic(state, params);
             t.ok(res2.ip, 'nic now has IP address');
             t.deepEqual(res2, params, 'nic params returned' + desc);
@@ -700,6 +710,7 @@ exports['PUT /nics (with network_uuid set to admin)'] = function (t) {
             params.primary = false;
             params.mac = mac;
             params.ip = res2.ip;
+            params.status = 'running';
 
             for (var n in helpers.nicNetParams) {
                 if (state.adminNet.hasOwnProperty(helpers.nicNetParams[n])) {

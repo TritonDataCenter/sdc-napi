@@ -130,7 +130,7 @@ exports['Initial setup'] = function (t) {
 
 
 
-exports['Create nic - mising params'] = function (t) {
+exports['Create nic - missing params'] = function (t) {
     NAPI.post('/nics', {}, function (err, res) {
         t.ok(err, 'error returned');
         if (!err) {
@@ -192,6 +192,7 @@ exports['Create nic - all invalid params'] = function (t) {
         owner_uuid: 'invalid',
         primary: 'asdf',
         reserved: 'invalid',
+        status: 'oogabooga',
         vlan_id: 'a'
     };
 
@@ -230,6 +231,7 @@ exports['Create nic - all invalid params'] = function (t) {
                 mod_err.invalidParam('owner_uuid', 'invalid UUID'),
                 mod_err.invalidParam('primary', 'must be a boolean value'),
                 mod_err.invalidParam('reserved', 'must be a boolean value'),
+                mod_err.invalidParam('status', 'must be a valid state'),
                 mod_err.invalidParam('vlan_id', constants.VLAN_MSG)
             ]
         }), 'Error body');
@@ -262,6 +264,7 @@ exports['Create nic - network_uuid=admin'] = function (t) {
             nic_tag: ADMIN_NET.nic_tag,
             owner_uuid: params.owner_uuid,
             primary: false,
+            status: 'running',
             resolvers: ADMIN_NET.resolvers,
             vlan_id: ADMIN_NET.vlan_id
         };
@@ -272,7 +275,6 @@ exports['Create nic - network_uuid=admin'] = function (t) {
             t.deepEqual(res2, exp, 'get response');
             return t.done();
         });
-
     });
 };
 
@@ -315,8 +317,12 @@ exports['Create nic - invalid params'] = function (t) {
                 [ mod_err.invalidParam('nic_tag',
                     'No networks found matching parameters'),
                 mod_err.invalidParam('vlan_id',
-                    'No networks found matching parameters') ] ]
+                    'No networks found matching parameters') ] ],
 
+        [ 'status must be a string',
+            { ip: '10.0.2.3', belongs_to_type: type, belongs_to_uuid: uuid,
+                owner_uuid: owner, network_uuid: NET.uuid, status: true },
+                [ mod_err.invalidParam('status', 'must be a string') ] ]
     ];
 
     vasync.forEachParallel({
@@ -367,6 +373,7 @@ exports['Provision nic'] = function (t) {
             primary: false,
             resolvers: NET2.resolvers,
             routes: NET2.routes,
+            status: 'running',
             vlan_id: NET2.vlan_id
         }, 'result');
 
@@ -478,6 +485,7 @@ exports['Provision nic - with IP'] = function (t) {
             primary: false,
             resolvers: NET2.resolvers,
             routes: NET2.routes,
+            status: 'running',
             vlan_id: NET2.vlan_id
         }, 'result');
 
@@ -501,6 +509,7 @@ exports['Create nic - empty nic_tags_provided'] = function (t) {
 
         delete params.nic_tags_provided;
         params.primary = false;
+        params.status = 'running';
         t.deepEqual(res, params, 'response');
 
         NAPI.getNic(res.mac, function (err2, res2) {
@@ -509,6 +518,45 @@ exports['Create nic - empty nic_tags_provided'] = function (t) {
             return t.done();
         });
 
+    });
+};
+
+
+exports['Provision nic - with different status'] = function (t) {
+    var params = {
+        belongs_to_type: 'zone',
+        belongs_to_uuid: mod_uuid.v4(),
+        owner_uuid:  mod_uuid.v4(),
+        status: 'incomplete'
+    };
+
+    NAPI.provisionNic(NET2.uuid, params, function (err, res) {
+        t.ifError(err);
+        if (err) {
+            return t.done();
+        }
+
+        t.deepEqual(res, {
+            belongs_to_type: params.belongs_to_type,
+            belongs_to_uuid: params.belongs_to_uuid,
+            ip: h.nextProvisionableIP(NET2),
+            mac: res.mac,
+            netmask: '255.255.255.0',
+            network_uuid: NET2.uuid,
+            nic_tag: NET2.nic_tag,
+            owner_uuid: params.owner_uuid,
+            primary: false,
+            resolvers: NET2.resolvers,
+            routes: NET2.routes,
+            status: 'incomplete',
+            vlan_id: NET2.vlan_id
+        }, 'result');
+
+        NAPI.getNic(res.mac, function (err2, res2) {
+            t.ifError(err2);
+            t.deepEqual(res2, res, 'compare response with store');
+            return t.done();
+        });
     });
 };
 
@@ -557,6 +605,7 @@ exports['Update nic - add IP'] = function (t) {
                 owner_uuid: params.owner_uuid,
                 primary: false,
                 resolvers: NET3.resolvers,
+                status: 'running',
                 vlan_id: NET3.vlan_id
             }, 'result');
             nic = res2;
@@ -610,6 +659,7 @@ exports['Update nic - IP parameters updated'] = function (t) {
         owner_uuid: params.owner_uuid,
         primary: false,
         resolvers: NET.resolvers,
+        status: 'running',
         vlan_id: NET.vlan_id
     };
 
@@ -716,6 +766,7 @@ exports['Update nic - change IP'] = function (t) {
         owner_uuid: params.owner_uuid,
         primary: false,
         resolvers: NET.resolvers,
+        status: 'running',
         vlan_id: NET.vlan_id
     };
 
@@ -940,6 +991,7 @@ exports['Update nic - all invalid params'] = function (t) {
         owner_uuid: 'invalid',
         primary: 'invalid',
         reserved: 'invalid',
+        status: 'oogabooga',
         vlan_id: 'a'
     };
 
@@ -969,6 +1021,7 @@ exports['Update nic - all invalid params'] = function (t) {
                     mod_err.invalidParam('owner_uuid', 'invalid UUID'),
                     mod_err.invalidParam('primary', 'must be a boolean value'),
                     mod_err.invalidParam('reserved', 'must be a boolean value'),
+                    mod_err.invalidParam('status', 'must be a valid state'),
                     mod_err.invalidParam('vlan_id', constants.VLAN_MSG)
                 ]
             }), 'Error body');
@@ -1015,7 +1068,12 @@ exports['Update nic - invalid params'] = function (t) {
                 [ mod_err.invalidParam('nic_tag',
                     'No networks found matching parameters'),
                 mod_err.invalidParam('vlan_id',
-                    'No networks found matching parameters') ] ]
+                    'No networks found matching parameters') ] ],
+
+        [ 'status must be a valid state',
+            { ip: '10.0.2.2', network_uuid: NET.uuid, status: 'oogabooga' },
+                [ mod_err.invalidParam('status',
+                    'must be a valid state') ] ]
     ];
 
     NAPI.createNic(mac, goodParams, function (err, res) {
@@ -1071,7 +1129,40 @@ exports['Update nic - same params'] = function (t) {
                 return t.done();
             }
 
-            t.deepEqual(res2, res, 'Nic paramaters unchanged');
+            t.deepEqual(res2, res, 'Nic parameters unchanged');
+
+            return t.done();
+        });
+    });
+};
+
+
+exports['Update nic - change status'] = function (t) {
+    var params = {
+        belongs_to_type: 'zone',
+        belongs_to_uuid: mod_uuid.v4(),
+        owner_uuid:  mod_uuid.v4()
+    };
+
+    NAPI.provisionNic(NET2.uuid, params, function (err, res) {
+        if (h.ifErr(t, err, 'provision new nic')) {
+            return t.done();
+        }
+
+        for (var p in params) {
+            t.equal(res[p], params[p], p + ' correct');
+        }
+        t.equal(res.ip, h.nextProvisionableIP(NET2), 'IP');
+
+        t.equal(res.status, 'running');
+        res.status = 'installed';
+
+        NAPI.updateNic(res.mac, res, function (err2, res2) {
+            if (h.ifErr(t, err2, 'update nic')) {
+                return t.done();
+            }
+
+            t.deepEqual(res2, res, 'Status changed to installed');
 
             return t.done();
         });
