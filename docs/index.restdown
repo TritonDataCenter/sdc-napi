@@ -371,7 +371,7 @@ Creates a new nic, provisioning an IP and MAC address in the process.
 ||reserved||Boolean||Whether the IP address should be reserved||
 ||nic_tags_provided||Array of nic tag names||Nic tags this nic provides||
 ||check_owner||Boolean||If set to false, skips network ownership checks (optional)||
-||status||String||Set state nic starts in (one of 'incomplete', 'installed', 'running') (optional)||
+||status||String||Set state nic starts in (one of 'provisioning', 'installed', 'running') (optional)||
 
 **Notes:**
 
@@ -636,7 +636,7 @@ Creates a new nic.
 ||nic_tags_provided||Array of nic tag names||Nic tags this nic provides||
 ||model||String||Nic model for KVM VMs (optional for other VM types)||
 ||check_owner||Boolean||If set to false, skips network ownership checks (optional)||
-||status||String||Set state nic starts in (one of 'incomplete', 'installed', 'running') (optional)||
+||status||String||Set state nic starts in (one of 'provisioning', 'installed', 'running') (optional)||
 ||allow_dhcp_spoofing||Boolean||Allow operating a DHCP server on this nic||
 ||allow_ip_spoofing||Boolean||Allow sending and receiving packets that don't match the nic's IP||
 ||allow_mac_spoofing||Boolean||Allow sending and receiving packets that don't match the nic's MAC address||

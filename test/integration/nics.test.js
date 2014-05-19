@@ -91,7 +91,7 @@ exports['POST /nics (with IP, network and status)'] = function (t) {
         belongs_to_type: 'server',
         ip: '10.99.99.77',
         network_uuid: state.network.uuid,
-        status: 'incomplete'
+        status: 'provisioning'
     };
     var mac = helpers.randomMAC();
 

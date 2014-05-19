@@ -527,7 +527,7 @@ exports['Provision nic - with different status'] = function (t) {
         belongs_to_type: 'zone',
         belongs_to_uuid: mod_uuid.v4(),
         owner_uuid:  mod_uuid.v4(),
-        status: 'incomplete'
+        status: 'provisioning'
     };
 
     NAPI.provisionNic(NET2.uuid, params, function (err, res) {
@@ -548,7 +548,7 @@ exports['Provision nic - with different status'] = function (t) {
             primary: false,
             resolvers: NET2.resolvers,
             routes: NET2.routes,
-            status: 'incomplete',
+            status: 'provisioning',
             vlan_id: NET2.vlan_id
         }, 'result');
 
