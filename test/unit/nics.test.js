@@ -1155,14 +1155,14 @@ exports['Update nic - change status'] = function (t) {
         t.equal(res.ip, h.nextProvisionableIP(NET2), 'IP');
 
         t.equal(res.status, 'running');
-        res.status = 'installed';
+        res.status = 'stopped';
 
         NAPI.updateNic(res.mac, res, function (err2, res2) {
             if (h.ifErr(t, err2, 'update nic')) {
                 return t.done();
             }
 
-            t.deepEqual(res2, res, 'Status changed to installed');
+            t.deepEqual(res2, res, 'Status changed to stopped');
 
             return t.done();
         });

@@ -612,7 +612,7 @@ exports['PUT /nics (with network_uuid and status)'] = function (t) {
         state.desc.putIPnetUUID = desc;
 
         var updateParams = { network_uuid: state.network.uuid,
-                             status: 'installed' };
+                             status: 'stopped' };
         napi.updateNic(mac, updateParams, function (err2, res2) {
             t.ifError(err2, 'update nic' + desc);
             if (err2) {
@@ -622,7 +622,7 @@ exports['PUT /nics (with network_uuid and status)'] = function (t) {
             params.primary = false;
             params.mac = mac;
             params.ip = res2.ip;
-            params.status = 'installed';
+            params.status = 'stopped';
             helpers.addNetParamsToNic(state, params);
             t.ok(res2.ip, 'nic now has IP address');
             t.deepEqual(res2, params, 'nic params returned' + desc);

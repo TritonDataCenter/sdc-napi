@@ -371,7 +371,7 @@ Creates a new nic, provisioning an IP and MAC address in the process.
 ||reserved||Boolean||Whether the IP address should be reserved||
 ||nic_tags_provided||Array of nic tag names||Nic tags this nic provides||
 ||check_owner||Boolean||If set to false, skips network ownership checks (optional)||
-||status||String||Set state nic starts in (one of 'provisioning', 'installed', 'running') (optional)||
+||status||String||Set state nic starts in (one of 'provisioning', 'stopped', 'running') (optional)||
 
 **Notes:**
 
@@ -636,7 +636,7 @@ Creates a new nic.
 ||nic_tags_provided||Array of nic tag names||Nic tags this nic provides||
 ||model||String||Nic model for KVM VMs (optional for other VM types)||
 ||check_owner||Boolean||If set to false, skips network ownership checks (optional)||
-||status||String||Set state nic starts in (one of 'provisioning', 'installed', 'running') (optional)||
+||status||String||Set state nic starts in (one of 'provisioning', 'stopped', 'running') (optional)||
 ||allow_dhcp_spoofing||Boolean||Allow operating a DHCP server on this nic||
 ||allow_ip_spoofing||Boolean||Allow sending and receiving packets that don't match the nic's IP||
 ||allow_mac_spoofing||Boolean||Allow sending and receiving packets that don't match the nic's MAC address||
@@ -716,7 +716,7 @@ Changes properties of the nic with the given MAC address.
     PUT /nics/90b8d0575370
         -d belongs_to_uuid=27391a96-bbbb-bbbb-bbbb-888888888888
         -d belongs_to_type=server
-        -d status=installed
+        -d status=stopped
 
     {
       "ip": "10.88.88.198",
@@ -729,7 +729,7 @@ Changes properties of the nic with the given MAC address.
       "belongs_to_uuid": "27391a96-bbbb-bbbb-bbbb-888888888888",
       "belongs_to_type": "server",
       "gateway": "10.88.88.2",
-      "status": "installed",
+      "status": "stopped",
       "resolvers": [
         "8.8.4.4",
         "8.8.8.8"
