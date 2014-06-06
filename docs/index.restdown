@@ -35,6 +35,27 @@ these changes to servers, which is the domain of
 [CNAPI](https://mo.joyent.com/docs/cnapi/master).
 
 
+## IP and Nic Provisioning
+
+When you [create a Nic](#CreateNic) in NAPI, you can specify a MAC address and
+IP address. If you do not pick a MAC address, one will be generated at random
+for the new nic. If you do not pick an IP address, the next available address
+on the logical network will be used.  The next available address is chosen
+in the following way:
+
+* If there are IPs in the network that have never been used, pick the lowest
+  one that doesn't have belongs_to_uuid set and is unreserved.
+* If all IPs in the network have been used before, pick the least
+  recently used unreserved IP.
+
+Based on the above, [setting the **reserved** property on an IP](#UpdateIP)
+removes it from the automatic selection process. It can still be used by
+specifying it as **ip** when [creating a Nic](#CreateNic).
+[Setting the **free** property on an IP](#UpdateIP) removes all other
+properties from the IP (including **reserved**, **belongs_to_uuid**, and
+**belongs_to_type**).  This therefore makes the IP available for automatic
+provisioning again.
+
 
 # Nic Tags
 
@@ -405,7 +426,6 @@ Creates a new nic, provisioning an IP and MAC address in the process.
 # IPs
 
 These endpoints manage IPs on a logical network.
-
 
 ## ListIPs (GET /networks/:network_uuid/ips)
 
