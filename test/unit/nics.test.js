@@ -8,7 +8,10 @@ var assert = require('assert-plus');
 var clone = require('clone');
 var constants = require('../../lib/util/constants');
 var h = require('./helpers');
+var ip_common = require('../../lib/models/ip/common');
 var mod_err = require('../../lib/util/errors');
+var mod_ip = require('../lib/ip');
+var mod_nic = require('../lib/nic');
 var mod_uuid = require('node-uuid');
 var Network = require('../../lib/models/network').Network;
 var NicTag = require('../../lib/models/nic-tag').NicTag;
@@ -25,6 +28,7 @@ var vasync = require('vasync');
 
 // Set this to any of the exports in this file to only run that test,
 // plus setup and teardown
+var d = {};
 var runOne;
 var ADMIN_NET;
 var NAPI;
@@ -39,10 +43,13 @@ var PROV_MAC_NET;
 
 
 
+/**
+ * Get a nic object from moray
+ */
 function getMorayNic(t, macAddr) {
     var macNum = util_mac.aton(macAddr);
     t.ok(macNum, 'mac number');
-    var morayObj = h.morayBuckets()['napi_nics'][macNum];
+    var morayObj = h.morayObj('napi_nics', macNum);
 
     t.ok(morayObj, 'moray object exists');
     return morayObj;
@@ -86,8 +93,7 @@ exports['Initial setup'] = function (t) {
                       '10.0.4.0/24': '10.0.2.2'
                     },
                     vlan_id: 46
-                }),
-                    function (err2, res2) {
+                }), function (err2, res2) {
                     NET2 = res2;
                     cb(err2);
                 });
@@ -130,7 +136,7 @@ exports['Initial setup'] = function (t) {
 
 
 
-exports['Create nic - missing params'] = function (t) {
+exports['Create nic - mising params'] = function (t) {
     NAPI.post('/nics', {}, function (err, res) {
         t.ok(err, 'error returned');
         if (!err) {
@@ -264,8 +270,8 @@ exports['Create nic - network_uuid=admin'] = function (t) {
             nic_tag: ADMIN_NET.nic_tag,
             owner_uuid: params.owner_uuid,
             primary: false,
-            status: 'running',
             resolvers: ADMIN_NET.resolvers,
+            status: 'running',
             vlan_id: ADMIN_NET.vlan_id
         };
         t.deepEqual(res, exp, 'response');
@@ -275,6 +281,7 @@ exports['Create nic - network_uuid=admin'] = function (t) {
             t.deepEqual(res2, exp, 'get response');
             return t.done();
         });
+
     });
 };
 
@@ -348,6 +355,68 @@ exports['Create nic - invalid params'] = function (t) {
 };
 
 
+exports['Create nic - empty nic_tags_provided'] = {
+    'create': function (t) {
+        d = {};
+        d.params = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            nic_tags_provided: '',
+            owner_uuid: mod_uuid.v4()
+        };
+
+        NAPI.createNic(h.randomMAC(), d.params, function (err, res) {
+            if (h.ifErr(t, err, 'create nic with empty nic_tags_provided')) {
+                return t.done();
+            }
+
+            delete d.params.nic_tags_provided;
+            d.params.primary = false;
+            d.params.mac = res.mac;
+            d.params.status = 'running';
+            t.deepEqual(res, d.params, 'response');
+
+            return t.done();
+        });
+    },
+
+    'get': function (t) {
+        NAPI.getNic(d.params.mac, function (err, res) {
+            t.ifError(err);
+            t.deepEqual(res, d.params, 'get response');
+            return t.done();
+        });
+    },
+
+    'create with same MAC': function (t) {
+        d.params2 = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            owner_uuid: mod_uuid.v4()
+        };
+
+        NAPI.createNic(d.params.mac, d.params2, function (err, res) {
+            t.ok(err, 'error returned');
+            if (!err) {
+                return t.done();
+            }
+
+            t.equal(err.statusCode, 422, 'status code');
+            t.deepEqual(err.body, h.invalidParamErr({
+                errors: [ mod_err.duplicateParam('mac') ]
+            }), 'Error body');
+
+            return t.done();
+        });
+    }
+};
+
+
+
+// --- Provision tests
+
+
+
 exports['Provision nic'] = function (t) {
     var params = {
         belongs_to_type: 'zone',
@@ -356,12 +425,11 @@ exports['Provision nic'] = function (t) {
     };
 
     NAPI.provisionNic(NET2.uuid, params, function (err, res) {
-        t.ifError(err);
-        if (err) {
+        if (h.ifErr(t, err, 'provision nic')) {
             return t.done();
         }
 
-        t.deepEqual(res, {
+        var exp = {
             belongs_to_type: params.belongs_to_type,
             belongs_to_uuid: params.belongs_to_uuid,
             ip: h.nextProvisionableIP(NET2),
@@ -375,9 +443,17 @@ exports['Provision nic'] = function (t) {
             routes: NET2.routes,
             status: 'running',
             vlan_id: NET2.vlan_id
-        }, 'result');
+        };
+        t.deepEqual(res, exp, 'result');
 
-        return t.done();
+        NAPI.getNic(res.mac, function (err2, res2) {
+            if (h.ifErr(t, err2, 'get provisioned nic')) {
+                return t.done();
+            }
+
+            t.deepEqual(res2, exp, 'get result');
+            return t.done();
+        });
     });
 };
 
@@ -388,15 +464,16 @@ exports['Provision nic: exceed MAC retries'] = function (t) {
         belongs_to_uuid: mod_uuid.v4(),
         owner_uuid:  mod_uuid.v4()
     };
+    var numNicsBefore = h.getNicRecords().length;
 
-    // One null error so that we can provision an IP
-    var errs = [ null ];
+    var errs = [ ];
     for (var i = 0; i < constants.MAC_RETRIES + 1; i++) {
         var fakeErr = new Error('Already exists');
         fakeErr.name = 'EtagConflictError';
+        fakeErr.context = { bucket: 'napi_nics' };
         errs.push(fakeErr);
     }
-    h.setMorayErrors({ putObject: errs });
+    h.setMorayErrors({ batch: errs });
 
     NAPI.provisionNic(PROV_MAC_NET.uuid, params, function (err) {
         t.ok(err, 'error returned');
@@ -420,105 +497,430 @@ exports['Provision nic: exceed MAC retries'] = function (t) {
             t.equal(res.free, true, 'IP has been freed');
             var ipRec = h.getIPrecord(PROV_MAC_NET.uuid,
                 PROV_MAC_NET.provision_start_ip);
-            t.ok(ipRec, 'IP record exists in moray');
-            if (ipRec) {
-                t.equal(ipRec.reserved, false, 'IP is not reserved');
+            t.ok(!ipRec, 'IP record does not exist in moray');
+
+            t.equal(h.getNicRecords().length, numNicsBefore,
+                'no new nic records added');
+
+            // Make sure we actually hit all of the errors:
+            t.deepEqual(h.getMorayErrors(), {
+                batch: [ ]
+            }, 'no more batch errors left');
+
+            return t.done();
+        });
+    });
+};
+
+
+exports['Provision nic: exceed IP retries'] = function (t) {
+    var params = {
+        belongs_to_type: 'zone',
+        belongs_to_uuid: mod_uuid.v4(),
+        owner_uuid:  mod_uuid.v4()
+    };
+    var numNicsBefore = h.getNicRecords().length;
+
+    var errs = [ ];
+    for (var i = 0; i < constants.IP_PROVISION_RETRIES + 2; i++) {
+        var fakeErr = new Error('Already exists');
+        fakeErr.name = 'EtagConflictError';
+        fakeErr.context = { bucket: ip_common.bucketName(PROV_MAC_NET.uuid) };
+        errs.push(fakeErr);
+    }
+    h.setMorayErrors({ batch: errs });
+
+    NAPI.provisionNic(PROV_MAC_NET.uuid, params, function (err) {
+        t.ok(err, 'error returned');
+        if (!err) {
+            return t.done();
+        }
+
+        t.equal(err.statusCode, 507, 'status code');
+        t.deepEqual(err.body, {
+            code: 'SubnetFull',
+            message: constants.SUBNET_FULL_MSG
+        }, 'Error body');
+
+        // Confirm that the IP was freed
+        NAPI.getIP(PROV_MAC_NET.uuid, PROV_MAC_NET.provision_start_ip,
+            function (err2, res) {
+            if (h.ifErr(t, err2, 'getIP error')) {
+                return t.done();
             }
 
+            t.equal(res.free, true, 'IP has been freed');
+            var ipRec = h.getIPrecord(PROV_MAC_NET.uuid,
+                PROV_MAC_NET.provision_start_ip);
+            t.ok(!ipRec, 'IP record does not exist in moray');
+
+            t.equal(h.getNicRecords().length, numNicsBefore,
+                'no new nic records added');
+
+            // Make sure we actually hit all of the errors:
+            t.deepEqual(h.getMorayErrors(), {
+                batch: [ ]
+            }, 'no more batch errors left');
+
             return t.done();
         });
     });
 };
 
 
-exports['Provision nic: retry'] = function (t) {
-    var params = {
-        belongs_to_type: 'zone',
-        belongs_to_uuid: mod_uuid.v4(),
-        owner_uuid:  mod_uuid.v4()
-    };
+exports['Provision nic: MAC retry'] = {
+    'provision': function (t) {
+        d = {};
+        var params = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            owner_uuid:  mod_uuid.v4()
+        };
 
-    var fakeErr = new Error('Already exists');
-    fakeErr.name = 'EtagConflictError';
-    // One null error so that we can provision an IP
-    h.setMorayErrors({ putObject: [ null, fakeErr, fakeErr ] });
+        var fakeErr = new Error('Already exists');
+        fakeErr.name = 'EtagConflictError';
+        fakeErr.context = { bucket: 'napi_nics' };
 
-    NAPI.provisionNic(PROV_MAC_NET.uuid, params, function (err, res) {
-        if (h.ifErr(t, err, 'provision nic with retry')) {
+        h.setMorayErrors({ batch: [ fakeErr, fakeErr ] });
+
+        NAPI.provisionNic(PROV_MAC_NET.uuid, params, function (err, res) {
+            if (h.ifErr(t, err, 'provision nic with retry')) {
+                return t.done();
+            }
+
+            d.mac = res.mac;
+            t.ok(res.mac, 'MAC address');
+            var macNum = util_mac.aton(res.mac);
+            var morayObj = h.morayObj('napi_nics', macNum);
+            t.ok(morayObj, 'found moray object');
+            if (morayObj) {
+                t.equal(morayObj.mac, macNum, 'correct mac in moray object');
+            }
+
+            t.equal(res.network_uuid, PROV_MAC_NET.uuid,
+                'network_uuid correct');
+
+            // Make sure we actually hit those errors:
+            t.deepEqual(h.getMorayErrors(), {
+                batch: [ ]
+            }, 'no more batch errors left');
+
             return t.done();
-        }
+        });
+    },
 
-        t.ok(res.mac, 'MAC address');
-        var macNum = util_mac.aton(res.mac);
-        var morayObj = h.morayBuckets()['napi_nics'][macNum];
-        t.ok(morayObj, 'found moray object');
-        t.equal(morayObj.mac, macNum, 'correct mac in moray object');
+    'get': function (t) {
+        mod_nic.get(t, {
+            mac: d.mac,
+            partialExp: {
+                network_uuid: PROV_MAC_NET.uuid
+            }
+        });
+    },
 
-        return t.done();
-    });
+    'create': function (t) {
+        d = {
+            mac: h.randomMAC()
+        };
+        var params = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            network_uuid: PROV_MAC_NET.uuid,
+            owner_uuid:  mod_uuid.v4()
+        };
+
+        var fakeErr = new Error('Already exists');
+        fakeErr.name = 'EtagConflictError';
+        fakeErr.context = { bucket: 'napi_nics' };
+
+        h.setMorayErrors({ batch: [ fakeErr, fakeErr ] });
+
+        mod_nic.create(t, {
+            mac: d.mac,
+            params: params,
+            expErr: h.invalidParamErr({
+                    errors: [ mod_err.duplicateParam('mac') ]
+                })
+        }, function () {
+            var morayObj = h.morayObj('napi_nics', util_mac.aton(d.mac));
+            t.equal(morayObj, null, 'moray object does not exist');
+
+            // We should have bailed after the first iteration of the loop:
+            t.equal(h.getMorayErrors().batch.length, 1,
+                'one error left');
+
+            // Reset moray errors
+            h.setMorayErrors({ });
+
+            return t.done();
+        });
+    },
+
+    'get created': function (t) {
+        mod_nic.get(t, {
+            mac: d.mac,
+            expCode: 404,
+            expErr: {
+                code: 'ResourceNotFound',
+                message: 'nic not found'
+            }
+        });
+    }
 };
 
 
-exports['Provision nic - with IP'] = function (t) {
-    var params = {
-        belongs_to_type: 'zone',
-        belongs_to_uuid: mod_uuid.v4(),
-        ip: '10.0.2.200',
-        owner_uuid:  mod_uuid.v4()
-    };
+exports['Provision nic: IP retry'] = {
+    'provision': function (t) {
+        d = {};
+        var params = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            owner_uuid:  mod_uuid.v4()
+        };
 
-    NAPI.provisionNic(NET2.uuid, params, function (err, res) {
-        t.ifError(err);
-        if (err) {
+        var fakeErr = new Error('Already exists');
+        fakeErr.name = 'EtagConflictError';
+        fakeErr.context = { bucket: ip_common.bucketName(PROV_MAC_NET.uuid) };
+
+        h.setMorayErrors({ batch: [ fakeErr, fakeErr ] });
+
+        NAPI.provisionNic(PROV_MAC_NET.uuid, params, function (err, res) {
+            if (h.ifErr(t, err, 'provision nic with retry')) {
+                return t.done();
+            }
+
+            d.mac = res.mac;
+            t.ok(res.mac, 'MAC address');
+            var macNum = util_mac.aton(res.mac);
+            var morayObj = h.morayObj('napi_nics', macNum);
+            t.ok(morayObj, 'found moray object');
+            if (morayObj) {
+                t.equal(morayObj.mac, macNum, 'correct mac in moray object');
+            }
+
+            t.equal(res.network_uuid, PROV_MAC_NET.uuid,
+                'network_uuid correct');
+
+            // Make sure we actually hit those errors:
+            t.deepEqual(h.getMorayErrors(), {
+                batch: [ ]
+            }, 'no more batch errors left');
+
             return t.done();
-        }
+        });
+    },
 
-        t.deepEqual(res, {
-            belongs_to_type: params.belongs_to_type,
-            belongs_to_uuid: params.belongs_to_uuid,
+    'get provisioned': function (t) {
+        mod_nic.get(t, {
+            mac: d.mac,
+            partialExp: {
+                network_uuid: PROV_MAC_NET.uuid
+            }
+        });
+    },
+
+    // Try the same again with a specified MAC, not a randomly-generated one
+
+    'create': function (t) {
+        d = {
+            mac: h.randomMAC()
+        };
+        var params = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            network_uuid: PROV_MAC_NET.uuid,
+            owner_uuid:  mod_uuid.v4()
+        };
+
+        var fakeErr = new Error('Already exists');
+        fakeErr.name = 'EtagConflictError';
+        fakeErr.context = { bucket: ip_common.bucketName(PROV_MAC_NET.uuid) };
+
+        h.setMorayErrors({ batch: [ fakeErr, fakeErr ] });
+
+        mod_nic.create(t, {
+            mac: d.mac,
+            params: params,
+            partialExp: params
+        }, function (err, res) {
+            if (err) {
+                return t.done();
+            }
+
+            t.ok(res.mac, 'MAC address');
+            var macNum = util_mac.aton(res.mac);
+            var morayObj = h.morayObj('napi_nics', macNum);
+            t.ok(morayObj, 'found moray object');
+            if (morayObj) {
+                t.equal(morayObj.mac, macNum, 'correct mac in moray object');
+            }
+
+            t.equal(res.network_uuid, PROV_MAC_NET.uuid,
+                'network_uuid correct');
+
+            // Make sure we actually hit those errors:
+            t.deepEqual(h.getMorayErrors(), {
+                batch: [ ]
+            }, 'no more batch errors left');
+
+            return t.done();
+        });
+    },
+
+    'get created': function (t) {
+        mod_nic.get(t, {
+            mac: d.mac,
+            partialExp: {
+                network_uuid: PROV_MAC_NET.uuid
+            }
+        });
+    }
+};
+
+
+exports['Provision nic - with IP'] = {
+    'provision': function (t) {
+        d = {};
+        var params = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
             ip: '10.0.2.200',
-            mac: res.mac,
-            netmask: '255.255.255.0',
-            network_uuid: NET2.uuid,
-            nic_tag: NET2.nic_tag,
-            owner_uuid: params.owner_uuid,
-            primary: false,
-            resolvers: NET2.resolvers,
-            routes: NET2.routes,
-            status: 'running',
-            vlan_id: NET2.vlan_id
-        }, 'result');
+            owner_uuid: mod_uuid.v4()
+        };
 
-        return t.done();
-    });
-};
+        NAPI.provisionNic(NET2.uuid, params, function (err, res) {
+            if (h.ifErr(t, err, 'provision nic')) {
+                return t.done();
+            }
 
+            d.exp = {
+                belongs_to_type: params.belongs_to_type,
+                belongs_to_uuid: params.belongs_to_uuid,
+                ip: '10.0.2.200',
+                mac: res.mac,
+                netmask: '255.255.255.0',
+                network_uuid: NET2.uuid,
+                nic_tag: NET2.nic_tag,
+                owner_uuid: params.owner_uuid,
+                primary: false,
+                resolvers: NET2.resolvers,
+                routes: NET2.routes,
+                status: 'running',
+                vlan_id: NET2.vlan_id
+            };
+            t.deepEqual(res, d.exp, 'result');
+            return t.done();
+        });
+    },
 
-exports['Create nic - empty nic_tags_provided'] = function (t) {
-    var params = {
-        belongs_to_type: 'zone',
-        belongs_to_uuid: mod_uuid.v4(),
-        nic_tags_provided: '',
-        owner_uuid: mod_uuid.v4()
-    };
-
-    NAPI.createNic(h.randomMAC(), params, function (err, res) {
-        if (h.ifErr(t, err, 'create nic with empty nic_tags_provided')) {
+    'get': function (t) {
+        if (!d.exp) {
             return t.done();
         }
 
-        delete params.nic_tags_provided;
-        params.primary = false;
-        params.status = 'running';
-        t.deepEqual(res, params, 'response');
+        NAPI.getNic(d.exp.mac, function (err, res) {
+            if (h.ifErr(t, err, 'get nic')) {
+                return t.done();
+            }
 
-        NAPI.getNic(res.mac, function (err2, res2) {
-            t.ifError(err2);
-            t.deepEqual(res2, params, 'get response');
+            t.deepEqual(res, d.exp, 'result');
             return t.done();
         });
+    },
 
-    });
+    'provision with duplicate IP': function (t) {
+        var params = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            ip: '10.0.2.200',
+            owner_uuid: mod_uuid.v4()
+        };
+
+        mod_nic.provision(t, {
+            net: NET2.uuid,
+            params: params,
+            expErr: h.invalidParamErr({
+                errors: [
+                    mod_err.usedByParam('ip', 'zone', d.exp.belongs_to_uuid,
+                        util.format(constants.fmt.IP_IN_USE,
+                            'zone', d.exp.belongs_to_uuid))
+                ]
+            })
+        });
+    },
+
+    // Try updating another nic to have that IP - it should fail
+
+    'create second nic': function (t) {
+        d.mac = h.randomMAC();
+        d.params = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            owner_uuid:  mod_uuid.v4()
+        };
+
+        mod_nic.create(t, {
+            mac: d.mac,
+            params: d.params,
+            partialExp: d.params
+        });
+    },
+
+    'update second nic': function (t) {
+        mod_nic.update(t, {
+            mac: d.mac,
+            params: {
+                ip: '10.0.2.200',
+                network_uuid: NET2.uuid
+            },
+            expErr: h.invalidParamErr({
+                errors: [
+                    mod_err.duplicateParam('ip', util.format(
+                        constants.fmt.IP_EXISTS, NET2.uuid))
+                ]
+            })
+        });
+    },
+
+    // Try updating a nic with a different IP to have that IP
+
+    'create third nic': function (t) {
+        d.params = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            owner_uuid:  mod_uuid.v4()
+        };
+
+        d.exp3 = {
+            ip: h.nextProvisionableIP(NET2)
+        };
+        h.copyParams(d.params, d.exp3);
+
+        mod_nic.provision(t, {
+            net: NET2.uuid,
+            params: d.params,
+            partialExp: d.exp3,
+            // This will put the nic in d.nics[0]
+            state: d
+        });
+    },
+
+    'update third nic': function (t) {
+        mod_nic.update(t, {
+            mac: d.nics[0].mac,
+            params: {
+                ip: '10.0.2.200',
+                network_uuid: NET2.uuid
+            },
+            expErr: h.invalidParamErr({
+                errors: [
+                    mod_err.usedByParam('ip', 'zone', d.exp.belongs_to_uuid,
+                        util.format(constants.fmt.IP_IN_USE,
+                            'zone', d.exp.belongs_to_uuid))
+                ]
+            })
+        });
+    }
 };
 
 
@@ -561,413 +963,353 @@ exports['Provision nic - with different status'] = function (t) {
 };
 
 
+
 // --- Update tests
 
 
 
-exports['Update nic - add IP'] = function (t) {
-    var mac = h.randomMAC();
-    var nic;
-    var params = {
-        belongs_to_type: 'zone',
-        belongs_to_uuid: mod_uuid.v4(),
-        owner_uuid:  mod_uuid.v4()
-    };
+exports['Update nic - provision IP'] = {
+    'create': function (t) {
+        d.mac = h.randomMAC();
+        d.params = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            owner_uuid:  mod_uuid.v4()
+        };
 
-    vasync.pipeline({ funcs: [
-    function (_, cb) {
-        NAPI.createNic(mac, params, function (err, res) {
-            if (h.ifErr(t, err, 'create nic')) {
-                return cb(err);
-            }
-
-            for (var p in params) {
-                t.equal(res[p], params[p], p + ' correct');
-            }
-
-            return cb();
+        mod_nic.create(t, {
+            mac: d.mac,
+            params: d.params,
+            partialExp: d.params
         });
 
-    }, function (_, cb) {
-        NAPI.updateNic(mac, { network_uuid: NET3.uuid }, function (err2, res2) {
-            if (h.ifErr(t, err2, 'update nic')) {
-                return cb(err2);
-            }
+    },
 
-            t.deepEqual(res2, {
-                belongs_to_type: params.belongs_to_type,
-                belongs_to_uuid: params.belongs_to_uuid,
-                ip: NET3.provision_start_ip,
-                mac: res2.mac,
-                netmask: '255.255.255.0',
-                network_uuid: NET3.uuid,
-                nic_tag: NET3.nic_tag,
-                owner_uuid: params.owner_uuid,
-                primary: false,
-                resolvers: NET3.resolvers,
-                status: 'running',
-                vlan_id: NET3.vlan_id
-            }, 'result');
-            nic = res2;
+    'update': function (t) {
+        d.exp = {
+            belongs_to_type: d.params.belongs_to_type,
+            belongs_to_uuid: d.params.belongs_to_uuid,
+            ip: NET3.provision_start_ip,
+            mac: d.mac,
+            netmask: '255.255.255.0',
+            network_uuid: NET3.uuid,
+            nic_tag: NET3.nic_tag,
+            owner_uuid: d.params.owner_uuid,
+            primary: false,
+            resolvers: NET3.resolvers,
+            status: 'running',
+            vlan_id: NET3.vlan_id
+        };
 
-            return cb();
-        });
-
-    }, function (_, cb) {
-        NAPI.getIP(NET3.uuid, nic.ip, function (err, res) {
-            if (h.ifErr(t, err, 'get IP')) {
-                return cb(err);
-            }
-
-            t.deepEqual(res, {
-                belongs_to_type: nic.belongs_to_type,
-                belongs_to_uuid: nic.belongs_to_uuid,
-                free: false,
-                ip: nic.ip,
-                network_uuid: NET3.uuid,
-                owner_uuid: nic.owner_uuid,
-                reserved: false
-            }, 'get IP after update');
-
-            return cb();
-        });
-    }
-
-    ] }, function () {
-        return t.done();
-    });
-};
-
-
-exports['Update nic - IP parameters updated'] = function (t) {
-    var params = {
-        belongs_to_type: 'zone',
-        belongs_to_uuid: mod_uuid.v4(),
-        ip: '10.0.2.188',
-        network_uuid: NET.uuid,
-        owner_uuid:  mod_uuid.v4()
-    };
-    var mac = h.randomMAC();
-    var exp = {
-        belongs_to_type: params.belongs_to_type,
-        belongs_to_uuid: params.belongs_to_uuid,
-        ip: params.ip,
-        mac: mac,
-        netmask: '255.255.255.0',
-        network_uuid: NET.uuid,
-        nic_tag: NET.nic_tag,
-        owner_uuid: params.owner_uuid,
-        primary: false,
-        resolvers: NET.resolvers,
-        status: 'running',
-        vlan_id: NET.vlan_id
-    };
-
-    vasync.pipeline({
-        funcs: [
-        function (_, cb) {
-            NAPI.createNic(mac, params, function (err, res) {
-                t.ifError(err);
-                if (err) {
-                    t.deepEqual(err.body, {}, 'error body');
-                    return cb(err);
-                }
-
-                t.deepEqual(res, exp, 'result');
-                return cb();
-            });
-        },
-
-        function (_, cb) {
-            var updateParams = {
-                belongs_to_type: 'other',
-                belongs_to_uuid: mod_uuid.v4(),
-                owner_uuid:  mod_uuid.v4()
-            };
-
-            for (var k in updateParams) {
-                exp[k] = updateParams[k];
-            }
-
-            NAPI.updateNic(mac, updateParams, function (err, res) {
-                t.ifError(err);
-                if (err) {
-                    t.deepEqual(err.body, {}, 'error body');
-                    return cb(err);
-                }
-
-                t.deepEqual(res, exp, 'result after update');
-                return cb();
-            });
-        },
-
-        function (_, cb) {
-            NAPI.getNic(mac, function (err, res) {
-                t.ifError(err);
-                if (err) {
-                    t.deepEqual(err.body, {}, 'error body');
-                    return cb(err);
-                }
-
-                t.deepEqual(res, exp, 'get nic after update');
-                return cb();
-            });
-        },
-
-        function (_, cb) {
-            NAPI.getIP(NET.uuid, exp.ip, function (err, res) {
-                t.ifError(err);
-                if (err) {
-                    t.deepEqual(err.body, {}, 'error body');
-                    return cb(err);
-                }
-
-                t.deepEqual(res, {
-                    belongs_to_type: exp.belongs_to_type,
-                    belongs_to_uuid: exp.belongs_to_uuid,
-                    free: false,
-                    ip: exp.ip,
-                    network_uuid: NET.uuid,
-                    owner_uuid: exp.owner_uuid,
-                    reserved: false
-                }, 'get IP after update');
-                return cb();
-            });
-        }
-    ] }, function () {
-        return t.done();
-    });
-};
-
-
-exports['Update nic - change IP'] = function (t) {
-    var ip1 = '10.0.2.196';
-    var ip2 = '10.0.2.197';
-    var ip3 = '10.0.2.198';
-    var expIP1, expIP2, expIP3;
-
-    var other = mod_uuid.v4();
-    var params = {
-        belongs_to_type: 'zone',
-        belongs_to_uuid: mod_uuid.v4(),
-        ip: ip1,
-        network_uuid: NET.uuid,
-        owner_uuid:  mod_uuid.v4()
-    };
-    var mac = h.randomMAC();
-    var exp = {
-        belongs_to_type: params.belongs_to_type,
-        belongs_to_uuid: params.belongs_to_uuid,
-        ip: params.ip,
-        mac: mac,
-        netmask: '255.255.255.0',
-        network_uuid: NET.uuid,
-        nic_tag: NET.nic_tag,
-        owner_uuid: params.owner_uuid,
-        primary: false,
-        resolvers: NET.resolvers,
-        status: 'running',
-        vlan_id: NET.vlan_id
-    };
-
-    vasync.pipeline({
-    funcs: [
-    function (_, cb) {
-        NAPI.createNic(mac, params, function (err, res) {
-            if (h.ifErr(t, err, 'create nic')) {
-                return cb(err);
-            }
-
-            t.deepEqual(res, exp, 'create nic result');
-            return cb();
+        mod_nic.update(t, {
+            mac: d.mac,
+            params: {
+                network_uuid: NET3.uuid
+            },
+            exp: d.exp
         });
     },
 
-    function (_, cb) {
+    'get nic': function (t) {
+        mod_nic.get(t, {
+            mac: d.mac,
+            exp: d.exp
+        });
+    },
+
+    'get IP': function (t) {
+        mod_ip.get(t, {
+            net: NET3.uuid,
+            ip: NET3.provision_start_ip,
+            exp: {
+                belongs_to_type: d.exp.belongs_to_type,
+                belongs_to_uuid: d.exp.belongs_to_uuid,
+                free: false,
+                ip: d.exp.ip,
+                network_uuid: NET3.uuid,
+                owner_uuid: d.exp.owner_uuid,
+                reserved: false
+            }
+        });
+    }
+};
+
+
+exports['Update nic - IP parameters updated'] = {
+    'create': function (t) {
+        d.params = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            ip: '10.0.2.188',
+            network_uuid: NET.uuid,
+            owner_uuid:  mod_uuid.v4()
+        };
+        d.mac = h.randomMAC();
+        d.exp = {
+            belongs_to_type: d.params.belongs_to_type,
+            belongs_to_uuid: d.params.belongs_to_uuid,
+            ip: d.params.ip,
+            mac: d.mac,
+            netmask: '255.255.255.0',
+            network_uuid: NET.uuid,
+            nic_tag: NET.nic_tag,
+            owner_uuid: d.params.owner_uuid,
+            primary: false,
+            resolvers: NET.resolvers,
+            status: 'running',
+            vlan_id: NET.vlan_id
+        };
+
+        mod_nic.create(t, {
+            mac: d.mac,
+            params: d.params,
+            exp: d.exp
+        });
+    },
+
+    'get after create':  function (t) {
+        mod_nic.get(t, {
+            mac: d.mac,
+            exp: d.exp
+        });
+    },
+
+    'update': function (t) {
         var updateParams = {
-            ip: ip2,
+            belongs_to_type: 'other',
+            belongs_to_uuid: mod_uuid.v4(),
+            owner_uuid:  mod_uuid.v4()
+        };
+
+        h.copyParams(updateParams, d.exp);
+        mod_nic.update(t, {
+            mac: d.mac,
+            params: updateParams,
+            exp: d.exp
+        });
+    },
+
+    'get after update': function (t) {
+        mod_nic.get(t, {
+            mac: d.mac,
+            exp: d.exp
+        });
+    },
+
+    'get IP': function (t) {
+        mod_ip.get(t, {
+            net: NET.uuid,
+            ip: d.exp.ip,
+            exp: {
+                belongs_to_type: d.exp.belongs_to_type,
+                belongs_to_uuid: d.exp.belongs_to_uuid,
+                free: false,
+                ip: d.exp.ip,
+                network_uuid: NET.uuid,
+                owner_uuid: d.exp.owner_uuid,
+                reserved: false
+            }
+        });
+    }
+};
+
+
+exports['Update nic - change IP'] = {
+    'create': function (t) {
+        d.ips = [ '10.0.2.196', '10.0.2.197', '10.0.2.198' ];
+        var params = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            ip: d.ips[0],
+            network_uuid: NET.uuid,
+            owner_uuid:  mod_uuid.v4()
+        };
+
+        d.mac = h.randomMAC();
+        d.exp = {
+            belongs_to_type: params.belongs_to_type,
+            belongs_to_uuid: params.belongs_to_uuid,
+            ip: params.ip,
+            mac: d.mac,
+            netmask: '255.255.255.0',
+            network_uuid: NET.uuid,
+            nic_tag: NET.nic_tag,
+            owner_uuid: params.owner_uuid,
+            primary: false,
+            resolvers: NET.resolvers,
+            status: 'running',
+            vlan_id: NET.vlan_id
+        };
+        d.other = mod_uuid.v4();
+
+        mod_nic.create(t, {
+            mac: d.mac,
+            params: params,
+            exp: d.exp
+        });
+    },
+
+    'update: add IP': function (t) {
+        var updateParams = {
+            ip: d.ips[1],
             network_uuid: NET.uuid
         };
 
         for (var k in updateParams) {
-            exp[k] = updateParams[k];
+            d.exp[k] = updateParams[k];
         }
 
-        NAPI.updateNic(mac, updateParams, function (err, res) {
-            if (h.ifErr(t, err, 'update nic')) {
-                return cb(err);
-            }
-
-            t.deepEqual(res, exp, 'result after update');
-            return cb();
+        mod_nic.update(t, {
+            mac: d.mac,
+            params: updateParams,
+            exp: d.exp
         });
     },
 
-    function (_, cb) {
-        NAPI.getNic(mac, function (err, res) {
-            if (h.ifErr(t, err, 'get nic')) {
-                return cb(err);
-            }
-
-            t.deepEqual(res, exp, 'get nic after update');
-            return cb();
+    'get: after first update': function (t) {
+        mod_nic.get(t, {
+            mac: d.mac,
+            exp: d.exp
         });
     },
 
-    function (_, cb) {
-        expIP1 = {
-            free: true,
-            ip: ip1,
-            network_uuid: NET.uuid,
-            reserved: false
-        };
-
-        NAPI.getIP(NET.uuid, ip1, function (err, res) {
-            if (h.ifErr(t, err, 'get old IP')) {
-                return cb(err);
+    'get old IP': function (t) {
+        d.expIPs = [
+            {
+                free: true,
+                ip: d.ips[0],
+                network_uuid: NET.uuid,
+                reserved: false
             }
+        ];
 
-            t.deepEqual(res, expIP1, 'old IP after update');
-            return cb();
+        mod_ip.get(t, {
+            net: NET.uuid,
+            ip: d.ips[0],
+            exp: d.expIPs[0]
         });
     },
 
-    function (_, cb) {
-        expIP2 = {
-            belongs_to_type: exp.belongs_to_type,
-            belongs_to_uuid: exp.belongs_to_uuid,
+    'get new IP': function (t) {
+        d.expIPs.push({
+            belongs_to_type: d.exp.belongs_to_type,
+            belongs_to_uuid: d.exp.belongs_to_uuid,
             free: false,
-            ip: ip2,
+            ip: d.ips[1],
             network_uuid: NET.uuid,
-            owner_uuid: exp.owner_uuid,
+            owner_uuid: d.exp.owner_uuid,
             reserved: false
-        };
+        });
 
-        NAPI.getIP(NET.uuid, ip2, function (err, res) {
-            if (h.ifErr(t, err, 'get new IP')) {
-                return cb(err);
-            }
-
-            t.deepEqual(res, expIP2, 'new IP after update');
-            return cb();
+        mod_ip.get(t, {
+            net: NET.uuid,
+            ip: d.ips[1],
+            exp: d.expIPs[1]
         });
     },
 
-    // Reserve ip3 so that it exists in moray
-    function (_, cb) {
-        NAPI.updateIP(NET.uuid, ip3, { reserved: true },
-            function (err, res) {
-            if (h.ifErr(t, err, 'update ip3')) {
-                return cb(err);
+    // Reserve ips[2] so that it exists in moray
+    'reserve ip 2': function (t) {
+        d.expIPs.push({
+            free: false,
+            ip: d.ips[2],
+            network_uuid: NET.uuid,
+            reserved: true
+        });
+
+        mod_ip.update(t, {
+            net: NET.uuid,
+            ip: d.ips[2],
+            exp: d.expIPs[2],
+            params: {
+                reserved: true
             }
-
-            t.equal(res.reserved, true, 'set reserved');
-            t.equal(res.free, false, 'free updated');
-
-            return cb();
         });
     },
 
-    // Change belongs_to_uuid of ip2: the next update should leave it
+    // Change belongs_to_uuid of ips[1]: the next update should leave it
     // alone, since the nic no longer owns it
-    function (_, cb) {
-        NAPI.updateIP(NET.uuid, ip2, { belongs_to_uuid: other },
-            function (err, res) {
-            if (h.ifErr(t, err, 'update ip2: 1')) {
-                return cb(err);
-            }
+    'change ip 1 belongs_to_uuid': function (t) {
+        d.expIPs[1].belongs_to_uuid = d.other;
 
-            expIP2.belongs_to_uuid = other;
-            t.deepEqual(res, expIP2, 'belongs_to_uuid changed');
-
-            return cb();
+        mod_ip.update(t, {
+            net: NET.uuid,
+            ip: d.ips[1],
+            params: {
+                belongs_to_uuid: d.other
+            },
+            exp: d.expIPs[1]
         });
     },
 
     // confirm the change
-    function (_, cb) {
-        NAPI.getIP(NET.uuid, ip2, function (err, res) {
-            if (h.ifErr(t, err, 'get: ip2')) {
-                return cb(err);
-            }
-
-            t.deepEqual(res, expIP2, 'ip2: belongs_to_uuid changed');
-            return cb();
+    'get ip 1 after update': function (t) {
+        mod_ip.get(t, {
+            net: NET.uuid,
+            ip: d.ips[1],
+            exp: d.expIPs[1]
         });
     },
 
-    // Now update the nic so that it points to ip3
-    function (_, cb) {
+    // Now update the nic so that it points to ip2
+    'update nic to ip2': function (t) {
         var updateParams = {
-            ip: ip3,
+            ip: d.ips[2],
             network_uuid: NET.uuid
         };
 
-        for (var k in updateParams) {
-            exp[k] = updateParams[k];
-        }
-
-        NAPI.updateNic(mac, updateParams, function (err, res) {
-            if (h.ifErr(t, err, 'update nic: 2')) {
-                return cb(err);
-            }
-
-            t.deepEqual(res, exp, 'result after update');
-            return cb();
+        h.copyParams(updateParams, d.exp);
+        mod_nic.update(t, {
+            mac: d.mac,
+            params: updateParams,
+            exp: d.exp
         });
     },
 
-    // ip1 should be unchanged
-    function (_, cb) {
-        NAPI.getIP(NET.uuid, ip1, function (err, res) {
-            if (h.ifErr(t, err, 'get: ip1')) {
-                return cb(err);
-            }
-
-            t.deepEqual(res, expIP1, 'ip1 unchanged');
-            return cb();
+    'get: after update to ip2': function (t) {
+        mod_nic.get(t, {
+            mac: d.mac,
+            exp: d.exp
         });
     },
 
-    // ip2 should be unchanged as well, since it's no longer owned
+    'ip0 unchanged': function (t) {
+        mod_ip.get(t, {
+            net: NET.uuid,
+            ip: d.ips[0],
+            exp: d.expIPs[0]
+        });
+    },
+
+    // ip1 should be unchanged as well, since it's no longer owned
     // by the nic we updated
-    function (_, cb) {
-        NAPI.getIP(NET.uuid, ip2, function (err, res) {
-            if (h.ifErr(t, err, 'get: ip2')) {
-                return cb(err);
-            }
-
-            t.deepEqual(res, expIP2, 'ip2 unchanged');
-            return cb();
+    'ip1 unchanged': function (t) {
+        mod_ip.get(t, {
+            net: NET.uuid,
+            ip: d.ips[1],
+            exp: d.expIPs[1]
         });
     },
 
-    // And finally, ip3 should have the nic as its owner now and still have
+    // And finally, ip2 should have the nic as its owner now and still have
     // reserved set to true
-    function (_, cb) {
-        expIP3 = {
-            belongs_to_type: exp.belongs_to_type,
-            belongs_to_uuid: exp.belongs_to_uuid,
+    'ip2 unchanged': function (t) {
+        d.expIPs[2] = {
+            belongs_to_type: d.exp.belongs_to_type,
+            belongs_to_uuid: d.exp.belongs_to_uuid,
             free: false,
-            ip: ip3,
+            ip: d.ips[2],
             network_uuid: NET.uuid,
-            owner_uuid: exp.owner_uuid,
+            owner_uuid: d.exp.owner_uuid,
             reserved: true
         };
 
-        NAPI.getIP(NET.uuid, ip3, function (err, res) {
-            if (h.ifErr(t, err, 'get: ip3')) {
-                return cb(err);
-            }
-
-            t.deepEqual(res, expIP3, 'ip3 unchanged');
-            return cb();
+        mod_ip.get(t, {
+            net: NET.uuid,
+            ip: d.ips[2],
+            exp: d.expIPs[2]
         });
     }
-
-    ] }, function () {
-        return t.done();
-    });
 };
 
 
@@ -1107,33 +1449,95 @@ exports['Update nic - invalid params'] = function (t) {
 };
 
 
-exports['Update nic - same params'] = function (t) {
-    var params = {
-        belongs_to_type: 'zone',
-        belongs_to_uuid: mod_uuid.v4(),
-        owner_uuid:  mod_uuid.v4()
-    };
+// Test updates that should cause no changes to the nic object
+exports['Update nic - no changes'] = {
+    'provision': function (t) {
+        d = {};
+        var params = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            owner_uuid:  mod_uuid.v4()
+        };
 
-    NAPI.provisionNic(NET2.uuid, params, function (err, res) {
-        if (h.ifErr(t, err, 'provision new nic')) {
-            return t.done();
-        }
+        var partialExp = {
+            ip: h.nextProvisionableIP(NET2),
+            network_uuid: NET2.uuid
+        };
+        h.copyParams(params, partialExp);
 
-        for (var p in params) {
-            t.equal(res[p], params[p], p + ' correct');
-        }
-        t.equal(res.ip, h.nextProvisionableIP(NET2), 'IP');
-
-        NAPI.updateNic(res.mac, res, function (err2, res2) {
-            if (h.ifErr(t, err2, 'update nic')) {
-                return t.done();
-            }
-
-            t.deepEqual(res2, res, 'Nic parameters unchanged');
-
-            return t.done();
+        mod_nic.provision(t, {
+            net: NET2.uuid,
+            params: params,
+            state: d,
+            partialExp: partialExp
         });
-    });
+    },
+
+    'update with same params': function (t) {
+        mod_nic.update(t, {
+            mac: d.nics[0].mac,
+            params: d.nics[0],
+            exp: d.nics[0]
+        });
+    },
+
+    'get': function (t) {
+        mod_nic.get(t, {
+            mac: d.nics[0].mac,
+            exp: d.nics[0]
+        });
+    },
+
+    // Update with only network_uuid set: this should not cause a new
+    // IP to be provisioned for that nic
+    'update with network_uuid': function (t) {
+        mod_nic.update(t, {
+            mac: d.nics[0].mac,
+            params: {
+                network_uuid: NET3.uuid
+            },
+            exp: d.nics[0]
+        });
+    },
+
+    'get after network_uuid': function (t) {
+        mod_nic.get(t, {
+            mac: d.nics[0].mac,
+            exp: d.nics[0]
+        });
+    },
+
+    // Changing the MAC address should not be allowed
+    'update with mac': function (t) {
+        d.newMAC = h.randomMAC();
+        mod_nic.update(t, {
+            mac: d.nics[0].mac,
+            params: {
+                mac: d.newMAC
+            },
+            exp: d.nics[0]
+        });
+    },
+
+    'get after mac update': function (t) {
+        mod_nic.get(t, {
+            mac: d.nics[0].mac,
+            exp: d.nics[0]
+        });
+    },
+
+    // That update should not have created a new nic object with the
+    // new MAC
+    'get new MAC': function (t) {
+        mod_nic.get(t, {
+            mac: d.newMAC,
+            expCode: 404,
+            expErr: {
+                code: 'ResourceNotFound',
+                message: 'nic not found'
+            }
+        });
+    }
 };
 
 
@@ -1281,112 +1685,69 @@ exports['Delete nic - IP ownership changed underneath'] = function (t) {
 };
 
 
-exports['antispoof options'] = function (t) {
-    var nic;
-    var params = {
-        allow_dhcp_spoofing: true,
-        allow_ip_spoofing: true,
-        allow_mac_spoofing: true,
-        allow_restricted_traffic: true,
-        allow_unfiltered_promisc: true,
-        belongs_to_type: 'zone',
-        belongs_to_uuid: mod_uuid.v4(),
-        owner_uuid:  mod_uuid.v4()
-    };
-    var updateParams = {
-        allow_dhcp_spoofing: false,
-        allow_ip_spoofing: false,
-        allow_mac_spoofing: false,
-        allow_restricted_traffic: false,
-        allow_unfiltered_promisc: false
-    };
+exports['antispoof options'] = {
+    'provision': function (t) {
+        d.params = {
+            allow_dhcp_spoofing: true,
+            allow_ip_spoofing: true,
+            allow_mac_spoofing: true,
+            allow_restricted_traffic: true,
+            allow_unfiltered_promisc: true,
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            owner_uuid:  mod_uuid.v4()
+        };
 
-    vasync.pipeline({ funcs: [
-    function (_, cb) {
-        NAPI.provisionNic(NET2.uuid, params, function (err, res) {
-            t.ifError(err);
+        mod_nic.provision(t, {
+            net: NET2.uuid,
+            params: d.params,
+            partialExp: d.params
+        }, function (err, res) {
             if (err) {
-                return cb(err);
+                return t.done();
             }
 
-            for (var p in params) {
-                t.equal(res[p], params[p], p + ' correct (provision)');
-            }
+            d.exp = res;
+            d.mac = res.mac;
             t.equal(res.ip, h.nextProvisionableIP(NET2), 'IP');
-            nic = res;
 
             var morayObj = getMorayNic(t, res.mac);
             t.ok(!morayObj.hasOwnProperty('network'),
                 'moray object does not have network in it');
 
-            return cb();
+            return t.done();
         });
+    },
 
-    }, function (_, cb) {
-        NAPI.getNic(nic.mac, function (err, res) {
-            t.ifError(err);
-            if (err) {
-                return cb(err);
-            }
-
-            for (var p in params) {
-                t.equal(res[p], params[p], p + ' correct (first get)');
-            }
-
-            return cb();
+    'get after provision': function (t) {
+        mod_nic.get(t, {
+            mac: d.mac,
+            partialExp: d.params
         });
+    },
 
-    }, function (_, cb) {
-        // Disable the antispoof options
-        NAPI.updateNic(nic.mac, updateParams, function (err, res) {
-            t.ifError(err);
-            if (err) {
-                return cb(err);
-            }
+    'disable antispoof options': function (t) {
+        d.updateParams = {
+            allow_dhcp_spoofing: false,
+            allow_ip_spoofing: false,
+            allow_mac_spoofing: false,
+            allow_restricted_traffic: false,
+            allow_unfiltered_promisc: false
+        };
 
-            // Confirm that the fields have been removed from moray
-            var morayObj = getMorayNic(t, res.mac);
-            t.ok(!morayObj.hasOwnProperty('network'),
-                'moray object does not have network in it');
-
-            for (var p in updateParams) {
-                t.ok(!res.hasOwnProperty(p),
-                    p + ' does not exist (update to false)');
-
-                t.ok(!morayObj.hasOwnProperty(p),
-                    p + ' not in moray object (update to false)');
-            }
-            nic = res;
-
-            return cb();
-        });
-
-    }, function (_, cb) {
-        NAPI.getNic(nic.mac, function (err, res) {
-            t.ifError(err);
-            if (err) {
-                return cb(err);
-            }
-
-            for (var p in updateParams) {
-                t.ok(!res.hasOwnProperty(p),
-                    p + ' does not exist (second get)');
-            }
-
-            return cb();
-        });
-
-    }, function (_, cb) {
-        var p;
-        // Re-enable the antispoof options
-        for (p in updateParams) {
-            updateParams[p] = true;
+        // If set to false, the fields won't appear in the API output
+        // anymore:
+        for (var p in d.updateParams) {
+            delete d.exp[p];
         }
 
-        NAPI.updateNic(nic.mac, updateParams, function (err, res) {
-            t.ifError(err);
+        mod_nic.update(t, {
+            mac: d.mac,
+            params: d.updateParams,
+            exp: d.exp
+        }, function (err, res) {
             if (err) {
-                return cb(err);
+                return t.done();
             }
 
             // Confirm that the fields have been removed from moray
@@ -1394,35 +1755,149 @@ exports['antispoof options'] = function (t) {
             t.ok(!morayObj.hasOwnProperty('network'),
                 'moray object does not have network in it');
 
-            for (p in updateParams) {
-                t.ok(res[p], p + ' in res (update to true)');
-
-                t.ok(morayObj.hasOwnProperty(p),
-                    p + ' in moray object (update to true)');
-            }
-            nic = res;
-
-            return cb();
+            return t.done();
         });
+    },
 
-    }, function (_, cb) {
-        NAPI.getNic(nic.mac, function (err, res) {
-            t.ifError(err);
+    'get after disable': function (t) {
+        mod_nic.get(t, {
+            mac: d.mac,
+            exp: d.exp
+        });
+    },
+
+    're-enable antispoof options': function (t) {
+        for (var p in d.updateParams) {
+            d.updateParams[p] = true;
+            d.exp[p] = true;
+        }
+
+        mod_nic.update(t, {
+            mac: d.mac,
+            params: d.updateParams,
+            exp: d.exp
+        }, function (err, res) {
             if (err) {
-                return cb(err);
+                return t.done();
             }
 
-            for (var p in updateParams) {
-                t.ok(res[p], p + ' is true (third get)');
-            }
+            // Confirm that the fields have been removed from moray
+            var morayObj = getMorayNic(t, res.mac);
+            t.ok(!morayObj.hasOwnProperty('network'),
+                'moray object does not have network in it');
 
-            return cb();
+            return t.done();
+        });
+    },
+
+    'get after re-enable': function (t) {
+        mod_nic.get(t, {
+            mac: d.mac,
+            exp: d.exp
         });
     }
+};
 
-    ] }, function () {
-        return t.done();
-    });
+
+exports['update nic that does not exist'] = {
+    'update first nic to set primary=true': function (t) {
+        d = {
+            mac: h.randomMAC(),
+            params: {
+                belongs_to_type: 'zone',
+                belongs_to_uuid: mod_uuid.v4(),
+                owner_uuid: mod_uuid.v4(),
+                network_uuid: NET2.uuid
+            }
+        };
+
+        mod_nic.update(t, {
+            mac: d.mac,
+            params: d.params,
+            expCode: 404,
+            expErr: {
+                code: 'ResourceNotFound',
+                message: 'nic not found'
+            }
+        });
+    },
+
+    'get': function (t) {
+        mod_nic.get(t, {
+            mac: d.mac,
+            expCode: 404,
+            expErr: {
+                code: 'ResourceNotFound',
+                message: 'nic not found'
+            }
+        });
+    }
+};
+
+
+exports['primary uniqueness'] = {
+    'create first nic': function (t) {
+        d = {};
+        d.macs = [ h.randomMAC(), h.randomMAC() ];
+        d.owner = mod_uuid.v4();
+        d.zone = mod_uuid.v4();
+        d.params = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: d.zone,
+            mac: d.macs[0],
+            owner_uuid: d.owner,
+            primary: true
+        };
+
+        mod_nic.createAndGet(t, {
+            mac: d.params.mac,
+            params: d.params,
+            partialExp: {
+                primary: true
+            }
+        });
+    },
+
+    'create second nic with primary=true': function (t) {
+        d.params.mac = d.macs[1];
+        mod_nic.createAndGet(t, {
+            mac: d.params.mac,
+            params: d.params,
+            partialExp: {
+                primary: true
+            }
+        });
+    },
+
+    'first nic should have primary set to false': function (t) {
+        mod_nic.get(t, {
+            mac: d.macs[0],
+            partialExp: {
+                primary: false
+            }
+        });
+    },
+
+    'update first nic to set primary=true': function (t) {
+        mod_nic.updateAndGet(t, {
+            mac: d.macs[0],
+            params: {
+                primary: true
+            },
+            partialExp: {
+                primary: true
+            }
+        });
+    },
+
+    'second nic should have primary set to false': function (t) {
+        mod_nic.get(t, {
+            mac: d.macs[1],
+            partialExp: {
+                primary: false
+            }
+        });
+    }
 };
 
 
@@ -1430,9 +1905,6 @@ exports['antispoof options'] = function (t) {
 // XXX: More tests:
 // - create nic with IP, then create another nic with the same IP.  Old nic
 //   should no longer have that IP
-// - nic already has IP, then update to new IP
-//   - old IP should not belong to anyone anymore
-//   - same should be true if that nic moves networks
 // - should not allow updating an IP to outside the subnet (if only the IP
 //   is specified)
 

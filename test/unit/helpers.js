@@ -12,10 +12,10 @@ var fs = require('fs');
 var EventEmitter = require('events').EventEmitter;
 var ldapjs = require('ldapjs');
 var mock_moray = require('../lib/mock-moray');
+var mod_client = require('../lib/client');
 var mod_ip = require('../../lib/models/ip');
 var mod_uuid = require('node-uuid');
 var NAPI = require('../../lib/napi').NAPI;
-var napiClient = require('sdc-clients/lib/napi');
 var restify = require('restify');
 var util = require('util');
 var util_ip = require('../../lib/util/ip');
@@ -31,6 +31,7 @@ var JOBS = [];
 var NET_NUM = 2;
 var NET_IPS = {};
 var SERVER;
+var SERVER_URL;
 
 
 
@@ -66,6 +67,25 @@ FakeWFclient.prototype.createJob = function createJob(name, params, callback) {
 
 
 /**
+ * Copies over all keys in from to to
+ */
+function copyParams(from, to) {
+    for (var k in from) {
+        to[k] = from[k];
+    }
+}
+
+
+/**
+ * Creates a NAPI client pointed at the test server (with req_id for tracking
+ * requests)
+ */
+function createClient(t) {
+    return common.createClient(SERVER.info().url, t);
+}
+
+
+/**
  * Creates a test NAPI server, and returns a client for accessing it
  */
 function createClientAndServer(callback) {
@@ -96,10 +116,10 @@ function createClientAndServer(callback) {
             }
 
             SERVER = server;
-            return callback(null, new napiClient({
-                agent: false,
-                url: server.info().url
-            }));
+            var client = createClient();
+            mod_client.set(client);
+
+            return callback(null, client);
         });
     });
 
@@ -125,7 +145,12 @@ function getIPrecord(network, ip) {
         return util.format('Bucket %s not found', bucketName);
     }
 
-    return buckets[bucketName][util_ip.aton(ip).toString()];
+    var rec = buckets[bucketName][util_ip.aton(ip).toString()];
+    if (rec) {
+        return rec.value;
+    }
+
+    return null;
 }
 
 
@@ -140,8 +165,30 @@ function getIPrecords(network) {
     }
 
     return Object.keys(buckets[bucketName]).map(function (key) {
-        return buckets[bucketName][key];
+        return buckets[bucketName][key].value;
     }).sort(function (a, b) { return Number(a.ip) > Number(b.ip); });
+}
+
+
+/**
+ * Gets mock moray errors
+ */
+function getMorayErrors() {
+    return mock_moray._errors;
+}
+
+/**
+ * Gets all nic records from fake moray, sorted by MAC address
+ */
+function getNicRecords(network, ip) {
+    var bucket = mock_moray._buckets.napi_nics;
+    if (!bucket) {
+        return 'napi_nics bucket not found';
+    }
+
+    return Object.keys(bucket).sort().map(function (key) {
+        return bucket[key];
+    });
 }
 
 
@@ -165,6 +212,21 @@ function missingParam(field, message) {
  */
 function morayBuckets() {
     return mock_moray._buckets;
+}
+
+
+/**
+ * Returns the moray buckets
+ */
+function morayObj(bucketName, key) {
+    var bucket = mock_moray._buckets[bucketName];
+    assert.object(bucket, 'bucket');
+    var obj = bucket[key];
+    if (obj) {
+        return obj.value;
+    }
+
+    return null;
 }
 
 
@@ -274,15 +336,20 @@ function validNetworkParams(override) {
 
 
 module.exports = {
+    copyParams: copyParams,
+    createClient: createClient,
     createClientAndServer: createClientAndServer,
     fieldSort: fieldSort,
     ifErr: common.ifErr,
     getIPrecord: getIPrecord,
     getIPrecords: getIPrecords,
+    getMorayErrors: getMorayErrors,
+    getNicRecords: getNicRecords,
     invalidParamErr: common.invalidParamErr,
     missingParamErr: common.missingParamErr,
     missingParam: missingParam,
     morayBuckets: morayBuckets,
+    morayObj: morayObj,
     nextProvisionableIP: nextProvisionableIP,
     randomMAC: common.randomMAC,
     setMorayErrors: setMorayErrors,

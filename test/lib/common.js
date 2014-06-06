@@ -6,27 +6,59 @@
 
 var assert = require('assert-plus');
 var mod_err = require('../../lib/util/errors');
+var mod_uuid = require('node-uuid');
+var NAPI = require('sdc-clients').NAPI;
+
 
 
 // --- Exported functions
 
 
 
-/*
- * Generate a valid random MAC address (multicast bit not set, locally
- * administered bit set)
+/**
+ * Creates a NAPI client for the configured NAPI instance, with a unique
+ * req_id.
  */
-function randomMAC() {
-    var data = [(Math.floor(Math.random() * 15) + 1).toString(16) + 2];
-    for (var i = 0; i < 5; i++) {
-         var oct = (Math.floor(Math.random() * 255)).toString(16);
-         if (oct.length == 1) {
-                oct = '0' + oct;
-         }
-         data.push(oct);
+function createClient(url, t) {
+    var reqID = mod_uuid.v4();
+    var opts = {
+        agent: false,
+        headers: { 'x-request-id': reqID },
+        url: url
+    };
+
+    var client = new NAPI(opts);
+    client.req_id = reqID;
+
+    if (t) {
+        t.ok(client, 'created client with req_id=' + client.req_id);
     }
 
-    return data.join(':');
+    return client;
+}
+
+
+/**
+ * Finish a test with an error
+ */
+function doneErr(err, t, callback) {
+    if (callback) {
+        return callback(err);
+    }
+
+    return t.done();
+}
+
+
+/**
+ * Finish a test with a result
+ */
+function doneRes(res, t, callback) {
+    if (callback) {
+        return callback(null, res);
+    }
+
+    return t.done();
 }
 
 
@@ -54,7 +86,7 @@ function invalidParamErr(extra) {
 
     var newErr = {
         code: 'InvalidParameters',
-        message: mod_err.INVALID_MSG
+        message: mod_err.msg.invalidParam
     };
 
     for (var e in extra) {
@@ -74,7 +106,7 @@ function missingParamErr(extra) {
 
     var newErr = {
         code: 'InvalidParameters',
-        message: mod_err.MISSING_MSG
+        message: mod_err.msg.missingParams
     };
 
     for (var e in extra) {
@@ -85,8 +117,31 @@ function missingParamErr(extra) {
 }
 
 
+/**
+ * Generate a valid random MAC address (multicast bit not set, locally
+ * administered bit set)
+ */
+function randomMAC() {
+    var data = [(Math.floor(Math.random() * 15) + 1).toString(16) + 2];
+    for (var i = 0; i < 5; i++) {
+         var oct = (Math.floor(Math.random() * 255)).toString(16);
+         if (oct.length == 1) {
+                oct = '0' + oct;
+         }
+         data.push(oct);
+    }
+
+    return data.join(':');
+}
+
+
+
+
 
 module.exports = {
+    createClient: createClient,
+    doneErr: doneErr,
+    doneRes: doneRes,
     ifErr: ifErr,
     invalidParamErr: invalidParamErr,
     missingParamErr: missingParamErr,

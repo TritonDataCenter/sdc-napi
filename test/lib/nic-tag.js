@@ -4,16 +4,15 @@
  * Test helpers for dealing with nic tags
  */
 
+var assert = require('assert-plus');
+var clone = require('clone');
 var common = require('./common');
 var log = require('./log');
+var mod_client = require('./client');
+var util = require('util');
 
-
-
-// --- Globals
-
-
-
-var NAPI;
+var doneRes = common.doneRes;
+var doneErr = common.doneErr;
 
 
 
@@ -21,14 +20,25 @@ var NAPI;
 
 
 
-function initState(state) {
-    if (!state.hasOwnProperty('nics')) {
-        state.nics = [];
+function addToState(opts, obj) {
+    if (!opts.state || !obj) {
+        return;
     }
 
-    if (!state.hasOwnProperty('nic_tags')) {
-        state.nic_tags = [];
+    var newObj = clone(obj);
+    if (!opts.state.hasOwnProperty('nic_tags')) {
+        opts.state.aggrs = [];
     }
+
+    if (opts.hasOwnProperty('stateProp')) {
+        if (!opts.state.hasOwnProperty(opts.stateProp)) {
+            opts.state[opts.stateProp] = [];
+        }
+
+        opts.state[opts.stateProp].push(newObj);
+    }
+
+    opts.state.aggrs.push(newObj);
 }
 
 
@@ -40,33 +50,31 @@ function initState(state) {
 /**
  * Create a nic tag
  */
-function create(t, state, name, callback) {
-    initState(state);
+function create(t, opts, callback) {
+    var client = opts.client || mod_client.get();
+    var desc = opts.desc ? (' ' + opts.desc) : '';
 
-    log.debug({ name: name }, 'creating nic tag');
-    NAPI.createNicTag(name, function (err, res) {
-        common.ifErr(t, err, 'create nic tag ' + name);
-        if (res) {
-            state.nic_tags.push(res);
+    assert.object(t, 't');
+    assert.optionalObject(opts.exp, 'opts.exp');
+    assert.optionalObject(opts.expErr, 'opts.expErr');
+    assert.string(opts.name, 'opts.name');
+    assert.optionalObject(opts.partialExp, 'opts.partialExp');
+
+    log.debug({ tagName: opts.name }, 'creating nic tag');
+    client.createNicTag(opts.name, function (err, obj, _, res) {
+        if (common.ifErr(t, err, 'create nic tag ' + opts.name + desc)) {
+            return doneErr(err, t, callback);
         }
 
-        if (callback) {
-            return callback(err, res);
-        } else {
-            return t.done();
-        }
+        addToState(opts.state, obj);
+        t.equal(res.statusCode, 200, 'status code');
+
+        return doneRes(obj, t, callback);
     });
 }
 
 
 
 module.exports = {
-    get client() {
-        return NAPI;
-    },
-    set client(obj) {
-        NAPI = obj;
-    },
-
     create: create
 };

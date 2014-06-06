@@ -4,28 +4,41 @@
  * Test helpers for dealing with aggregations
  */
 
+var assert = require('assert-plus');
+var clone = require('clone');
 var common = require('./common');
 var log = require('./log');
+var mod_client = require('./client');
 var util = require('util');
 
-
-
-// --- Globals
-
-
-
-var NAPI;
+var doneRes = common.doneRes;
+var doneErr = common.doneErr;
 
 
 
-// --- Exports
+// --- Internal
 
 
 
-function initState(state) {
-    if (!state.hasOwnProperty('aggrs')) {
-        state.aggrs = [];
+function addToState(opts, obj) {
+    if (!opts.state || !obj) {
+        return;
     }
+
+    var newObj = clone(obj);
+    if (!opts.state.hasOwnProperty('aggrs')) {
+        opts.state.aggrs = [];
+    }
+
+    if (opts.hasOwnProperty('stateProp')) {
+        if (!opts.state.hasOwnProperty(opts.stateProp)) {
+            opts.state[opts.stateProp] = [];
+        }
+
+        opts.state[opts.stateProp].push(newObj);
+    }
+
+    opts.state.aggrs.push(newObj);
 }
 
 
@@ -37,30 +50,49 @@ function initState(state) {
 /**
  * Create an aggregation
  */
-function create(t, state, params, opts, callback) {
-    initState(state);
-    log.debug({ params: params }, 'creating aggr');
-    if (typeof (opts) === 'function') {
-        callback = opts;
-        opts = {};
-    }
+function create(t, opts, callback) {
+    var client = opts.client || mod_client.get();
+    var desc = opts.desc ? (' ' + opts.desc) : '';
 
-    NAPI.createAggr(params, function (err, obj, _, res) {
-        if (opts.expectError) {
+    assert.object(t, 't');
+    assert.optionalObject(opts.exp, 'opts.exp');
+    assert.optionalObject(opts.expErr, 'opts.expErr');
+    assert.optionalObject(opts.partialExp, 'opts.partialExp');
+    assert.ok(opts.exp || opts.partialExp || opts.expErr,
+            'one of exp, expErr, partialExp required');
+    assert.object(opts.params, 'opts.params');
+
+    log.debug({ params: opts.params }, 'creating aggr');
+    client.createAggr(opts.params, function (err, obj, _, res) {
+        if (opts.expErr) {
             t.ok(err, 'expected error');
             if (err) {
                 t.equal(err.statusCode, 422, 'status code');
+                t.deepEqual(err.body, opts.expErr, 'error body');
             }
-        } else {
-            common.ifErr(t, err, 'create aggr: ' + JSON.stringify(params));
+
+            return doneErr(err, t, callback);
         }
 
-        if (obj) {
-            state.aggrs.push(obj);
-            t.equal(res.statusCode, 200, 'status code');
+        if (common.ifErr(t, err, 'create aggr: '
+            + JSON.stringify(opts.params))) {
+            return doneErr(err, t, callback);
         }
 
-        return callback(err, obj);
+        if (opts.exp) {
+            t.deepEqual(obj, opts.exp, 'full result' + desc);
+        }
+
+        if (opts.partialExp) {
+            for (var p in opts.partialExp) {
+                t.equal(obj[p], opts.partialExp[p], p + ' correct' + desc);
+            }
+        }
+
+        addToState(opts, obj);
+        t.equal(res.statusCode, 200, 'status code');
+
+        return doneRes(obj, t, callback);
     });
 }
 
@@ -68,18 +100,34 @@ function create(t, state, params, opts, callback) {
 /**
  * Delete an aggregation
  */
-function del(t, aggrId, callback) {
-    if (typeof (aggrId) === 'object') {
-        aggrId = aggrId.id;
-    }
+function del(t, opts, callback) {
+    var client = opts.client || mod_client.get();
+    var desc = opts.desc ? (' ' + opts.desc) : '';
 
-    log.debug({ aggrId: aggrId }, 'delete aggr');
+    assert.object(t, 't');
+    assert.string(opts.id, 'opts.id');
 
-    NAPI.deleteAggr(aggrId, function (err, obj, _, res) {
-        common.ifErr(t, err, 'delete aggr: ' + aggrId);
-        t.equal(res.statusCode, 204, 'delete status code: ' + aggrId);
+    log.debug({ aggrId: opts.id }, 'delete aggr');
 
-        return callback(err, obj);
+    client.deleteAggr(opts.id, function (err, obj, _, res) {
+        if (opts.expErr) {
+            t.ok(err, 'expected error');
+            if (err) {
+                var code = opts.expCode || 422;
+                t.equal(err.statusCode, code, 'status code');
+                t.deepEqual(err.body, opts.expErr, 'error body');
+            }
+
+            return doneErr(err, t, callback);
+        }
+
+        if (common.ifErr(t, err, 'delete aggr: ' + opts.id + desc)) {
+            return doneErr(err, t, callback);
+        }
+
+        t.equal(res.statusCode, 204, 'delete status code: ' + opts.id);
+
+        return doneRes(obj, t, callback);
     });
 }
 
@@ -87,18 +135,49 @@ function del(t, aggrId, callback) {
 /**
  * Get an aggregation
  */
-function get(t, aggrId, callback) {
-    if (typeof (aggrId) === 'object') {
-        aggrId = aggrId.id;
-    }
+function get(t, opts, callback) {
+    var client = opts.client || mod_client.get();
+    var desc = opts.desc ? (' ' + opts.desc) : '';
 
-    log.debug({ aggrId: aggrId }, 'get aggr');
+    assert.object(t, 't');
+    assert.string(opts.id, 'opts.id');
+    assert.optionalObject(opts.exp, 'opts.exp');
+    assert.optionalObject(opts.expErr, 'opts.expErr');
+    assert.optionalObject(opts.partialExp, 'opts.partialExp');
+    assert.ok(opts.exp || opts.partialExp || opts.expErr,
+            'one of exp, expErr, partialExp required');
 
-    NAPI.getAggr(aggrId, function (err, obj, _, res) {
-        common.ifErr(t, err, 'get aggr: ' + aggrId);
-        t.equal(res.statusCode, 200, 'get status code: ' + aggrId);
+    log.debug({ aggrId: opts.id }, 'get aggr');
 
-        return callback(err, obj);
+    client.getAggr(opts.id, function (err, obj, _, res) {
+        if (opts.expErr) {
+            t.ok(err, 'expected error');
+            if (err) {
+                var code = opts.expCode || 422;
+                t.equal(err.statusCode, code, 'status code');
+                t.deepEqual(err.body, opts.expErr, 'error body');
+            }
+
+            return doneErr(err, t, callback);
+        }
+
+        if (common.ifErr(t, err, 'get aggr: ' + opts.id + desc)) {
+            return doneErr(err, t, callback);
+        }
+
+        if (opts.exp) {
+            t.deepEqual(obj, opts.exp, 'full result' + desc);
+        }
+
+        if (opts.partialExp) {
+            for (var p in opts.partialExp) {
+                t.equal(obj[p], opts.partialExp[p], p + ' correct' + desc);
+            }
+        }
+
+        t.equal(res.statusCode, 200, 'status code');
+
+        return doneRes(obj, t, callback);
     });
 }
 
@@ -114,12 +193,18 @@ function id(uuid, name) {
 /**
  * List aggregations
  */
-function list(t, params, callback) {
+function list(t, opts, callback) {
+    var client = opts.client || mod_client.get();
+    var desc = opts.desc ? (' ' + opts.desc) : '';
+    var params = opts.params || {};
+
+    assert.object(t, 't');
     log.debug({ params: params }, 'list aggrs');
 
-    NAPI.listAggrs(params, function (err, obj, _, res) {
-        common.ifErr(t, err, 'list aggrs: ' + JSON.stringify(params));
-        t.equal(res.statusCode, 200, 'status code: ' + JSON.stringify(params));
+    client.listAggrs(params, function (err, obj, _, res) {
+        common.ifErr(t, err, 'list aggrs: ' + JSON.stringify(params) + desc);
+        t.equal(res.statusCode, 200,
+            'status code: ' + JSON.stringify(params) + desc);
 
         return callback(err, obj);
     });
@@ -129,38 +214,55 @@ function list(t, params, callback) {
 /**
  * Update an aggregation
  */
-function update(t, aggr, params, opts, callback) {
-    log.debug({ aggr: aggr, params: params }, 'updating aggr');
-    if (typeof (opts) === 'function') {
-        callback = opts;
-        opts = {};
-    }
+function update(t, opts, callback) {
+    var client = opts.client || mod_client.get();
+    var desc = opts.desc ? (' ' + opts.desc) : '';
 
-    NAPI.updateAggr(aggr.id, params, function (err, obj, _, res) {
-        if (opts.expectError) {
+    assert.object(t, 't');
+    assert.string(opts.id, 'opts.id');
+    assert.optionalObject(opts.exp, 'opts.exp');
+    assert.optionalObject(opts.expErr, 'opts.expErr');
+    assert.optionalObject(opts.params, 'opts.params');
+    assert.optionalObject(opts.partialExp, 'opts.partialExp');
+    assert.ok(opts.exp || opts.partialExp || opts.expErr,
+            'one of exp, expErr, partialExp required');
+
+    log.debug({ aggrId: opts.id, params: opts.params }, 'updating aggr');
+
+    client.updateAggr(opts.id, opts.params, function (err, obj, _, res) {
+        if (opts.expErr) {
             t.ok(err, 'expected error');
             if (err) {
-                t.equal(err.statusCode, 422, 'status code');
+                var code = opts.expCode || 422;
+                t.equal(err.statusCode, code, 'status code');
+                t.deepEqual(err.body, opts.expErr, 'error body');
             }
-        } else {
-            common.ifErr(t, err, 'update aggr ' + aggr.id + ': '
-                + JSON.stringify(params));
-            t.equal(res.statusCode, 200, 'status code');
+
+            return doneErr(err, t, callback);
         }
 
-        return callback(err, obj);
+        if (common.ifErr(t, err, 'update aggr: ' + opts.id + desc)) {
+            return doneErr(err, t, callback);
+        }
+
+        if (opts.exp) {
+            t.deepEqual(obj, opts.exp, 'full result' + desc);
+        }
+
+        if (opts.partialExp) {
+            for (var p in opts.partialExp) {
+                t.equal(obj[p], opts.partialExp[p], p + ' correct' + desc);
+            }
+        }
+
+        t.equal(res.statusCode, 200, 'status code');
+
+        return doneRes(obj, t, callback);
     });
 }
 
 
 module.exports = {
-    get client() {
-        return NAPI;
-    },
-    set client(obj) {
-        NAPI = obj;
-    },
-
     create: create,
     del: del,
     get: get,

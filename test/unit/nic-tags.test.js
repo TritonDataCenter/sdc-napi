@@ -1,10 +1,10 @@
 /*
- * Copyright (c) 2013, Joyent, Inc. All rights reserved.
+ * Copyright (c) 2014, Joyent, Inc. All rights reserved.
  *
  * Unit tests for nic tag endpoints
  */
 
-var helpers = require('./helpers');
+var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
 var util = require('util');
 var vasync = require('vasync');
@@ -30,7 +30,7 @@ var curTag;
 
 
 exports['Create client and server'] = function (t) {
-    helpers.createClientAndServer(function (err, res) {
+    h.createClientAndServer(function (err, res) {
         t.ifError(err, 'server creation');
         t.ok(res, 'client');
         NAPI = res;
@@ -59,21 +59,29 @@ exports.setUp = function (cb) {
 
 exports['Create nic tag'] = function (t) {
     NAPI.createNicTag('newtagname', function (err, obj, req, res) {
-        t.ifError(err, 'nic tag create');
-        if (err) {
+        if (h.ifErr(t, err, 'nic tag create')) {
             return t.done();
         }
 
-        var bucket = helpers.morayBuckets()['napi_nic_tags'];
-        var added = bucket['newtagname'];
+        var bucket = h.morayBuckets()['napi_nic_tags'];
+        var added = bucket['newtagname'].value;
 
         t.equal(res.statusCode, 200, 'status code');
-        t.deepEqual(obj, {
+        var expObj = {
             name: 'newtagname',
             uuid: added.uuid
-        }, 'Response');
+        };
+        t.deepEqual(obj, expObj, 'create response');
 
-        return t.done();
+        NAPI.getNicTag('newtagname', function (err2, res2) {
+            if (h.ifErr(t, err2, 'nic tag get')) {
+                return t.done();
+            }
+
+            t.deepEqual(res2, expObj, 'get response');
+
+            return t.done();
+        });
     });
 };
 
@@ -86,7 +94,7 @@ exports['Create nic tag - invalid name'] = function (t) {
         }
 
         t.equal(err.statusCode, 422, '422 returned');
-        t.deepEqual(err.body, helpers.invalidParamErr({
+        t.deepEqual(err.body, h.invalidParamErr({
             errors: [ mod_err.invalidParam('name', INVALID_MSG) ]
         }), 'Error body');
 
@@ -104,7 +112,7 @@ exports['Create nic tag - name too long'] = function (t) {
         }
 
         t.equal(err.statusCode, 422, '422 returned');
-        t.deepEqual(err.body, helpers.invalidParamErr({
+        t.deepEqual(err.body, h.invalidParamErr({
             errors: [ mod_err.invalidParam('name',
                 'must not be longer than 31 characters') ]
         }), 'Error body');
@@ -124,7 +132,7 @@ exports['Create nic tag - missing name'] = function (t) {
         }
 
         t.equal(err.statusCode, 422, 'status code');
-        t.deepEqual(err.body, helpers.invalidParamErr({
+        t.deepEqual(err.body, h.invalidParamErr({
             errors: [ mod_err.missingParam('name') ],
             message: 'Missing parameters'
         }), 'Error body');
@@ -145,7 +153,7 @@ exports['Create nic tag - duplicate name'] = function (t) {
             }
 
             t.equal(err2.statusCode, 422, '422 returned');
-            t.deepEqual(err2.body, helpers.invalidParamErr({
+            t.deepEqual(err2.body, h.invalidParamErr({
                 errors: [ mod_err.duplicateParam('name') ]
             }), 'Error body');
 
@@ -225,8 +233,8 @@ exports['Update nic tag - missing name'] = function (t) {
         }
 
         t.equal(err.statusCode, 422, 'status code');
-        t.deepEqual(err.body, helpers.invalidParamErr({
-            errors: [ helpers.missingParam('name') ],
+        t.deepEqual(err.body, h.invalidParamErr({
+            errors: [ h.missingParam('name') ],
             message: 'Missing parameters'
         }), 'Error body');
 
@@ -279,7 +287,7 @@ exports['Update nic tag - already used name'] = function (t) {
             }
 
             t.equal(err2.statusCode, 422, 'status code');
-            t.deepEqual(err2.body, helpers.invalidParamErr({
+            t.deepEqual(err2.body, h.invalidParamErr({
                 errors: [ mod_err.duplicateParam('name') ]
             }), 'Error body');
 
@@ -295,7 +303,7 @@ exports['Update nic tag - already used name'] = function (t) {
 
 
 exports['Stop server'] = function (t) {
-    helpers.stopServer(function (err) {
+    h.stopServer(function (err) {
         t.ifError(err, 'server stop');
         t.done();
     });

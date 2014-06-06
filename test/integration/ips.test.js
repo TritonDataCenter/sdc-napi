@@ -54,19 +54,35 @@ exports['create test network'] = function (t) {
 
 
 
+exports['get test network'] = function (t) {
+    napi.getNetwork(state.network.uuid, function (err, res) {
+        if (helpers.ifErr(t, err, 'get network ' + state.network.uuid)) {
+            return t.done();
+        }
+
+        t.equal(res.provision_start_ip, IPS.start, 'start IP');
+        t.equal(res.provision_end_ip, IPS.end, 'end IP');
+        t.equal(res.subnet, state.network.subnet, 'subnet');
+
+        return t.done();
+    });
+};
+
+
 exports['GET /networks/:uuid/ips/:ip (free IP)'] = function (t) {
     napi.getIP(state.network.uuid, IPS.free, function (err, res) {
-        t.ifError(err, 'getting IP: ' + IPS.free);
+        var desc = util.format(' %s/%s', state.network.uuid, IPS.free);
+        t.ifError(err, 'getting IP' + desc);
         var exp = {
             free: true,
             ip: IPS.free,
             network_uuid: state.network.uuid,
             reserved: false
         };
-        t.deepEqual(res, exp, 'GET on a free IP');
+        t.deepEqual(res, exp, 'GET free IP' + desc);
 
         napi.searchIPs(IPS.free, function (err2, res2) {
-            if (helpers.ifErr(t, err2, 'searchIPs')) {
+            if (helpers.ifErr(t, err2, 'search for free IP' + desc)) {
                 return t.done();
             }
 

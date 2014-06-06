@@ -1,12 +1,12 @@
 /*
- * Copyright (c) 2013, Joyent, Inc. All rights reserved.
+ * Copyright (c) 2014, Joyent, Inc. All rights reserved.
  *
  * Unit tests for nic endpoints
  */
 
 var async = require('async');
 var constants = require('../../lib/util/constants');
-var helpers = require('./helpers');
+var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
 var mod_uuid = require('node-uuid');
 var util = require('util');
@@ -50,7 +50,7 @@ function netParams(extra) {
         params[e] = extra[e];
     }
 
-    return helpers.validNetworkParams(params);
+    return h.validNetworkParams(params);
 }
 
 
@@ -76,7 +76,7 @@ function createNet(extra, callback) {
 
 
 exports['Initial setup'] = function (t) {
-    helpers.createClientAndServer(function (err, res) {
+    h.createClientAndServer(function (err, res) {
         t.ifError(err, 'server creation');
         t.ok(res, 'client');
         NAPI = res;
@@ -203,7 +203,7 @@ exports['Create pool - non-existent network'] = function (t) {
         unknownParam.invalid = [ params.networks[1] ];
 
         t.equal(err.statusCode, 422, 'status code');
-        t.deepEqual(err.body, helpers.invalidParamErr({
+        t.deepEqual(err.body, h.invalidParamErr({
             errors: [ unknownParam ]
         }), 'error body');
 
@@ -228,7 +228,7 @@ exports['Create pool - too many networks'] = function (t) {
         }
 
         t.equal(err.statusCode, 422, 'status code');
-        t.deepEqual(err.body, helpers.invalidParamErr({
+        t.deepEqual(err.body, h.invalidParamErr({
             errors: [ mod_err.invalidParam('networks',
                 'maximum 64 networks per network pool') ]
         }), 'error body');
@@ -251,7 +251,7 @@ exports['Create pool - mismatched nic tags'] = function (t) {
         }
 
         t.equal(err.statusCode, 422, 'status code');
-        t.deepEqual(err.body, helpers.invalidParamErr({
+        t.deepEqual(err.body, h.invalidParamErr({
             errors: [ mod_err.invalidParam('networks',
                 constants.POOL_TAGS_MATCH_MSG) ]
         }), 'error body');
@@ -318,7 +318,7 @@ exports['Update pool: no networks'] = function (t) {
         }
 
         t.equal(err.statusCode, 422, 'status code');
-        t.deepEqual(err.body, helpers.invalidParamErr({
+        t.deepEqual(err.body, h.invalidParamErr({
             errors: [ mod_err.invalidParam('networks',
                 constants.POOL_MIN_NETS_MSG) ]
         }), 'error body');
@@ -337,7 +337,7 @@ exports['Update pool: remove owner_uuids'] = function (t) {
     funcs: [
     function (_, cb) {
         NAPI.updateNetworkPool(POOLS[1].uuid, params, function (err, res) {
-            if (helpers.ifErr(t, err, 'update pool')) {
+            if (h.ifErr(t, err, 'update pool')) {
                 return cb(err);
             }
 
@@ -345,7 +345,7 @@ exports['Update pool: remove owner_uuids'] = function (t) {
             t.deepEqual(res, POOLS[1], 'owner_uuids removed');
 
             var morayObj =
-                helpers.morayBuckets()['napi_network_pools'][POOLS[1].uuid];
+                h.morayBuckets()['napi_network_pools'][POOLS[1].uuid];
 
             t.ok(!morayObj.hasOwnProperty('owner_uuids'),
                 'owner_uuids property no longer present in moray');
@@ -354,7 +354,7 @@ exports['Update pool: remove owner_uuids'] = function (t) {
 
     }, function (_, cb) {
         NAPI.getNetworkPool(POOLS[1].uuid, function (err, res) {
-            if (helpers.ifErr(t, err, 'get pool')) {
+            if (h.ifErr(t, err, 'get pool')) {
                 return cb(err);
             }
 
@@ -366,15 +366,15 @@ exports['Update pool: remove owner_uuids'] = function (t) {
         params.owner_uuids = [ mod_uuid.v4(), mod_uuid.v4() ];
 
         NAPI.updateNetworkPool(POOLS[1].uuid, params, function (err, res) {
-            if (helpers.ifErr(t, err, 'update pool')) {
+            if (h.ifErr(t, err, 'update pool')) {
                 return cb(err);
             }
 
             POOLS[1].owner_uuids = params.owner_uuids.sort();
             t.deepEqual(res, POOLS[1], 'owner_uuids added');
 
-            var morayObj =
-                helpers.morayBuckets()['napi_network_pools'][POOLS[1].uuid];
+            var morayObj = h.morayObj('napi_network_pools', POOLS[1].uuid);
+            t.ok(morayObj, 'got moray object');
 
             t.equal(morayObj.owner_uuids, ','
                 + params.owner_uuids.sort().join(',') + ',',
@@ -384,7 +384,7 @@ exports['Update pool: remove owner_uuids'] = function (t) {
 
     }, function (_, cb) {
         NAPI.getNetworkPool(POOLS[1].uuid, function (err, res) {
-            if (helpers.ifErr(t, err, 'get pool')) {
+            if (h.ifErr(t, err, 'get pool')) {
                 return cb(err);
             }
 
@@ -454,7 +454,7 @@ exports['Provision nic - on network pool with IP'] = function (t) {
         }
 
         t.equal(err.statusCode, 422, 'status code');
-        t.deepEqual(err.body, helpers.invalidParamErr({
+        t.deepEqual(err.body, h.invalidParamErr({
             errors: [ mod_err.invalidParam('ip', constants.POOL_IP_MSG) ]
         }), 'error body');
 
@@ -465,11 +465,20 @@ exports['Provision nic - on network pool with IP'] = function (t) {
 
 exports['Provision nic - on network pool'] = function (t) {
     var earlyOutErr;
-    var ipNums = ['2', '3', '4', '5', '9', '10', '11', '12'];
+
+    // The "Update pool" test above changes POOLS[0] to have NETS[0] and
+    // NETS[1] as its networks:
+    var ipNums = [
+        // NETS[0]: provisionable range of 10.0.0.2 -> 10.0.0.5
+        '2', '3', '4', '5',
+        // NETS[1]: provisionable range of 10.0.0.9 -> 10.0.0.12
+        '9', '10', '11', '12'
+    ];
 
     async.whilst(
         function () { return (!earlyOutErr && ipNums.length !== 0); },
         function (cb) {
+            var client = h.createClient();
             var params = {
                 belongs_to_type: 'zone',
                 belongs_to_uuid: mod_uuid.v4(),
@@ -479,12 +488,11 @@ exports['Provision nic - on network pool'] = function (t) {
             var nextIP = util.format('10.0.%d.%d',
                 nextIPnum < 6 ? 0 : 1,
                 nextIPnum);
+            var desc = util.format(' %s (req_id=%s)', nextIP, client.req_id);
 
-            NAPI.provisionNic(POOLS[0].uuid, params, function (err, res) {
-                t.ifError(err);
-                if (err) {
+            client.provisionNic(POOLS[0].uuid, params, function (err, res) {
+                if (h.ifErr(t, err, 'provisioning' + desc)) {
                     earlyOutErr = err;
-                    t.deepEqual(err.body, {}, 'error body');
                     return cb();
                 }
 
@@ -502,7 +510,7 @@ exports['Provision nic - on network pool'] = function (t) {
                     resolvers: net.resolvers,
                     status: 'running',
                     vlan_id: net.vlan_id
-                }, 'result for ' + nextIP);
+                }, 'result for' + desc);
 
                 return cb();
             });
@@ -524,7 +532,7 @@ exports['Provision nic - on network pool'] = function (t) {
                 }
 
                 t.equal(err.statusCode, 422, 'status code');
-                t.deepEqual(err.body, helpers.invalidParamErr({
+                t.deepEqual(err.body, h.invalidParamErr({
                     errors: [ mod_err.invalidParam('network_uuid',
                                         constants.POOL_FULL_MSG) ]
                 }), 'error body');
@@ -564,7 +572,7 @@ exports['Delete network in pool'] = function (t) {
 
 
 exports['Stop server'] = function (t) {
-    helpers.stopServer(function (err) {
+    h.stopServer(function (err) {
         t.ifError(err, 'server stop');
         t.done();
     });

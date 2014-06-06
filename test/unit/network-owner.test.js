@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Joyent, Inc. All rights reserved.
+ * Copyright (c) 2014, Joyent, Inc. All rights reserved.
  *
  * Unit tests for network endpoints
  */
@@ -9,6 +9,7 @@ var constants = require('../../lib/util/constants');
 var fs = require('fs');
 var helpers = require('./helpers');
 var mod_err = require('../../lib/util/errors');
+var mod_nic = require('../lib/nic');
 var mod_uuid = require('node-uuid');
 var util = require('util');
 var util_ip = require('../../lib/util/ip');
@@ -35,6 +36,7 @@ var nic;
 var owner = mod_uuid.v4();
 var owner2 = mod_uuid.v4();
 var owner3 = mod_uuid.v4();
+var otherOwner = mod_uuid.v4();
 
 var netParams = helpers.validNetworkParams({ owner_uuids: [ owner3, owner ] });
 var net2Params = helpers.validNetworkParams({
@@ -573,17 +575,16 @@ exports['provisioning nic with a different owner_uuid'] = function (t) {
 
 exports['provision nic on network with check_owner = false'] =
     function (t) {
-    var otherOwner = mod_uuid.v4();
-    // XXX return provisionNic(pools[0].uuid, { owner_uuid: owner }, t,
+    var other = mod_uuid.v4();
     return provisionNic(nets[0].uuid, {
-        owner_uuid: otherOwner,
+        owner_uuid: other,
         check_owner: false
     }, t, function (err, res) {
         if (err) {
             return t.done();
         }
 
-        t.equal(res.owner_uuid, otherOwner, 'owner_uuid');
+        t.equal(res.owner_uuid, other, 'owner_uuid');
         t.equal(res.network_uuid, nets[0].uuid, 'network_uuid');
 
         return t.done();
@@ -593,9 +594,9 @@ exports['provision nic on network with check_owner = false'] =
 
 exports['provision nic on network pool with check_owner = false'] =
     function (t) {
-    var otherOwner = mod_uuid.v4();
+    var other = mod_uuid.v4();
     return provisionNic(pools[0].uuid, {
-        owner_uuid: otherOwner,
+        owner_uuid: other,
         check_owner: false
     }, t, function (err, res) {
         if (err) {
@@ -684,45 +685,140 @@ exports['creating nic with different owner_uuid'] = function (t) {
 };
 
 
-exports['creating nic with network owner_uuid'] = function (t) {
-    createNic({ owner_uuid: owner }, ip2, t);
+exports['creating nic with network owner_uuid'] = {
+    'create': function (t) {
+        createNic({ owner_uuid: owner }, ip2, t);
+    },
+
+    'get': function (t) {
+        mod_nic.get(t, {
+            mac: nic.mac,
+            partialExp: {
+                ip: ip2,
+                network_uuid: nets[0].uuid,
+                owner_uuid: owner
+            }
+        });
+    }
 };
 
 
-exports['creating nic with admin owner_uuid'] = function (t) {
-    createNic({ owner_uuid: owner }, ip3, t);
+exports['creating nic with admin owner_uuid'] = {
+    'create': function (t) {
+        createNic({ owner_uuid: owner }, ip3, t);
+    },
+
+    'get': function (t) {
+        mod_nic.get(t, {
+            mac: nic.mac,
+            partialExp: {
+                ip: ip3,
+                network_uuid: nets[0].uuid,
+                owner_uuid: owner
+            }
+        });
+    }
 };
 
 
-exports['create nic: different owner and no IP (1)'] = function (t) {
-    createNic({ owner_uuid: mod_uuid.v4() }, null, t);
+exports['update nic: add admin owner_uuid and IP'] = {
+    // Create a nic with no IP
+    'create': function (t) {
+        createNic({ owner_uuid: otherOwner }, null, t);
+    },
+
+    'get after create': function (t) {
+        mod_nic.get(t, {
+            mac: nic.mac,
+            partialExp: {
+                owner_uuid: otherOwner
+            }
+        }, function (err, res) {
+            if (err) {
+                return t.done();
+            }
+
+            t.ok(!res.hasOwnProperty('ip'), 'no ip property');
+            t.ok(!res.hasOwnProperty('network_uuid'),
+                'no network_uuid property');
+
+            return t.done();
+        });
+    },
+
+    // Update it to add an IP: should be allowed because this is the
+    // UFDS admin UUID
+    'update': function (t) {
+        updateNic({
+            ip: ip4,
+            network_uuid: nets[0].uuid,
+            owner_uuid: CONF.ufdsAdminUuid
+        }, t);
+    },
+
+    'get': function (t) {
+        mod_nic.get(t, {
+            mac: nic.mac,
+            partialExp: {
+                ip: ip4,
+                network_uuid: nets[0].uuid,
+                owner_uuid: CONF.ufdsAdminUuid
+            }
+        });
+    }
 };
 
 
-exports['update nic with admin owner_uuid and IP'] = function (t) {
-    updateNic({
-        ip: ip4,
-        network_uuid: nets[0].uuid,
-        owner_uuid: CONF.ufdsAdminUuid
-    }, t);
-};
+exports['update nic with network owner_uuid and IP'] = {
+    // Create a nic with no IP
+    'create': function (t) {
+        createNic({ owner_uuid: otherOwner }, null, t);
+    },
 
+    'get after create': function (t) {
+        mod_nic.get(t, {
+            mac: nic.mac,
+            partialExp: {
+                owner_uuid: otherOwner
+            }
+        }, function (err, res) {
+            if (err) {
+                return t.done();
+            }
 
-exports['create nic: different owner and no IP (2)'] = function (t) {
-    createNic({ owner_uuid: mod_uuid.v4() }, null, t);
-};
+            t.ok(!res.hasOwnProperty('ip'), 'no ip property');
+            t.ok(!res.hasOwnProperty('network_uuid'),
+                'no network_uuid property');
 
+            return t.done();
+        });
+    },
 
-exports['update nic with network owner_uuid and IP'] = function (t) {
-    updateNic({
-        ip: ip5,
-        network_uuid: nets[0].uuid,
-        owner_uuid: owner
-    }, t);
+    // Update it to add an IP: should be allowed because we're updating it
+    // to the owner of the network
+    'update': function (t) {
+        updateNic({
+            ip: ip5,
+            network_uuid: nets[0].uuid,
+            owner_uuid: owner
+        }, t);
+    },
+
+    'get': function (t) {
+        mod_nic.get(t, {
+            mac: nic.mac,
+            partialExp: {
+                ip: ip5,
+                network_uuid: nets[0].uuid,
+                owner_uuid: owner
+            }
+        });
+    }
 };
 
 
 exports['update nic with different owner_uuid and IP'] = function (t) {
+    // XXX: explain what this is doing
     updateNicFailure({
         ip: ip5,
         network_uuid: nets[0].uuid,

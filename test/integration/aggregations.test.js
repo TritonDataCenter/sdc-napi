@@ -66,28 +66,30 @@ function expCreateErr(t, params, expErr, callback) {
 
 
 exports['setup'] = {
-    'create client and server': function (t) {
-        mod_nic.client = NAPI;
-        mod_aggr.client = NAPI;
-
-        return t.done();
-    },
-
-
     'provision server0 nics': function (t) {
-        mod_nic.provisionN(t, state, 5, {
-            owner_uuid: owner,
-            belongs_to_type: 'server',
-            belongs_to_uuid: uuids[0]
+        mod_nic.createN(t, {
+            state: state,
+            stateProp: 'server0_nics',
+            num: 5,
+            params: {
+                owner_uuid: owner,
+                belongs_to_type: 'server',
+                belongs_to_uuid: uuids[0]
+            }
         });
     },
 
 
     'provision server1 nics': function (t) {
-        mod_nic.provisionN(t, state, 3, {
-            owner_uuid: owner,
-            belongs_to_type: 'server',
-            belongs_to_uuid: uuids[1]
+        mod_nic.createN(t, {
+            state: state,
+            stateProp: 'server1_nics',
+            num: 3,
+            params: {
+                owner_uuid: owner,
+                belongs_to_type: 'server',
+                belongs_to_uuid: uuids[1]
+            }
         });
     }
 };
@@ -104,21 +106,18 @@ exports['create'] = {
             macs: [ state.nics[0].mac, state.nics[1].mac ],
             name: 'aggr0'
         };
+        var exp = {
+            belongs_to_uuid: uuids[0],
+            id: mod_aggr.id(uuids[0], 'aggr0'),
+            lacp_mode: 'off',
+            macs: params.macs,
+            name: 'aggr0'
+        };
 
-        mod_aggr.create(t, state, params, function (err, res) {
-            if (err) {
-                return t.done();
-            }
-
-            t.deepEqual(res, {
-                belongs_to_uuid: uuids[0],
-                lacp_mode: 'off',
-                macs: params.macs,
-                name: 'aggr0',
-                id: mod_aggr.id(uuids[0], 'aggr0')
-            }, 'aggr params correct');
-
-            return t.done();
+        mod_aggr.create(t, {
+            state: state,
+            params: params,
+            exp: exp
         });
     },
 
@@ -128,21 +127,18 @@ exports['create'] = {
             macs: [ state.nics[2].mac, state.nics[3].mac ],
             name: 'aggr1'
         };
+        var exp = {
+            belongs_to_uuid: uuids[0],
+            lacp_mode: 'off',
+            macs: params.macs,
+            name: 'aggr1',
+            id: mod_aggr.id(uuids[0], 'aggr1')
+        };
 
-        mod_aggr.create(t, state, params, function (err, res) {
-            if (err) {
-                return t.done();
-            }
-
-            t.deepEqual(res, {
-                belongs_to_uuid: uuids[0],
-                lacp_mode: 'off',
-                macs: params.macs,
-                name: 'aggr1',
-                id: mod_aggr.id(uuids[0], 'aggr1')
-            }, 'aggr params correct');
-
-            return t.done();
+        mod_aggr.create(t, {
+            state: state,
+            params: params,
+            exp: exp
         });
     },
 
@@ -153,30 +149,33 @@ exports['create'] = {
             macs: [ state.nics[5].mac, state.nics[6].mac ],
             name: 'aggr0'
         };
+        var exp = {
+            belongs_to_uuid: uuids[1],
+            lacp_mode: 'passive',
+            macs: params.macs,
+            name: 'aggr0',
+            id: mod_aggr.id(uuids[1], 'aggr0')
+        };
 
-        mod_aggr.create(t, state, params, function (err, res) {
-            if (err) {
-                return t.done();
-            }
-
-            t.deepEqual(res, {
-                belongs_to_uuid: uuids[1],
-                lacp_mode: 'passive',
-                macs: params.macs,
-                name: 'aggr0',
-                id: mod_aggr.id(uuids[1], 'aggr0')
-            }, 'aggr params correct');
-
-            return t.done();
+        mod_aggr.create(t, {
+            state: state,
+            params: params,
+            exp: exp
         });
     },
 
 
     'invalid: duplicate server and name': function (t) {
-        expCreateErr(t, {
-            macs: [ state.nics[0].mac, state.nics[1].mac ],
-            name: 'aggr0'
-        }, mod_err.duplicateParam('name', constants.msg.AGGR_NAME));
+        mod_aggr.create(t, {
+            params: {
+                macs: [ state.nics[0].mac, state.nics[1].mac ],
+                name: 'aggr0'
+            },
+            expErr: h.invalidParamErr({
+                errors: [ mod_err.duplicateParam('name',
+                    constants.msg.AGGR_NAME) ]
+            })
+        });
     }
 };
 
@@ -191,13 +190,7 @@ exports['get'] = {
         vasync.forEachParallel({
             inputs: state.aggrs,
             func: function _get(aggr, cb) {
-                mod_aggr.get(t, aggr, function (err, res) {
-                    if (res) {
-                        t.deepEqual(res, aggr, 'get result');
-                    }
-
-                    return cb();
-                });
+                mod_aggr.get(t, { id: aggr.id, exp: aggr }, cb);
             }
         }, function () {
             return t.done();
@@ -237,7 +230,8 @@ exports['list'] = {
 
 
     'belongs_to_uuid filter: server0': function (t) {
-        mod_aggr.list(t, { belongs_to_uuid: uuids[0] }, function (err, list) {
+        mod_aggr.list(t, { params: { belongs_to_uuid: uuids[0] } },
+            function (err, list) {
             if (err) {
                 return t.done();
             }
@@ -262,7 +256,8 @@ exports['list'] = {
 
 
     'belongs_to_uuid filter: server1': function (t) {
-        mod_aggr.list(t, { belongs_to_uuid: uuids[1] }, function (err, list) {
+        mod_aggr.list(t, { params: { belongs_to_uuid: uuids[1] } },
+            function (err, list) {
             if (err) {
                 return t.done();
             }
@@ -276,7 +271,8 @@ exports['list'] = {
 
 
     'macs filter: server0: nics[0]': function (t) {
-        mod_aggr.list(t, { macs: state.nics[0].mac }, function (err, list) {
+        mod_aggr.list(t, { params: { macs: state.nics[0].mac } },
+            function (err, list) {
             if (err) {
                 return t.done();
             }
@@ -290,7 +286,8 @@ exports['list'] = {
 
 
     'macs filter: server0: nics[1]': function (t) {
-        mod_aggr.list(t, { macs: state.nics[1].mac }, function (err, list) {
+        mod_aggr.list(t, { params: { macs: state.nics[1].mac } },
+            function (err, list) {
             if (err) {
                 return t.done();
             }
@@ -304,8 +301,9 @@ exports['list'] = {
 
 
     'macs filter: nics[1], nics[5]': function (t) {
-        mod_aggr.list(t, { macs: [state.nics[1].mac, state.nics[5].mac] },
-            function (err, list) {
+        mod_aggr.list(t, { params: {
+                macs: [state.nics[1].mac, state.nics[5].mac]
+            } }, function (err, list) {
             if (err) {
                 return t.done();
             }
@@ -341,16 +339,14 @@ exports['update'] = {
             lacp_mode: 'active',
             macs: state.aggrs[0].macs.concat(state.nics[4].mac)
         };
-        mod_aggr.update(t, state.aggrs[0], params, function (err, res) {
-            if (err) {
-                return t.done();
-            }
-            for (var p in params) {
-                state.aggrs[0][p] = params[p];
-            }
+        for (var p in params) {
+            state.aggrs[0][p] = params[p];
+        }
 
-            t.deepEqual(res, state.aggrs[0], 'aggr updated');
-            return t.done();
+        mod_aggr.update(t, {
+            id: state.aggrs[0].id,
+            params: params,
+            exp: state.aggrs[0]
         });
     }
 };

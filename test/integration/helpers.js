@@ -9,7 +9,7 @@ var bunyan = require('bunyan');
 var config = require('../../lib/config');
 var common = require('../lib/common');
 var fs = require('fs');
-var NAPI = require('sdc-clients').NAPI;
+var mod_client = require('../lib/client');
 var path = require('path');
 var util = require('util');
 var util_ip = require('../../lib/util/ip');
@@ -46,14 +46,17 @@ function addNetParamsToNic(state, params) {
 }
 
 
-/*
- * Creates a NAPI client for the local zone
+/**
+ * Create a NAPI client pointed at the local zone's NAPI (with a req_id for
+ * tracking requests)
  */
-function createNAPIclient() {
-    return new NAPI({
-        agent: false,
-        url: 'http://localhost:' + CONF.port
-    });
+function createNAPIclient(t) {
+    var client = common.createClient('http://localhost:' + CONF.port, t);
+    if (!mod_client.initialized()) {
+        mod_client.set(client);
+    }
+
+    return client;
 }
 
 

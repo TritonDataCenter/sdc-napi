@@ -1,7 +1,7 @@
 {
   "name": "napi",
   "description": "Network Provisioning API",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "Joyent (joyent.com)",
   "private": true,
   "dependencies": {
@@ -21,6 +21,7 @@
   },
   "devDependencies": {
     "async": "0.1.22",
+    "crc": "0.2.1",
     "ldapjs": "0.5.7"
   },
   "scripts": {

@@ -5,6 +5,7 @@
   "macOUI": "{{{napi_mac_prefix}}}",
   "moray": {
     "host": "{{{MORAY_SERVICE}}}",
+    "logLevel": "info",
     "port": 2020
   },
   "ufdsAdminUuid": "{{{ufds_admin_uuid}}}",

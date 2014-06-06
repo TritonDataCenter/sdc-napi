@@ -78,58 +78,6 @@ var INVALID = {
 
 
 /**
- * Create an aggregation, but expect an error
- */
-function expCreateErr(t, params, expErr, callback) {
-    mod_aggr.create(t, state, params, { expectError: true },
-        function (err, res) {
-        var desc = util.format(' (%s)', JSON.stringify(params));
-        if (!err) {
-            t.deepEqual(res, {}, 'res should not exist' + desc);
-            return t.done();
-        }
-
-        t.deepEqual(err.body, h.invalidParamErr({
-            errors: [ expErr ],
-            message: 'Invalid parameters'
-        }), 'Error body' + desc);
-
-        if (callback) {
-            return callback();
-        } else {
-            return t.done();
-        }
-    });
-}
-
-
-/**
- * Update an aggregation, but expect an error
- */
-function expUpdateErr(t, aggr, params, expErr, callback) {
-    mod_aggr.update(t, aggr, params, { expectError: true },
-        function (err, res) {
-        var desc = util.format(' (%s)', JSON.stringify(params));
-        if (!err) {
-            t.deepEqual(res, {}, 'res should not exist' + desc);
-            return t.done();
-        }
-
-        t.deepEqual(err.body, h.invalidParamErr({
-            errors: [ expErr ],
-            message: 'Invalid parameters'
-        }), 'Error body' + desc);
-
-        if (callback) {
-            return callback();
-        } else {
-            return t.done();
-        }
-    });
-}
-
-
-/**
  * Takes a list of items to try for a parameter and the corresponding
  * expected error message. If param was 'name', list could be:
  *   [ [ '', 'must not be empty' ] ]
@@ -146,7 +94,13 @@ function updateParamErrs(t, aggr, param, baseParams, list) {
                 ipErr.invalid = item[2];
             }
 
-            expUpdateErr(t, aggr, params, ipErr, cb);
+            mod_aggr.update(t, {
+                id: aggr.id,
+                params: params,
+                expErr: h.invalidParamErr({
+                    errors: [ ipErr ]
+                })
+            }, cb);
         }
     }, function () {
         return t.done();
@@ -171,7 +125,12 @@ function createParamErrs(t, param, baseParams, list) {
                 ipErr.invalid = item[2];
             }
 
-            expCreateErr(t, params, ipErr, cb);
+            mod_aggr.create(t, {
+                params: params,
+                expErr: h.invalidParamErr({
+                    errors: [ ipErr ]
+                })
+            }, cb);
         }
     }, function () {
         return t.done();
@@ -190,9 +149,6 @@ exports['setup'] = {
             t.ifError(err, 'server creation');
             t.ok(res, 'client');
             NAPI = res;
-            mod_aggr.client = res;
-            mod_nic.client = res;
-            mod_nic_tag.client = res;
 
             return t.done();
         });
@@ -200,39 +156,60 @@ exports['setup'] = {
 
 
     'provision server0 nics': function (t) {
-        mod_nic.provisionN(t, state, 5, {
-            owner_uuid: owner,
-            belongs_to_type: 'server',
-            belongs_to_uuid: uuids[0]
-        }, 'server0_nics');
+        mod_nic.createN(t, {
+            state: state,
+            stateProp: 'server0_nics',
+            num: 5,
+            params: {
+                owner_uuid: owner,
+                belongs_to_type: 'server',
+                belongs_to_uuid: uuids[0]
+            }
+        });
     },
 
 
     'provision server1 nics': function (t) {
-        mod_nic.provisionN(t, state, 3, {
-            owner_uuid: owner,
-            belongs_to_type: 'server',
-            belongs_to_uuid: uuids[1]
-        }, 'server1_nics');
+        mod_nic.createN(t, {
+            state: state,
+            stateProp: 'server1_nics',
+            num: 3,
+            params: {
+                owner_uuid: owner,
+                belongs_to_type: 'server',
+                belongs_to_uuid: uuids[1]
+            }
+        });
     },
 
 
     'provision zone nics': function (t) {
-        mod_nic.provisionN(t, state, 2, {
-            owner_uuid: owner,
-            belongs_to_type: 'zone',
-            belongs_to_uuid: uuids[2]
-        }, 'zone_nics');
+        mod_nic.createN(t, {
+            state: state,
+            stateProp: 'zone_nics',
+            num: 2,
+            params: {
+                owner_uuid: owner,
+                belongs_to_type: 'zone',
+                belongs_to_uuid: uuids[2]
+            }
+        });
     },
 
 
     'nic_tag1': function (t) {
-        mod_nic_tag.create(t, state, 'nic_tag1');
+        mod_nic_tag.create(t, {
+            name: 'nic_tag1',
+            state: state
+        });
     },
 
 
     'nic_tag2': function (t) {
-        mod_nic_tag.create(t, state, 'nic_tag2');
+        mod_nic_tag.create(t, {
+            name: 'nic_tag2',
+            state: state
+        });
     }
 };
 
@@ -248,31 +225,30 @@ exports['create'] = {
             macs: [ state.nics[0].mac, state.nics[1].mac ],
             name: 'aggr0'
         };
+        var exp = {
+            belongs_to_uuid: uuids[0],
+            id: mod_aggr.id(uuids[0], 'aggr0'),
+            lacp_mode: 'off',
+            macs: params.macs,
+            name: 'aggr0'
+        };
 
-        mod_aggr.create(t, state, params, function (err, res) {
+        mod_aggr.create(t, {
+            state: state,
+            params: params,
+            exp: exp
+        }, function (err, res) {
             if (err) {
                 return t.done();
             }
 
-            var agID = mod_aggr.id(uuids[0], 'aggr0');
-            var obj = {
-                belongs_to_uuid: uuids[0],
-                id: agID,
-                lacp_mode: 'off',
-                macs: params.macs,
-                name: 'aggr0'
-            };
-
-            t.deepEqual(res, obj, 'aggr params correct');
-
-            var morayObj = h.morayBuckets()['napi_aggregations'][agID];
+            var morayObj = h.morayObj('napi_aggregations', exp.id);
             t.ok(morayObj, 'got moray object');
-            obj.macs = params.macs.map(function (m) {
+            res.macs = params.macs.map(function (m) {
                 return util_mac.aton(m);
             });
 
-            t.deepEqual(morayObj, obj, 'raw moray object');
-
+            t.deepEqual(morayObj, res, 'raw moray object');
             return t.done();
         });
     },
@@ -284,22 +260,19 @@ exports['create'] = {
             name: 'aggr1',
             nic_tags_provided: [ 'nic_tag1', 'nic_tag2' ]
         };
+        var exp = {
+            belongs_to_uuid: uuids[0],
+            id: mod_aggr.id(uuids[0], 'aggr1'),
+            lacp_mode: 'off',
+            macs: params.macs,
+            name: 'aggr1',
+            nic_tags_provided: [ 'nic_tag1', 'nic_tag2' ]
+        };
 
-        mod_aggr.create(t, state, params, function (err, res) {
-            if (err) {
-                return t.done();
-            }
-
-            t.deepEqual(res, {
-                belongs_to_uuid: uuids[0],
-                id: mod_aggr.id(uuids[0], 'aggr1'),
-                lacp_mode: 'off',
-                macs: params.macs,
-                name: 'aggr1',
-                nic_tags_provided: [ 'nic_tag1', 'nic_tag2' ]
-            }, 'aggr params correct');
-
-            return t.done();
+        mod_aggr.create(t, {
+            state: state,
+            params: params,
+            exp: exp
         });
     },
 
@@ -311,42 +284,32 @@ exports['create'] = {
             name: 'aggr0',
             nic_tags_provided: ''
         };
+        var exp = {
+            belongs_to_uuid: uuids[1],
+            lacp_mode: 'passive',
+            macs: params.macs,
+            name: 'aggr0',
+            id: mod_aggr.id(uuids[1], 'aggr0')
+        };
 
-        mod_aggr.create(t, state, params, function (err, res) {
-            if (err) {
-                return t.done();
-            }
-
-            t.deepEqual(res, {
-                belongs_to_uuid: uuids[1],
-                lacp_mode: 'passive',
-                macs: params.macs,
-                name: 'aggr0',
-                id: mod_aggr.id(uuids[1], 'aggr0')
-            }, 'aggr params correct');
-
-            return t.done();
+        mod_aggr.create(t, {
+            state: state,
+            params: params,
+            exp: exp
         });
     },
 
 
     'invalid: missing properties': function (t) {
-        mod_aggr.create(t, state, { }, { expectError: true },
-            function (err, res) {
-            if (!err) {
-                t.deepEqual(res, {}, 'res should not exist');
-                return t.done();
-            }
-
-            t.deepEqual(err.body, h.missingParamErr({
+        mod_aggr.create(t, {
+            state: state,
+            params: { },
+            expErr: h.missingParamErr({
                 errors: [
                     h.missingParam('macs'),
                     h.missingParam('name')
-                ],
-                message: 'Missing parameters'
-            }), 'Error body');
-
-            return t.done();
+                ]
+            })
         });
     },
 
@@ -394,31 +357,46 @@ exports['create'] = {
 
 
     'invalid: belongs_to_uuid not matching': function (t) {
-        expCreateErr(t, {
-            macs: [ state.nics[4].mac, state.nics[7].mac ],
-            name: 'aggr2'
-        }, mod_err.invalidParam('macs', constants.msg.AGGR_MATCH));
+        mod_aggr.create(t, {
+            params: {
+                macs: [ state.nics[4].mac, state.nics[7].mac ],
+                name: 'aggr2'
+            },
+            expErr: h.invalidParamErr({
+                errors: [
+                    mod_err.invalidParam('macs', constants.msg.AGGR_MATCH) ]
+            })
+        });
     },
-
 
     'invalid: nic has wrong belongs_to_type': function (t) {
         var macs = [ state.zone_nics[0].mac, state.zone_nics[1].mac ];
-        var invalidErr = mod_err.invalidParam('macs',
-            constants.msg.AGGR_BELONGS);
-        invalidErr.invalid = macs;
 
-        expCreateErr(t, {
-            macs: macs,
-            name: 'aggr2'
-        }, invalidErr);
+        mod_aggr.create(t, {
+            params: {
+                macs: macs,
+                name: 'aggr2'
+            },
+            expErr: h.invalidParamErr({
+                errors: [ mod_err.invalidParam('macs',
+                    constants.msg.AGGR_BELONGS, { invalid: macs }) ]
+            })
+        });
     },
 
 
     'invalid: duplicate server and name': function (t) {
-        expCreateErr(t, {
-            macs: [ state.nics[0].mac, state.nics[1].mac ],
-            name: 'aggr0'
-        }, mod_err.duplicateParam('name', constants.msg.AGGR_NAME));
+        mod_aggr.create(t, {
+            params: {
+                macs: [ state.nics[0].mac, state.nics[1].mac ],
+                name: 'aggr0'
+            },
+            expErr: h.invalidParamErr({
+                errors: [
+                    mod_err.duplicateParam('name', constants.msg.AGGR_NAME)
+                ]
+            })
+        });
     }
 
     // XXX: nic in use by another aggr
@@ -436,13 +414,7 @@ exports['get'] = {
         vasync.forEachParallel({
             inputs: state.aggrs,
             func: function _get(aggr, cb) {
-                mod_aggr.get(t, aggr, function (err, res) {
-                    if (res) {
-                        t.deepEqual(res, aggr, 'get result');
-                    }
-
-                    return cb();
-                });
+                mod_aggr.get(t, { id: aggr.id, exp: aggr }, cb);
             }
         }, function () {
             return t.done();
@@ -451,21 +423,13 @@ exports['get'] = {
 
 
     'missing': function (t) {
-        NAPI.getAggr(mod_aggr.id(uuids[0], 'aggr9'),
-            function (err, obj, _, res) {
-            t.ok(err, 'error returned');
-
-            if (!err) {
-                return t.done();
-            }
-
-            t.equal(res.statusCode, 404, '404 returned');
-            t.deepEqual(err.body, {
+        mod_aggr.get(t, {
+            id: 'aggr9',
+            expCode: 404,
+            expErr: {
                 code: 'ResourceNotFound',
                 message: 'aggregation not found'
-            }, 'error returned');
-
-            return t.done();
+            }
         });
     }
 };
@@ -501,7 +465,8 @@ exports['list'] = {
     },
 
     'belongs_to_uuid filter: server0': function (t) {
-        mod_aggr.list(t, { belongs_to_uuid: uuids[0] }, function (err, list) {
+        mod_aggr.list(t, { params: { belongs_to_uuid: uuids[0] } },
+            function (err, list) {
             if (err) {
                 return t.done();
             }
@@ -525,7 +490,8 @@ exports['list'] = {
     },
 
     'belongs_to_uuid filter: server1': function (t) {
-        mod_aggr.list(t, { belongs_to_uuid: uuids[1] }, function (err, list) {
+        mod_aggr.list(t, { params: { belongs_to_uuid: uuids[1] } },
+            function (err, list) {
             if (err) {
                 return t.done();
             }
@@ -552,61 +518,46 @@ exports['update'] = {
             lacp_mode: 'active',
             macs: state.aggrs[0].macs.concat(state.nics[4].mac)
         };
-        mod_aggr.update(t, state.aggrs[0], params, function (err, res) {
-            if (err) {
-                return t.done();
-            }
-            for (var p in params) {
-                state.aggrs[0][p] = params[p];
-            }
+        for (var p in params) {
+            state.aggrs[0][p] = params[p];
+        }
 
-            t.deepEqual(res, state.aggrs[0], 'aggr updated');
-            return t.done();
+        mod_aggr.update(t, {
+            id: state.aggrs[0].id,
+            params: params,
+            exp: state.aggrs[0]
         });
     },
 
 
     'server0-aggr0: get updated': function (t) {
-        mod_aggr.get(t, state.aggrs[0], function (err, res) {
-            if (err) {
-                return t.done();
-            }
-
-            t.deepEqual(res, state.aggrs[0], 'aggr updated');
-            return t.done();
+        mod_aggr.get(t, {
+            id: state.aggrs[0].id,
+            exp: state.aggrs[0]
         });
     },
-
 
     'update id': function (t) {
-        var params = {
-            id: mod_aggr.id(uuids[0], 'aggr9')
-        };
-        mod_aggr.update(t, state.aggrs[0], params, function (err, res) {
-            if (err) {
-                return t.done();
-            }
-
-            t.deepEqual(res, state.aggrs[0], 'aggr unchanged');
-            return t.done();
+        mod_aggr.update(t, {
+            id: state.aggrs[0].id,
+            params: {
+                id: mod_aggr.id(uuids[0], 'aggr9')
+            },
+            // Should be unchanged
+            exp: state.aggrs[0]
         });
     },
-
 
     'update name': function (t) {
-        var params = {
-            name: 'aggr9'
-        };
-        mod_aggr.update(t, state.aggrs[0], params, function (err, res) {
-            if (err) {
-                return t.done();
-            }
-
-            t.deepEqual(res, state.aggrs[0], 'aggr unchanged');
-            return t.done();
+        mod_aggr.update(t, {
+            id: state.aggrs[0].id,
+            params: {
+                name: 'aggr9'
+            },
+            // Should be unchanged
+            exp: state.aggrs[0]
         });
     },
-
 
     'invalid: lacp_mode': function (t) {
         updateParamErrs(t, state.aggrs[0], 'lacp_mode', {
@@ -645,7 +596,7 @@ exports['delete'] = {
     'all': function (t) {
         vasync.forEachParallel({
             inputs: state.aggrs,
-            func: function _get(aggr, cb) {
+            func: function _del(aggr, cb) {
                 mod_aggr.del(t, aggr, function (err, res) {
                     return cb();
                 });
@@ -657,20 +608,13 @@ exports['delete'] = {
 
 
     'missing': function (t) {
-        NAPI.deleteAggr(mod_aggr.id(uuids[0], 'aggr9'),
-            function (err, obj, _, res) {
-            t.ok(err, 'error returned');
-            if (!err) {
-                return t.done();
-            }
-
-            t.equal(res.statusCode, 404, '404 returned');
-            t.deepEqual(err.body, {
+        mod_aggr.del(t, {
+            id: mod_aggr.id(uuids[0], 'aggr9'),
+            expCode: 404,
+            expErr: {
                 code: 'ResourceNotFound',
                 message: 'aggregation not found'
-            }, 'error returned');
-
-            return t.done();
+            }
         });
     }
 };

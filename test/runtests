@@ -141,6 +141,9 @@ echo "# Completed in ${elapsed} seconds."
 echo -e "# \033[32mPASS: ${passed} / ${tests}\033[39m"
 if [[ ${fail} -gt 0 ]]; then
     echo -e "# \033[31mFAIL: ${fail} / ${tests}\033[39m"
+    echo ""
+    echo -e "# \033[31mFAILING TESTS:\033[39m"
+    grep -l "^# fail  [0-9]" /var/tmp/napitest/*.tap | sed -e 's,/var/tmp/napitest/,,' -e 's,.tap,,' -e 's,^,#   ,'
 fi
 echo ""
 

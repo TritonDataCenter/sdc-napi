@@ -5,6 +5,7 @@
  */
 
 var assert = require('assert-plus');
+var crc = require('crc');
 var clone = require('clone');
 var EventEmitter = require('events').EventEmitter;
 var ldapjs = require('ldapjs');
@@ -32,7 +33,7 @@ var MORAY_ERRORS = {};
 function getNextMorayError(op) {
     if (!MORAY_ERRORS.hasOwnProperty(op) ||
         typeof (MORAY_ERRORS[op]) !== 'object' ||
-        MORAY_ERRORS.length === 0) {
+        MORAY_ERRORS[op].length === 0) {
         return;
     }
 
@@ -51,11 +52,59 @@ function bucketNotFoundErr(bucket) {
 
 
 /**
+ * Do etag checks on a record
+ */
+function checkEtag(opts, bucket, key, batch) {
+    if (!opts || !opts.hasOwnProperty('etag')) {
+        return;
+    }
+
+    var errOpts = {};
+    if (batch) {
+        errOpts = {
+            context: {
+                bucket: bucket
+            }
+        };
+    }
+
+    if (BUCKETS[bucket].hasOwnProperty(key)) {
+        if (opts.etag === null) {
+            throw etagConflictErr(util.format('key "%s" already exists', key),
+                errOpts);
+        }
+
+        var obj = BUCKETS[bucket][key];
+        if (opts.etag != obj._etag) {
+            throw etagConflictErr(
+                util.format('wanted to put etag "%s", but object has etag "%s"',
+                    opts.etag, obj._etag), errOpts);
+        }
+    }
+}
+
+
+/**
+ * Generates an etag for an object
+ */
+function eTag(val) {
+    return (crc.hex32(crc.crc32(JSON.stringify(val))));
+}
+
+
+/**
  * Returns a not found error for the bucket
  */
-function etagConflictErr(key) {
-    var err = new verror.VError('key "%s" already exists', key);
+function etagConflictErr(msg, otherOpts) {
+    var err = new verror.VError(msg);
     err.name = 'EtagConflictError';
+
+    if (otherOpts) {
+        for (var o in otherOpts) {
+            err[o] = otherOpts[o];
+        }
+    }
+
     return err;
 }
 
@@ -79,17 +128,12 @@ function FakeMoray(opts) {
     assert.object(opts, 'opts');
     assert.object(opts.log, 'opts.log');
 
-    this.log = opts.log;
+    this.log = opts.log.child({ component: 'mock-moray' });
     BUCKETS = {};
     EventEmitter.call(this);
 }
 
 util.inherits(FakeMoray, EventEmitter);
-
-
-FakeMoray.prototype._put = function _store(bucket, key, val, opts) {
-    BUCKETS[bucket][key] = clone(val);
-};
 
 
 FakeMoray.prototype._del = function _del(bucket, key) {
@@ -110,7 +154,47 @@ FakeMoray.prototype._del = function _del(bucket, key) {
 };
 
 
-FakeMoray.prototype.batch = function batch(data, callback) {
+FakeMoray.prototype._put = function _store(bucket, key, val) {
+    var obj = {
+        _etag: eTag(val),
+        key: key,
+        value: clone(val)
+    };
+
+    this.log.trace({ bucket: bucket, obj: obj }, '_put object');
+    BUCKETS[bucket][key] = obj;
+};
+
+
+FakeMoray.prototype._updateObjects =
+    function _updateObjects(bucket, fields, filter) {
+    assert.object(fields, 'fields');
+    assert.string(filter, 'filter');
+
+    // XXX: should throw if trying to set a non-indexed field
+
+    var filterObj = ldapjs.parseFilter(filter);
+    for (var r in BUCKETS[bucket]) {
+        // The LDAP matching function .matches() assumes that the
+        // values are strings, so stringify properties so that matches
+        // work correctly
+        var obj = {};
+        for (var k in BUCKETS[bucket][r].value) {
+            obj[k] = BUCKETS[bucket][r].value[k].toString();
+        }
+
+        if (filterObj.matches(obj)) {
+            for (var nk in fields) {
+                BUCKETS[bucket][r].value[nk] = fields[nk];
+            }
+        }
+    }
+};
+
+
+
+
+FakeMoray.prototype.batch = function _batch(data, callback) {
     assert.arrayOfObject(data, 'data');
 
     var err = getNextMorayError('batch');
@@ -120,14 +204,35 @@ FakeMoray.prototype.batch = function batch(data, callback) {
 
     for (var b in data) {
         var item = data[b];
-        assert.string(item.bucket, 'item.bucket');
-        assert.string(item.key, 'item.key');
         assert.string(item.operation, 'item.operation');
+        assert.string(item.bucket, 'item.bucket');
+
+        var knownOp = false;
+        ['delete', 'put', 'update'].forEach(function (opt) {
+            if (item.operation == opt) {
+                knownOp = true;
+            }
+        });
+
+        if (!knownOp) {
+            throw new verror.VError('Unknown moray operation "%s"',
+                item.operation);
+        }
+
+        if (item.operation !== 'update') {
+            assert.string(item.key, 'item.key');
+        }
 
         if (item.operation === 'put') {
             assert.object(item.value, 'item.value');
             if (!BUCKETS.hasOwnProperty(item.bucket)) {
                 return callback(bucketNotFoundErr(item.bucket));
+            }
+
+            try {
+                checkEtag(item.options, item.bucket, item.key, true);
+            } catch (eTagErr) {
+                return callback(eTagErr);
             }
 
             this._put(item.bucket, item.key, item.value);
@@ -139,6 +244,14 @@ FakeMoray.prototype.batch = function batch(data, callback) {
             } catch (err2) {
                 return callback(err2);
             }
+        }
+
+        if (item.operation === 'update') {
+            if (!BUCKETS.hasOwnProperty(item.bucket)) {
+                return callback(bucketNotFoundErr(item.bucket));
+            }
+
+            this._updateObjects(item.bucket, item.fields, item.filter);
         }
     }
 
@@ -205,12 +318,12 @@ FakeMoray.prototype.findObjects = function findObjects(bucket, filter, opts) {
             // values are strings, so stringify properties so that matches
             // work correctly
             var obj = {};
-            for (var k in BUCKETS[bucket][r]) {
-                obj[k] = BUCKETS[bucket][r][k].toString();
+            for (var k in BUCKETS[bucket][r].value) {
+                obj[k] = BUCKETS[bucket][r].value[k].toString();
             }
 
             if (filterObj.matches(obj)) {
-                res.emit('record', { value: clone(BUCKETS[bucket][r]) });
+                res.emit('record', clone(BUCKETS[bucket][r]));
             }
         }
 
@@ -251,7 +364,9 @@ FakeMoray.prototype.getObject = function getObject(bucket, key, callback) {
         return callback(objectNotFoundErr(key));
     }
 
-    return callback(null, { value: clone(BUCKETS[bucket][key]) });
+    var rec = clone(BUCKETS[bucket][key]);
+    this.log.trace({ bucket: bucket, key: key, rec: rec }, 'got object');
+    return callback(null, rec);
 };
 
 
@@ -271,10 +386,10 @@ FakeMoray.prototype.putObject =
         return callback(bucketNotFoundErr(bucket));
     }
 
-    if (opts && opts.hasOwnProperty('etag') && opts.etag === null) {
-        if (BUCKETS[bucket].hasOwnProperty(key)) {
-            return callback(etagConflictErr(key));
-        }
+    try {
+        checkEtag(opts, bucket, key);
+    } catch (eTagErr) {
+        return callback(eTagErr);
     }
 
     this._put(bucket, key, value);
@@ -289,6 +404,8 @@ FakeMoray.prototype.sql = function sql(str) {
     var bucket = str.match(/from ([a-z0-9_]+)/)[1];
     /* JSSTYLED */
     var gt = Number(str.match(/>= (\d+)/)[1]);
+    /* JSSTYLED */
+    var limit = Number(str.match(/limit (\d+)/)[1]);
     /* JSSTYLED */
     var lt = Number(str.match(/<= (\d+)/)[1]);
     var res = new EventEmitter;
@@ -311,12 +428,20 @@ FakeMoray.prototype.sql = function sql(str) {
 
         var bucketKeys = Object.keys(BUCKETS[bucket]).map(function (k) {
             return Number(k); }).sort();
+        var found = 0;
         var last = bucketKeys[0];
 
         for (var i in bucketKeys) {
             var ip = bucketKeys[i];
             if ((ip - last) > 1 && (last + 1) <= lt && (last + 1) >= gt) {
-                res.emit('record', { gap_start: last + 1 });
+                if (limit && found < limit) {
+                    res.emit('record', {
+                        // XXX: is this right?
+                        gap_length: ip - last + 1,
+                        gap_start: last + 1
+                    });
+                }
+                found++;
                 break;
             }
             last = ip;
@@ -333,6 +458,20 @@ FakeMoray.prototype.updateBucket =
     function updateBucket(bucket, schema, callback) {
 
     return callback(new Error('FakeMoray: not implemented'));
+};
+
+
+
+FakeMoray.prototype.updateObjects =
+    function updateObjects(bucket, fields, filter, callback) {
+    assert.object(bucket, 'bucket');
+
+    if (!BUCKETS.hasOwnProperty(bucket)) {
+        return callback(bucketNotFoundErr(bucket));
+    }
+
+    this._updateObjects(bucket, fields, filter);
+    return callback();
 };
 
 
@@ -355,6 +494,9 @@ function createClient(opts) {
 module.exports = {
     get _buckets() {
         return BUCKETS;
+    },
+    get _errors() {
+        return MORAY_ERRORS;
     },
     set _errors(obj) {
         MORAY_ERRORS = obj;

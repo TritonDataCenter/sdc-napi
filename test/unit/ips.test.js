@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Joyent, Inc. All rights reserved.
+ * Copyright (c) 2014, Joyent, Inc. All rights reserved.
  *
  * Unit tests for IP endpoints
  */
@@ -7,7 +7,7 @@
 var assert = require('assert-plus');
 var async = require('async');
 var clone = require('clone');
-var helpers = require('./helpers');
+var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
 var mod_uuid = require('node-uuid');
 var restify = require('restify');
@@ -23,6 +23,7 @@ var vasync = require('vasync');
 // Set this to any of the exports in this file to only run that test,
 // plus setup and teardown
 var runOne;
+var d = {};
 var MORAY_IP = '10.0.2.15';
 var NON_MORAY_IP = '10.0.2.115';
 var NAPI;
@@ -44,50 +45,46 @@ var MULTIPLE_PARAMS_REQ = [
 
 
 
-
-// --- Internal helpers
-
-
-
 // --- Setup
 
 
 
-exports['Initial setup'] = function (t) {
-    helpers.createClientAndServer(function (err, res) {
-        t.ifError(err, 'server creation');
-        t.ok(res, 'client');
-        NAPI = res;
+exports['Initial setup'] = {
+    'create client and server': function (t) {
+        h.createClientAndServer(function (err, res) {
+            t.ifError(err, 'server creation');
+            t.ok(res, 'client');
+            NAPI = res;
 
-        if (!NAPI) {
             return t.done();
-        }
-
-        var netParams = helpers.validNetworkParams();
-        NAPI.createNicTag(netParams.nic_tag, function (err2) {
-            t.ifError(err2);
-            if (err2) {
-                t.deepEqual(err2.body, {}, 'error body');
-            }
-
-            NAPI.createNetwork(netParams, function (err3, res3) {
-                t.ifError(err3);
-                if (err3) {
-                    t.deepEqual(err3.body, {}, 'error body');
-                    return t.done();
-                }
-                NET = res3;
-
-                // Add an IP to moray
-                NAPI.updateIP(NET.uuid, MORAY_IP, { reserved: true },
-                    function (err4) {
-                    t.ifError(err4);
-
-                    return t.done();
-                });
-            });
         });
-    });
+    },
+
+    'create nic tag': function (t) {
+        d.netParams = h.validNetworkParams();
+
+        NAPI.createNicTag(d.netParams.nic_tag, function (err) {
+            h.ifErr(t, err, 'create nic tag');
+            return t.done();
+        });
+    },
+
+    'create network': function (t) {
+        NAPI.createNetwork(d.netParams, function (err, res) {
+            h.ifErr(t, err, 'create network');
+            NET = res;
+
+            return t.done();
+        });
+    },
+
+    'add IP to moray': function (t) {
+        NAPI.updateIP(NET.uuid, MORAY_IP, { reserved: true }, function (err) {
+            h.ifErr(t, err, 'add IP to moray');
+
+            return t.done();
+        });
+    }
 };
 
 
@@ -327,7 +324,7 @@ exports['Update IP - invalid params (IP not in moray)'] = function (t) {
     vasync.forEachParallel({
         inputs: INVALID_PARAMS,
         func: function (data, cb) {
-            var params = helpers.validIPparams();
+            var params = h.validIPparams();
             params[data[0]] = data[1];
             NAPI.updateIP(NET.uuid, '10.0.2.14', params, function (err, res) {
                 t.ok(err, util.format('error returned: %s="%s"',
@@ -358,7 +355,7 @@ exports['Update IP - invalid params (IP in moray)'] = function (t) {
     vasync.forEachParallel({
         inputs: INVALID_PARAMS,
         func: function (data, cb) {
-            var params = helpers.validIPparams();
+            var params = h.validIPparams();
             params[data[0]] = data[1];
             NAPI.updateIP(NET.uuid, MORAY_IP, params, function (err2) {
                 t.ok(err2, util.format('error returned: %s="%s"',
@@ -408,8 +405,8 @@ exports['Update IP - invalid param combinations (IP not in moray)'] =
                         'owner_uuid'].filter(function (p) {
                             return !params.hasOwnProperty(p);
                         }).map(function (p) {
-                            return helpers.missingParam(p, 'Missing parameter');
-                    }).sort(helpers.fieldSort),
+                            return h.missingParam(p, 'Missing parameter');
+                    }).sort(h.fieldSort),
                     message: 'Missing parameters'
                 }, 'Error body');
 
@@ -434,13 +431,13 @@ exports['Update IP - invalid param combinations (IP in moray)'] =
                 }
 
                 t.equal(err.statusCode, 422, 'status code');
-                t.deepEqual(err.body, helpers.invalidParamErr({
+                t.deepEqual(err.body, h.invalidParamErr({
                     errors: ['belongs_to_uuid', 'belongs_to_type',
                         'owner_uuid'].filter(function (p) {
                             return !params.hasOwnProperty(p);
                         }).map(function (p) {
-                            return helpers.missingParam(p, 'Missing parameter');
-                    }).sort(helpers.fieldSort),
+                            return h.missingParam(p, 'Missing parameter');
+                    }).sort(h.fieldSort),
                     message: 'Missing parameters'
                 }), 'Error body');
 
@@ -463,11 +460,11 @@ exports['Update IP - both missing and invalid params (IP not in moray)'] =
         }
 
         t.equal(err.statusCode, 422, 'status code');
-        t.deepEqual(err.body, helpers.invalidParamErr({
+        t.deepEqual(err.body, h.invalidParamErr({
             errors: [
-                helpers.missingParam('belongs_to_type', 'Missing parameter'),
+                h.missingParam('belongs_to_type', 'Missing parameter'),
                 mod_err.invalidParam('belongs_to_uuid', 'invalid UUID'),
-                helpers.missingParam('owner_uuid', 'Missing parameter')
+                h.missingParam('owner_uuid', 'Missing parameter')
             ]
         }), 'Error body');
 
@@ -486,11 +483,11 @@ exports['Update IP - both missing and invalid params (IP in moray)'] =
         }
 
         t.equal(err.statusCode, 422, 'status code');
-        t.deepEqual(err.body, helpers.invalidParamErr({
+        t.deepEqual(err.body, h.invalidParamErr({
             errors: [
-                helpers.missingParam('belongs_to_type', 'Missing parameter'),
+                h.missingParam('belongs_to_type', 'Missing parameter'),
                 mod_err.invalidParam('belongs_to_uuid', 'invalid UUID'),
-                helpers.missingParam('owner_uuid', 'Missing parameter')
+                h.missingParam('owner_uuid', 'Missing parameter')
             ]
         }), 'Error body');
 
@@ -706,7 +703,7 @@ exports['Update IP - unassign (IP not in moray)'] = function (t) {
 
 
 exports['Stop server'] = function (t) {
-    helpers.stopServer(function (err) {
+    h.stopServer(function (err) {
         t.ifError(err, 'server stop');
         t.done();
     });
