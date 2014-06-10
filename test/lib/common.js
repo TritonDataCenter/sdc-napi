@@ -5,6 +5,7 @@
  */
 
 var assert = require('assert-plus');
+var clone = require('clone');
 var mod_err = require('../../lib/util/errors');
 var mod_uuid = require('node-uuid');
 var NAPI = require('sdc-clients').NAPI;
@@ -13,6 +14,79 @@ var NAPI = require('sdc-clients').NAPI;
 
 // --- Exported functions
 
+
+
+/**
+ * Adds the given object to opts.state (if opts and opts.state are present)
+ */
+function addToState(opts, type, obj) {
+    if (!opts.state || !obj) {
+        return;
+    }
+
+    if (!opts.state.hasOwnProperty(type)) {
+        opts.state[type] = [];
+    }
+
+    var newObj = clone(obj);
+    if (opts.hasOwnProperty('stateProp')) {
+        if (!opts.state.hasOwnProperty(opts.stateProp)) {
+            opts.state[opts.stateProp] = [];
+        }
+
+        opts.state[opts.stateProp].push(newObj);
+    }
+
+    opts.state[type].push(newObj);
+}
+
+
+/**
+ * Shared test code for after API methods are called
+ */
+function afterAPIcall(t, opts, callback, err, res) {
+    var desc = opts.desc ? (' ' + opts.desc) : '';
+    assert.string(opts.reqType, 'opts.reqType');
+    assert.string(opts.type, 'opts.type');
+    var type = opts.reqType + ' ' + opts.type + ': ';
+
+    if (opts.expErr) {
+        t.ok(err, 'expected error');
+        if (err) {
+            var code = opts.expCode || 422;
+            t.equal(err.statusCode, code, 'status code');
+            t.deepEqual(err.body, opts.expErr, 'error body');
+        }
+
+        return doneErr(err, t, callback);
+    }
+
+    if (ifErr(t, err, type + opts.mac + desc)) {
+        return doneErr(err, t, callback);
+    }
+
+    if (opts.exp) {
+        t.deepEqual(res, opts.exp, type + 'full result' + desc);
+    }
+
+    if (opts.partialExp) {
+        var partialRes = {};
+        for (var p in opts.partialExp) {
+            partialRes[p] = res[p];
+        }
+
+        t.deepEqual(partialRes, opts.partialExp,
+            type + 'partial result' + desc);
+    }
+
+    if (opts.reqType == 'create') {
+        addToState(opts, opts.type + 's', res);
+        // XXX
+        // t.equal(res.statusCode, 200, 'status code');
+    }
+
+    return doneRes(res, t, callback);
+}
 
 
 /**
@@ -139,6 +213,8 @@ function randomMAC() {
 
 
 module.exports = {
+    addToState: addToState,
+    afterAPIcall: afterAPIcall,
     createClient: createClient,
     doneErr: doneErr,
     doneRes: doneRes,

@@ -16,33 +16,6 @@ var doneErr = common.doneErr;
 
 
 
-// --- Internal
-
-
-
-function addToState(opts, obj) {
-    if (!opts.state || !obj) {
-        return;
-    }
-
-    if (!opts.state.hasOwnProperty('nics')) {
-        opts.state.nics = [];
-    }
-
-    var newObj = clone(obj);
-    if (opts.hasOwnProperty('stateProp')) {
-        if (!opts.state.hasOwnProperty(opts.stateProp)) {
-            opts.state[opts.stateProp] = [];
-        }
-
-        opts.state[opts.stateProp].push(newObj);
-    }
-
-    opts.state.nics.push(newObj);
-}
-
-
-
 // --- Exports
 
 
@@ -52,7 +25,6 @@ function addToState(opts, obj) {
  */
 function create(t, opts, callback) {
     var client = opts.client || mod_client.get();
-    var desc = opts.desc ? (' ' + opts.desc) : '';
 
     assert.object(t, 't');
     assert.string(opts.mac, 'opts.mac');
@@ -66,38 +38,11 @@ function create(t, opts, callback) {
     if (mac == 'generate') {
         mac = common.randomMAC();
     }
+    opts.type = 'nic';
+    opts.reqType = 'create';
 
-    var params = clone(opts.params);
-
-    client.createNic(mac, params, function (err, res) {
-        if (opts.expErr) {
-            t.ok(err, 'expected error');
-            if (err) {
-                var code = opts.expCode || 422;
-                t.equal(err.statusCode, code, 'status code');
-                t.deepEqual(err.body, opts.expErr, 'error body');
-            }
-
-            return doneErr(err, t, callback);
-        }
-
-        if (common.ifErr(t, err, 'create nic ' + opts.mac + desc)) {
-            return doneErr(err, t, callback);
-        }
-
-        if (opts.exp) {
-            t.deepEqual(res, opts.exp, 'full result' + desc);
-        }
-
-        if (opts.partialExp) {
-            for (var p in opts.partialExp) {
-                t.equal(res[p], opts.partialExp[p], p + ' correct' + desc);
-            }
-        }
-
-        addToState(opts, res);
-        return doneRes(res, t, callback);
-    });
+    client.createNic(mac, clone(opts.params),
+        common.afterAPIcall.bind(null, t, opts, callback));
 }
 
 
@@ -261,7 +206,7 @@ function provision(t, opts, callback) {
             return doneErr(err, t, callback);
         }
 
-        addToState(opts, res);
+        common.addToState(opts, 'nics', res);
 
         if (opts.exp) {
             t.deepEqual(res, opts.exp, 'full result' + desc);

@@ -16,33 +16,6 @@ var doneErr = common.doneErr;
 
 
 
-// --- Internal
-
-
-
-function addToState(opts, obj) {
-    if (!opts.state || !obj) {
-        return;
-    }
-
-    var newObj = clone(obj);
-    if (!opts.state.hasOwnProperty('nic_tags')) {
-        opts.state.aggrs = [];
-    }
-
-    if (opts.hasOwnProperty('stateProp')) {
-        if (!opts.state.hasOwnProperty(opts.stateProp)) {
-            opts.state[opts.stateProp] = [];
-        }
-
-        opts.state[opts.stateProp].push(newObj);
-    }
-
-    opts.state.aggrs.push(newObj);
-}
-
-
-
 // --- Exports
 
 
@@ -66,7 +39,7 @@ function create(t, opts, callback) {
             return doneErr(err, t, callback);
         }
 
-        addToState(opts.state, obj);
+        common.addToState(opts, 'nic_tags', res);
         t.equal(res.statusCode, 200, 'status code');
 
         return doneRes(obj, t, callback);
