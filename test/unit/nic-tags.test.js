@@ -6,6 +6,7 @@
 
 var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
+var mod_moray = require('../lib/moray');
 var util = require('util');
 var vasync = require('vasync');
 
@@ -63,9 +64,7 @@ exports['Create nic tag'] = function (t) {
             return t.done();
         }
 
-        var bucket = h.morayBuckets()['napi_nic_tags'];
-        var added = bucket['newtagname'].value;
-
+        var added = mod_moray.getObj('napi_nic_tags', 'newtagname');
         t.equal(res.statusCode, 200, 'status code');
         var expObj = {
             name: 'newtagname',

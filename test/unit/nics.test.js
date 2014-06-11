@@ -11,8 +11,10 @@ var h = require('./helpers');
 var ip_common = require('../../lib/models/ip/common');
 var mod_err = require('../../lib/util/errors');
 var mod_ip = require('../lib/ip');
+var mod_moray = require('../lib/moray');
 var mod_net = require('../lib/net');
 var mod_nic = require('../lib/nic');
+var mod_nicTag = require('../lib/nic-tag');
 var mod_uuid = require('node-uuid');
 var Network = require('../../lib/models/network').Network;
 var NicTag = require('../../lib/models/nic-tag').NicTag;
@@ -38,24 +40,6 @@ var NET;
 var NET2;
 var NET3;
 var PROV_MAC_NET;
-
-
-
-// --- Helpers
-
-
-
-/**
- * Get a nic object from moray
- */
-function getMorayNic(t, macAddr) {
-    var macNum = util_mac.aton(macAddr);
-    t.ok(macNum, 'mac number');
-    var morayObj = h.morayObj('napi_nics', macNum);
-
-    t.ok(morayObj, 'moray object exists');
-    return morayObj;
-}
 
 
 
@@ -359,6 +343,7 @@ exports['Create nic - invalid params'] = function (t) {
 
 exports['Create nic - empty nic_tags_provided'] = {
     'create': function (t) {
+        var mac = h.randomMAC();
         d = {};
         d.params = {
             belongs_to_type: 'zone',
@@ -366,49 +351,96 @@ exports['Create nic - empty nic_tags_provided'] = {
             nic_tags_provided: '',
             owner_uuid: mod_uuid.v4()
         };
+        d.exp = {
+            mac: mac,
+            primary: false,
+            status: 'running'
+        };
+        h.copyParams(d.params, d.exp);
+        delete d.exp.nic_tags_provided;
 
-        NAPI.createNic(h.randomMAC(), d.params, function (err, res) {
-            if (h.ifErr(t, err, 'create nic with empty nic_tags_provided')) {
-                return t.done();
-            }
-
-            delete d.params.nic_tags_provided;
-            d.params.primary = false;
-            d.params.mac = res.mac;
-            d.params.status = 'running';
-            t.deepEqual(res, d.params, 'response');
-
-            return t.done();
-        });
-    },
-
-    'get': function (t) {
-        NAPI.getNic(d.params.mac, function (err, res) {
-            t.ifError(err);
-            t.deepEqual(res, d.params, 'get response');
-            return t.done();
+        mod_nic.createAndGet(t, {
+            mac: mac,
+            params: d.params,
+            exp: d.exp
         });
     },
 
     'create with same MAC': function (t) {
-        d.params2 = {
-            belongs_to_type: 'zone',
-            belongs_to_uuid: mod_uuid.v4(),
-            owner_uuid: mod_uuid.v4()
-        };
-
-        NAPI.createNic(d.params.mac, d.params2, function (err, res) {
-            t.ok(err, 'error returned');
-            if (!err) {
-                return t.done();
-            }
-
-            t.equal(err.statusCode, 422, 'status code');
-            t.deepEqual(err.body, h.invalidParamErr({
+        mod_nic.create(t, {
+            mac: d.exp.mac,
+            params: {
+                belongs_to_type: 'zone',
+                belongs_to_uuid: mod_uuid.v4(),
+                owner_uuid: mod_uuid.v4()
+            },
+            expErr: h.invalidParamErr({
                 errors: [ mod_err.duplicateParam('mac') ]
-            }), 'Error body');
+            })
+        });
+    },
 
-            return t.done();
+    'create nic tag': function (t) {
+        mod_nicTag.create(t, {
+            name: 'tag52'
+        });
+    },
+
+    'update: set nic_tags_provided': function (t) {
+        var params = {
+            nic_tags_provided: [ 'tag52' ]
+        };
+        h.copyParams(params, d.exp);
+
+        mod_nic.updateAndGet(t, {
+            mac: d.exp.mac,
+            params: params,
+            exp: d.exp
+        });
+    },
+
+    'update: unset nic_tags_provided': function (t) {
+        delete d.exp.nic_tags_provided;
+
+        mod_nic.updateAndGet(t, {
+            mac: d.exp.mac,
+            params: {
+                nic_tags_provided: [ ]
+            },
+            exp: d.exp
+        });
+    },
+
+    'moray: after update': function (t) {
+        var mNic = mod_moray.getNic(d.exp.mac);
+        t.ok(!mNic.hasOwnProperty('nic_tags_provided'),
+            'nic_tags_provided unset on moray object');
+
+        return t.done();
+    },
+
+    'update: set nic_tags_provided again': function (t) {
+        var params = {
+            nic_tags_provided: [ 'tag52' ]
+        };
+        h.copyParams(params, d.exp);
+
+        mod_nic.updateAndGet(t, {
+            mac: d.exp.mac,
+            params: params,
+            exp: d.exp
+        });
+    },
+
+    'update: unset nic_tags_provided with string': function (t) {
+        delete d.exp.nic_tags_provided;
+
+        mod_nic.updateAndGet(t, {
+            mac: d.exp.mac,
+            params: {
+                nic_tags_provided: ''
+            },
+            exp: d.exp
         });
     }
 };
@@ -501,7 +533,7 @@ exports['Provision nic: exceed MAC retries'] = function (t) {
         belongs_to_uuid: mod_uuid.v4(),
         owner_uuid:  mod_uuid.v4()
     };
-    var numNicsBefore = h.getNicRecords().length;
+    var numNicsBefore = mod_moray.getNics().length;
 
     var errs = [ ];
     for (var i = 0; i < constants.MAC_RETRIES + 1; i++) {
@@ -510,7 +542,7 @@ exports['Provision nic: exceed MAC retries'] = function (t) {
         fakeErr.context = { bucket: 'napi_nics' };
         errs.push(fakeErr);
     }
-    h.setMorayErrors({ batch: errs });
+    mod_moray.setErrors({ batch: errs });
 
     NAPI.provisionNic(PROV_MAC_NET.uuid, params, function (err) {
         t.ok(err, 'error returned');
@@ -532,15 +564,15 @@ exports['Provision nic: exceed MAC retries'] = function (t) {
             }
 
             t.equal(res.free, true, 'IP has been freed');
-            var ipRec = h.getIPrecord(PROV_MAC_NET.uuid,
+            var ipRec = mod_moray.getIP(PROV_MAC_NET.uuid,
                 PROV_MAC_NET.provision_start_ip);
             t.ok(!ipRec, 'IP record does not exist in moray');
 
-            t.equal(h.getNicRecords().length, numNicsBefore,
+            t.equal(mod_moray.getNics().length, numNicsBefore,
                 'no new nic records added');
 
             // Make sure we actually hit all of the errors:
-            t.deepEqual(h.getMorayErrors(), {
+            t.deepEqual(mod_moray.getErrors(), {
                 batch: [ ]
             }, 'no more batch errors left');
 
@@ -556,7 +588,7 @@ exports['Provision nic: exceed IP retries'] = function (t) {
         belongs_to_uuid: mod_uuid.v4(),
         owner_uuid:  mod_uuid.v4()
     };
-    var numNicsBefore = h.getNicRecords().length;
+    var numNicsBefore = mod_moray.getNics().length;
 
     var errs = [ ];
     for (var i = 0; i < constants.IP_PROVISION_RETRIES + 2; i++) {
@@ -565,7 +597,7 @@ exports['Provision nic: exceed IP retries'] = function (t) {
         fakeErr.context = { bucket: ip_common.bucketName(PROV_MAC_NET.uuid) };
         errs.push(fakeErr);
     }
-    h.setMorayErrors({ batch: errs });
+    mod_moray.setErrors({ batch: errs });
 
     NAPI.provisionNic(PROV_MAC_NET.uuid, params, function (err) {
         t.ok(err, 'error returned');
@@ -587,15 +619,15 @@ exports['Provision nic: exceed IP retries'] = function (t) {
             }
 
             t.equal(res.free, true, 'IP has been freed');
-            var ipRec = h.getIPrecord(PROV_MAC_NET.uuid,
+            var ipRec = mod_moray.getIP(PROV_MAC_NET.uuid,
                 PROV_MAC_NET.provision_start_ip);
             t.ok(!ipRec, 'IP record does not exist in moray');
 
-            t.equal(h.getNicRecords().length, numNicsBefore,
+            t.equal(mod_moray.getNics().length, numNicsBefore,
                 'no new nic records added');
 
             // Make sure we actually hit all of the errors:
-            t.deepEqual(h.getMorayErrors(), {
+            t.deepEqual(mod_moray.getErrors(), {
                 batch: [ ]
             }, 'no more batch errors left');
 
@@ -618,7 +650,7 @@ exports['Provision nic: MAC retry'] = {
         fakeErr.name = 'EtagConflictError';
         fakeErr.context = { bucket: 'napi_nics' };
 
-        h.setMorayErrors({ batch: [ fakeErr, fakeErr ] });
+        mod_moray.setErrors({ batch: [ fakeErr, fakeErr ] });
 
         NAPI.provisionNic(PROV_MAC_NET.uuid, params, function (err, res) {
             if (h.ifErr(t, err, 'provision nic with retry')) {
@@ -627,18 +659,19 @@ exports['Provision nic: MAC retry'] = {
 
             d.mac = res.mac;
             t.ok(res.mac, 'MAC address');
-            var macNum = util_mac.aton(res.mac);
-            var morayObj = h.morayObj('napi_nics', macNum);
+
+            var morayObj = mod_moray.getNic(res.mac);
             t.ok(morayObj, 'found moray object');
             if (morayObj) {
-                t.equal(morayObj.mac, macNum, 'correct mac in moray object');
+                t.equal(morayObj.mac, util_mac.aton(res.mac),
+                    'correct mac in moray object');
             }
 
             t.equal(res.network_uuid, PROV_MAC_NET.uuid,
                 'network_uuid correct');
 
             // Make sure we actually hit those errors:
-            t.deepEqual(h.getMorayErrors(), {
+            t.deepEqual(mod_moray.getErrors(), {
                 batch: [ ]
             }, 'no more batch errors left');
 
@@ -670,7 +703,7 @@ exports['Provision nic: MAC retry'] = {
         fakeErr.name = 'EtagConflictError';
         fakeErr.context = { bucket: 'napi_nics' };
 
-        h.setMorayErrors({ batch: [ fakeErr, fakeErr ] });
+        mod_moray.setErrors({ batch: [ fakeErr, fakeErr ] });
 
         mod_nic.create(t, {
             mac: d.mac,
@@ -679,15 +712,15 @@ exports['Provision nic: MAC retry'] = {
                     errors: [ mod_err.duplicateParam('mac') ]
                 })
         }, function () {
-            var morayObj = h.morayObj('napi_nics', util_mac.aton(d.mac));
+            var morayObj = mod_moray.getNic(d.mac);
             t.equal(morayObj, null, 'moray object does not exist');
 
             // We should have bailed after the first iteration of the loop:
-            t.equal(h.getMorayErrors().batch.length, 1,
+            t.equal(mod_moray.getErrors().batch.length, 1,
                 'one error left');
 
             // Reset moray errors
-            h.setMorayErrors({ });
+            mod_moray.setErrors({ });
 
             return t.done();
         });
@@ -719,7 +752,7 @@ exports['Provision nic: IP retry'] = {
         fakeErr.name = 'EtagConflictError';
         fakeErr.context = { bucket: ip_common.bucketName(PROV_MAC_NET.uuid) };
 
-        h.setMorayErrors({ batch: [ fakeErr, fakeErr ] });
+        mod_moray.setErrors({ batch: [ fakeErr, fakeErr ] });
 
         NAPI.provisionNic(PROV_MAC_NET.uuid, params, function (err, res) {
             if (h.ifErr(t, err, 'provision nic with retry')) {
@@ -728,18 +761,19 @@ exports['Provision nic: IP retry'] = {
 
             d.mac = res.mac;
             t.ok(res.mac, 'MAC address');
-            var macNum = util_mac.aton(res.mac);
-            var morayObj = h.morayObj('napi_nics', macNum);
+
+            var morayObj = mod_moray.getNic(res.mac);
             t.ok(morayObj, 'found moray object');
             if (morayObj) {
-                t.equal(morayObj.mac, macNum, 'correct mac in moray object');
+                t.equal(morayObj.mac, util_mac.aton(res.mac),
+                    'correct mac in moray object');
             }
 
             t.equal(res.network_uuid, PROV_MAC_NET.uuid,
                 'network_uuid correct');
 
             // Make sure we actually hit those errors:
-            t.deepEqual(h.getMorayErrors(), {
+            t.deepEqual(mod_moray.getErrors(), {
                 batch: [ ]
             }, 'no more batch errors left');
 
@@ -773,7 +807,7 @@ exports['Provision nic: IP retry'] = {
         fakeErr.name = 'EtagConflictError';
         fakeErr.context = { bucket: ip_common.bucketName(PROV_MAC_NET.uuid) };
 
-        h.setMorayErrors({ batch: [ fakeErr, fakeErr ] });
+        mod_moray.setErrors({ batch: [ fakeErr, fakeErr ] });
 
         mod_nic.create(t, {
             mac: d.mac,
@@ -785,18 +819,18 @@ exports['Provision nic: IP retry'] = {
             }
 
             t.ok(res.mac, 'MAC address');
-            var macNum = util_mac.aton(res.mac);
-            var morayObj = h.morayObj('napi_nics', macNum);
+            var morayObj = mod_moray.getNic(res.mac);
             t.ok(morayObj, 'found moray object');
             if (morayObj) {
-                t.equal(morayObj.mac, macNum, 'correct mac in moray object');
+                t.equal(morayObj.mac, util_mac.aton(res.mac),
+                    'correct mac in moray object');
             }
 
             t.equal(res.network_uuid, PROV_MAC_NET.uuid,
                 'network_uuid correct');
 
             // Make sure we actually hit those errors:
-            t.deepEqual(h.getMorayErrors(), {
+            t.deepEqual(mod_moray.getErrors(), {
                 batch: [ ]
             }, 'no more batch errors left');
 
@@ -1796,7 +1830,7 @@ exports['antispoof options'] = {
             d.mac = res.mac;
             t.equal(res.ip, h.nextProvisionableIP(NET2), 'IP');
 
-            var morayObj = getMorayNic(t, res.mac);
+            var morayObj = mod_moray.getNic(res.mac);
             t.ok(!morayObj.hasOwnProperty('network'),
                 'moray object does not have network in it');
 
@@ -1836,7 +1870,7 @@ exports['antispoof options'] = {
             }
 
             // Confirm that the fields have been removed from moray
-            var morayObj = getMorayNic(t, res.mac);
+            var morayObj = mod_moray.getNic(res.mac);
             t.ok(!morayObj.hasOwnProperty('network'),
                 'moray object does not have network in it');
 
@@ -1867,7 +1901,7 @@ exports['antispoof options'] = {
             }
 
             // Confirm that the fields have been removed from moray
-            var morayObj = getMorayNic(t, res.mac);
+            var morayObj = mod_moray.getNic(res.mac);
             t.ok(!morayObj.hasOwnProperty('network'),
                 'moray object does not have network in it');
 

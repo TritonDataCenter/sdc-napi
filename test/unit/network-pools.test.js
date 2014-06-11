@@ -8,6 +8,7 @@ var async = require('async');
 var constants = require('../../lib/util/constants');
 var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
+var mod_moray = require('../lib/moray');
 var mod_uuid = require('node-uuid');
 var util = require('util');
 var vasync = require('vasync');
@@ -344,8 +345,8 @@ exports['Update pool: remove owner_uuids'] = function (t) {
             delete POOLS[1].owner_uuids;
             t.deepEqual(res, POOLS[1], 'owner_uuids removed');
 
-            var morayObj =
-                h.morayBuckets()['napi_network_pools'][POOLS[1].uuid];
+            var morayObj = mod_moray.getObj('napi_network_pools',
+                POOLS[1].uuid);
 
             t.ok(!morayObj.hasOwnProperty('owner_uuids'),
                 'owner_uuids property no longer present in moray');
@@ -373,7 +374,8 @@ exports['Update pool: remove owner_uuids'] = function (t) {
             POOLS[1].owner_uuids = params.owner_uuids.sort();
             t.deepEqual(res, POOLS[1], 'owner_uuids added');
 
-            var morayObj = h.morayObj('napi_network_pools', POOLS[1].uuid);
+            var morayObj = mod_moray.getObj('napi_network_pools',
+                POOLS[1].uuid);
             t.ok(morayObj, 'got moray object');
 
             t.equal(morayObj.owner_uuids, ','

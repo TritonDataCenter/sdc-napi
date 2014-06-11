@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Joyent, Inc. All rights reserved.
+ * Copyright (c) 2014, Joyent, Inc. All rights reserved.
  *
  * Unit tests for network endpoints
  */
@@ -11,6 +11,7 @@ var constants = require('../../lib/util/constants');
 var fs = require('fs');
 var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
+var mod_moray = require('../lib/moray');
 var mod_net = require('../lib/net');
 var mod_uuid = require('node-uuid');
 var util = require('util');
@@ -589,7 +590,7 @@ exports['Update provision range'] = function (t) {
             });
 
         }, function (_, cb) {
-            t.deepEqual(h.getIPrecords(net.uuid), [
+            t.deepEqual(mod_moray.getIPs(net.uuid), [
                 placeholderRec('10.1.2.9'),
                 placeholderRec('10.1.2.251'),
                 adminOtherRec('10.1.2.255')
@@ -654,7 +655,7 @@ exports['Update provision range'] = function (t) {
             });
 
         }, function (_, cb) {
-            t.deepEqual(h.getIPrecords(net.uuid), [
+            t.deepEqual(mod_moray.getIPs(net.uuid), [
                 placeholderRec('10.1.2.9'),
                 zoneRec('10.1.2.19'),
                 zoneRec('10.1.2.241'),
@@ -768,7 +769,7 @@ exports['Update provision range'] = function (t) {
                         t.equal(res2[ip], p[ip], u.desc + ': ' + ip);
                     });
 
-                    t.deepEqual(h.getIPrecords(net.uuid), u.morayAfter,
+                    t.deepEqual(mod_moray.getIPs(net.uuid), u.morayAfter,
                         u.desc + ': moray');
 
                     NAPI.listIPs(net.uuid, function (err3, ips) {
@@ -921,7 +922,7 @@ exports['Update network - unset owner_uuids'] = {
 
     'moray state after create': function (t) {
         d.exp = d.networks[0];
-        var obj = h.morayObj('napi_networks', d.exp.uuid);
+        var obj = mod_moray.getObj('napi_networks', d.exp.uuid);
         t.ok(obj, 'Have moray obj');
 
         if (obj) {
@@ -978,7 +979,7 @@ exports['Update network - unset owner_uuids'] = {
 
     'moray state after update': function (t) {
         d.exp = d.networks[0];
-        var obj = h.morayObj('napi_networks', d.exp.uuid);
+        var obj = mod_moray.getObj('napi_networks', d.exp.uuid);
         t.ok(obj, 'Have moray obj');
 
         if (obj) {
@@ -1040,7 +1041,7 @@ exports['Update network - unset owner_uuids'] = {
 
     'moray state after empty array create': function (t) {
         d.exp = d.networks[1];
-        var obj = h.morayObj('napi_networks', d.exp.uuid);
+        var obj = mod_moray.getObj('napi_networks', d.exp.uuid);
         t.ok(obj, 'Have moray obj');
 
         if (obj) {

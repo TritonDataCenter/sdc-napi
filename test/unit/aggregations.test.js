@@ -9,6 +9,7 @@ var clone = require('clone');
 var constants = require('../../lib/util/constants');
 var mod_aggr = require('../lib/aggr');
 var mod_err = require('../../lib/util/errors');
+var mod_moray = require('../lib/moray');
 var mod_nic = require('../lib/nic');
 var mod_nic_tag = require('../lib/nic-tag');
 var mod_uuid = require('node-uuid');
@@ -242,7 +243,7 @@ exports['create'] = {
                 return t.done();
             }
 
-            var morayObj = h.morayObj('napi_aggregations', exp.id);
+            var morayObj = mod_moray.getObj('napi_aggregations', exp.id);
             t.ok(morayObj, 'got moray object');
             res.macs = params.macs.map(function (m) {
                 return util_mac.aton(m);

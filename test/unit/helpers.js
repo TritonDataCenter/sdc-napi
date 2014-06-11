@@ -13,7 +13,6 @@ var EventEmitter = require('events').EventEmitter;
 var ldapjs = require('ldapjs');
 var mock_moray = require('../lib/mock-moray');
 var mod_client = require('../lib/client');
-var mod_ip = require('../../lib/models/ip');
 var mod_uuid = require('node-uuid');
 var NAPI = require('../../lib/napi').NAPI;
 var restify = require('restify');
@@ -136,63 +135,6 @@ function fieldSort(a, b) {
 
 
 /**
- * Gets an IP record from fake moray
- */
-function getIPrecord(network, ip) {
-    var buckets = mock_moray._buckets;
-    var bucketName = mod_ip.bucket(network).name;
-    if (!buckets.hasOwnProperty(bucketName)) {
-        return util.format('Bucket %s not found', bucketName);
-    }
-
-    var rec = buckets[bucketName][util_ip.aton(ip).toString()];
-    if (rec) {
-        return rec.value;
-    }
-
-    return null;
-}
-
-
-/**
- * Gets all IP records for a network from fake moray
- */
-function getIPrecords(network) {
-    var buckets = mock_moray._buckets;
-    var bucketName = mod_ip.bucket(network).name;
-    if (!buckets.hasOwnProperty(bucketName)) {
-        return util.format('Bucket %s not found', bucketName);
-    }
-
-    return Object.keys(buckets[bucketName]).map(function (key) {
-        return buckets[bucketName][key].value;
-    }).sort(function (a, b) { return Number(a.ip) > Number(b.ip); });
-}
-
-
-/**
- * Gets mock moray errors
- */
-function getMorayErrors() {
-    return mock_moray._errors;
-}
-
-/**
- * Gets all nic records from fake moray, sorted by MAC address
- */
-function getNicRecords(network, ip) {
-    var bucket = mock_moray._buckets.napi_nics;
-    if (!bucket) {
-        return 'napi_nics bucket not found';
-    }
-
-    return Object.keys(bucket).sort().map(function (key) {
-        return bucket[key];
-    });
-}
-
-
-/**
  * Returns a missing parameter error array element
  */
 function missingParam(field, message) {
@@ -208,29 +150,6 @@ function missingParam(field, message) {
 
 
 /**
- * Returns the moray buckets
- */
-function morayBuckets() {
-    return mock_moray._buckets;
-}
-
-
-/**
- * Returns the moray buckets
- */
-function morayObj(bucketName, key) {
-    var bucket = mock_moray._buckets[bucketName];
-    assert.object(bucket, 'bucket');
-    var obj = bucket[key];
-    if (obj) {
-        return obj.value;
-    }
-
-    return null;
-}
-
-
-/**
  * Get the next provisionable IP address for the network object passed in
  */
 function nextProvisionableIP(net) {
@@ -242,14 +161,6 @@ function nextProvisionableIP(net) {
     }
 
     return util_ip.ntoa(NET_IPS[net.uuid]++);
-}
-
-
-/**
- * Sets moray to return errors for the given operations
- */
-function setMorayErrors(obj) {
-    mock_moray._errors = obj;
 }
 
 
@@ -341,18 +252,11 @@ module.exports = {
     createClientAndServer: createClientAndServer,
     fieldSort: fieldSort,
     ifErr: common.ifErr,
-    getIPrecord: getIPrecord,
-    getIPrecords: getIPrecords,
-    getMorayErrors: getMorayErrors,
-    getNicRecords: getNicRecords,
     invalidParamErr: common.invalidParamErr,
     missingParamErr: common.missingParamErr,
     missingParam: missingParam,
-    morayBuckets: morayBuckets,
-    morayObj: morayObj,
     nextProvisionableIP: nextProvisionableIP,
     randomMAC: common.randomMAC,
-    setMorayErrors: setMorayErrors,
     stopServer: stopServer,
     uuidSort: uuidSort,
     validIPparams: validIPparams,
