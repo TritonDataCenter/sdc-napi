@@ -131,7 +131,6 @@ function del(t, mac, callback) {
  */
 function get(t, opts, callback) {
     var client = opts.client || mod_client.get();
-    var desc = opts.desc ? (' ' + opts.desc) : '';
 
     assert.object(t, 't');
     assert.string(opts.mac, 'opts.mac');
@@ -141,34 +140,9 @@ function get(t, opts, callback) {
     assert.ok(opts.exp || opts.partialExp || opts.expErr,
             'one of exp, expErr, partialExp required');
 
-    client.getNic(opts.mac, function (err, res) {
-        if (opts.expErr) {
-            t.ok(err, 'expected error');
-            if (err) {
-                var code = opts.expCode || 422;
-                t.equal(err.statusCode, code, 'status code');
-                t.deepEqual(err.body, opts.expErr, 'error body');
-            }
-
-            return doneErr(err, t, callback);
-        }
-
-        if (common.ifErr(t, err, 'get nic ' + opts.mac + desc)) {
-            return doneErr(err, t, callback);
-        }
-
-        if (opts.exp) {
-            t.deepEqual(res, opts.exp, 'full result' + desc);
-        }
-
-        if (opts.partialExp) {
-            for (var p in opts.partialExp) {
-                t.equal(res[p], opts.partialExp[p], p + ' correct' + desc);
-            }
-        }
-
-        return doneRes(res, t, callback);
-    });
+    opts.type = 'nic';
+    opts.reqType = 'get';
+    client.getNic(opts.mac, common.afterAPIcall.bind(null, t, opts, callback));
 }
 
 
@@ -228,7 +202,6 @@ function provision(t, opts, callback) {
  */
 function update(t, opts, callback) {
     var client = opts.client || mod_client.get();
-    var desc = opts.desc ? (' ' + opts.desc) : '';
 
     assert.object(t, 't');
     assert.string(opts.mac, 'opts.mac');
@@ -239,36 +212,11 @@ function update(t, opts, callback) {
             'one of exp, expErr, partialExp required');
     assert.object(opts.params, 'opts.params');
 
-    client.updateNic(opts.mac, opts.params, function (err, obj, _, res) {
-        if (opts.expErr) {
-            t.ok(err, 'expected error');
-            if (err) {
-                var code = opts.expCode || 422;
-                t.equal(err.statusCode, code, 'status code');
-                t.deepEqual(err.body, opts.expErr, 'error body');
-            }
+    opts.type = 'nic';
+    opts.reqType = 'create';
 
-            return doneErr(err, t, callback);
-        }
-
-        if (common.ifErr(t, err, 'update nic: ' + opts.mac + desc)) {
-            return doneErr(err, t, callback);
-        }
-
-        if (opts.exp) {
-            t.deepEqual(obj, opts.exp, 'full result' + desc);
-        }
-
-        if (opts.partialExp) {
-            for (var p in opts.partialExp) {
-                t.equal(obj[p], opts.partialExp[p], p + ' correct' + desc);
-            }
-        }
-
-        t.equal(res.statusCode, 200, 'status code');
-
-        return doneRes(obj, t, callback);
-    });
+    client.updateNic(opts.mac, opts.params,
+        common.afterAPIcall.bind(null, t, opts, callback));
 }
 
 

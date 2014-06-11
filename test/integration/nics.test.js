@@ -10,6 +10,7 @@ var mod_err = require('../../lib/util/errors');
 var mod_nic = require('../lib/nic');
 var mod_uuid = require('node-uuid');
 var util = require('util');
+var util_ip = require('../../lib/util/ip');
 var util_mac = require('../../lib/util/mac');
 var vasync = require('vasync');
 
@@ -198,25 +199,12 @@ exports['POST /nics (with IP already reserved)'] = {
             nic_tag: state.network.nic_tag,
             vlan_id: state.network.vlan_id
         };
-        var mac = h.randomMAC();
-        d.desc = util.format(' [%s: with IP already reserved]', mac);
 
-        napi.createNic(mac, d.params, function (err, res) {
-            t.ok(err, 'error was returned');
-            if (!err) {
-                return t.done();
-            }
-
-            t.equal(err.statusCode, 422, 'status code');
-            t.deepEqual(err.body, h.invalidParamErr({
-                errors: [
-                    mod_err.usedByParam('ip', 'other', uuids.admin,
-                        util.format(constants.fmt.IP_IN_USE,
-                            'other', uuids.admin))
-                ]
-            }), 'Error body');
-
-            return t.done();
+        mod_nic.create(t, {
+            mac: h.randomMAC(),
+            params: d.params,
+            partialExp: d.params,
+            state: state
         });
     },
 
@@ -288,8 +276,6 @@ exports['POST /nics (with IP already reserved)'] = {
         });
     },
 
-    // XXX: do the same test, but updateNic() into a reserved IP
-
     'create with same IP': function (t) {
         var params = {
             owner_uuid: uuids.b,
@@ -307,6 +293,36 @@ exports['POST /nics (with IP already reserved)'] = {
                 util.format(constants.fmt.IP_IN_USE,
                     d.params.belongs_to_type, d.params.belongs_to_uuid))
         ] }));
+    },
+
+    'create second nic with no IP': function (t) {
+        d.mac = h.randomMAC();
+        var params = {
+            owner_uuid: uuids.b,
+            belongs_to_uuid: uuids.a,
+            belongs_to_type: 'server'
+        };
+
+        mod_nic.create(t, {
+            mac: d.mac,
+            params: params,
+            partialExp: params,
+            state: state
+        });
+    },
+
+    'update second nic to same IP': function (t) {
+        mod_nic.update(t, {
+            mac: d.mac,
+            params: {
+                ip: d.params.ip,
+                network_uuid: state.network.uuid
+            },
+            expErr: h.invalidParamErr({ errors: [
+                mod_err.duplicateParam('ip', util.format(
+                    constants.fmt.IP_EXISTS, state.network.uuid))
+            ] })
+        });
     }
 };
 

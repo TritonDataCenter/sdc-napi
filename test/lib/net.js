@@ -37,6 +37,7 @@ function create(t, opts, callback) {
     if (mac == 'generate') {
         mac = common.randomMAC();
     }
+    opts.reqType = 'create';
     opts.type = 'network';
 
     client.createNetwork(clone(opts.params),
@@ -83,6 +84,14 @@ function get(t, opts, callback) {
 
     client.getNetwork(opts.uuid, params,
         common.afterAPIcall.bind(null, t, opts, callback));
+}
+
+
+/**
+ * Returns the most recently created network
+ */
+function lastCreated() {
+    return common.lastCreated('networks');
 }
 
 
@@ -147,6 +156,7 @@ module.exports = {
     create: create,
     createAndGet: createAndGet,
     get: get,
+    lastCreated: lastCreated,
     list: list,
     update: update,
     updateAndGet: updateAndGet

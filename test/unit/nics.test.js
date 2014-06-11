@@ -11,12 +11,14 @@ var h = require('./helpers');
 var ip_common = require('../../lib/models/ip/common');
 var mod_err = require('../../lib/util/errors');
 var mod_ip = require('../lib/ip');
+var mod_net = require('../lib/net');
 var mod_nic = require('../lib/nic');
 var mod_uuid = require('node-uuid');
 var Network = require('../../lib/models/network').Network;
 var NicTag = require('../../lib/models/nic-tag').NicTag;
 var restify = require('restify');
 var util = require('util');
+var util_ip = require('../../lib/util/ip');
 var util_mac = require('../../lib/util/mac');
 var vasync = require('vasync');
 
@@ -407,6 +409,41 @@ exports['Create nic - empty nic_tags_provided'] = {
             }), 'Error body');
 
             return t.done();
+        });
+    }
+};
+
+
+exports['Create nic with resolver IP'] = {
+    'create net': function (t) {
+        var params = h.validNetworkParams();
+        params.resolvers = [
+            util_ip.ntoa(util_ip.aton(params.provision_start_ip) + 3) ];
+
+        mod_net.create(t, {
+            params: params,
+            partialExp: params,
+            state: d
+        });
+    },
+
+    'create': function (t) {
+        var net = mod_net.lastCreated();
+        t.ok(net, 'network created');
+
+        d.partialExp = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            ip: net.resolvers[0],
+            network_uuid: net.uuid,
+            owner_uuid:  mod_uuid.v4()
+        };
+
+        d.mac = h.randomMAC();
+        mod_nic.createAndGet(t, {
+            mac: d.mac,
+            params: d.partialExp,
+            partialExp: d.partialExp
         });
     }
 };
@@ -1308,6 +1345,54 @@ exports['Update nic - change IP'] = {
             net: NET.uuid,
             ip: d.ips[2],
             exp: d.expIPs[2]
+        });
+    }
+};
+
+
+exports['Update nic - add resolver IP'] = {
+    'create net': function (t) {
+        var params = h.validNetworkParams();
+        params.resolvers = [
+            util_ip.ntoa(util_ip.aton(params.provision_start_ip) + 3) ];
+
+        mod_net.create(t, {
+            params: params,
+            partialExp: params,
+            state: d
+        });
+    },
+
+    'create': function (t) {
+        d.partialExp = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            owner_uuid:  mod_uuid.v4()
+        };
+
+        d.mac = h.randomMAC();
+        mod_nic.create(t, {
+            mac: d.mac,
+            params: d.partialExp,
+            partialExp: d.partialExp
+        });
+    },
+
+    'update: add IP': function (t) {
+        d.net = d.networks[0];
+        var updateParams = {
+            ip: d.net.resolvers[0],
+            network_uuid: d.net.uuid
+        };
+
+        for (var k in updateParams) {
+            d.partialExp[k] = updateParams[k];
+        }
+
+        mod_nic.updateAndGet(t, {
+            mac: d.mac,
+            params: updateParams,
+            partialExp: d.partialExp
         });
     }
 };

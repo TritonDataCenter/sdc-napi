@@ -323,7 +323,7 @@ function validNetworkParams(override) {
         provision_start_ip: util.format('10.0.%d.1', NET_NUM),
         resolvers: ['8.8.8.8', '8.8.4.4'],
         subnet: util.format('10.0.%d.0/24', NET_NUM),
-        vlan_id: '0'
+        vlan_id: 0
     };
 
     for (var o in override) {

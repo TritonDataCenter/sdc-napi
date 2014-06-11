@@ -16,10 +16,26 @@ var NAPI = require('sdc-clients').NAPI;
 
 
 
+var CREATED = {};
+
+
+
+// --- Exported functions
+
+
+
 /**
- * Adds the given object to opts.state (if opts and opts.state are present)
+ * Adds the given object to:
+ * - CREATED[type]
+ * - opts.state (if opts and opts.state are present)
  */
 function addToState(opts, type, obj) {
+    if (!CREATED.hasOwnProperty(type)) {
+        CREATED[type] = [];
+    }
+
+    CREATED[type].push(obj);
+
     if (!opts.state || !obj) {
         return;
     }
@@ -172,6 +188,18 @@ function invalidParamErr(extra) {
 
 
 /**
+ * Gets the last created object of the given type (eg: nics, networks)
+ */
+function lastCreated(type) {
+    if (!CREATED.hasOwnProperty(type) || CREATED[type].length === 0) {
+        return null;
+    }
+
+    return CREATED[type][CREATED[type].length - 1];
+}
+
+
+/**
  * Returns an missing parameter error body, overriding with fields in
  * extra
  */
@@ -220,6 +248,7 @@ module.exports = {
     doneRes: doneRes,
     ifErr: ifErr,
     invalidParamErr: invalidParamErr,
+    lastCreated: lastCreated,
     missingParamErr: missingParamErr,
     randomMAC: randomMAC
 };
