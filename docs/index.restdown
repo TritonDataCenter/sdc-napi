@@ -157,8 +157,8 @@ Returns a list of all logical networks.
 
 ### Inputs
 
-All parameters are optional filters on the list. A network is output in the
-list if it matches *all* of the input parameters.
+All parameters are optional filters on the list. A network will be listed if
+it matches *all* of the input parameters.
 
 ||**Field**||**Type**||**Description**||
 ||name||String||network name||
@@ -787,6 +787,14 @@ in this list in succession, until it succeeds or runs out of networks.
 ## ListNetworkPools (GET /network_pools)
 
 Returns a list of all logical network pools.
+
+### Inputs
+
+All parameters are optional filters on the list. A network pool will be listed
+if it matches *all* of the input parameters.
+
+||**Field**||**Type**||**Description**||
+||provisionable_by||UUID||Return network pools that are provisionable by this owner_uuid||
 
 ### Example
 
