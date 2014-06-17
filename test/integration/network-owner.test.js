@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Joyent, Inc. All rights reserved.
+ * Copyright (c) 2014, Joyent, Inc. All rights reserved.
  *
  * Integration tests for /networks endpoints with owner_uuids specified
  */
@@ -25,6 +25,7 @@ var owner = mod_uuid.v4();
 var owner2 = mod_uuid.v4();
 var provisionable = [];
 var state = {
+    noOwnerPools: [],
     testName: 'network-owner'
 };
 var ufdsAdminUuid = helpers.ufdsAdminUuid;
@@ -110,6 +111,22 @@ function deleteNetworkPool(t, name, callback) {
 
 exports['create test nic tag'] = function (t) {
     helpers.createNicTag(t, napi, state);
+};
+
+
+// For the provisionable_by tests below, we want to get a list of any pools
+// without an owner that already exist, since these will show up in the
+// list
+exports['populate no owner pool list'] = function (t) {
+    mod_pool.list(t, { }, function (_, res) {
+        if (res) {
+            state.noOwnerPools = res.map(function (p) {
+                return p.uuid;
+            });
+        }
+
+        return t.done();
+    });
 };
 
 
@@ -309,7 +326,8 @@ exports['provisionable_by network pools: owner'] = {
 
             var uuids = res.map(function (n) { return n.uuid; }).sort();
             t.deepEqual(uuids,
-                [ state.noOwnerPool.uuid, state.ownerPool.uuid ].sort(),
+                state.noOwnerPools.concat([
+                    state.noOwnerPool.uuid, state.ownerPool.uuid ]).sort(),
                 'provisionable_by returns correct list');
             return t.done();
         });
@@ -361,7 +379,8 @@ exports['provisionable_by network pools: owner2'] = {
 
             var uuids = res.map(function (n) { return n.uuid; }).sort();
             t.deepEqual(uuids,
-                [ state.noOwnerPool.uuid, state.ownerPool2.uuid ].sort(),
+                state.noOwnerPools.concat([
+                    state.noOwnerPool.uuid, state.ownerPool2.uuid ]).sort(),
                 'provisionable_by returns correct list');
             return t.done();
         });
@@ -412,7 +431,8 @@ exports['provisionable_by network pools: other owner'] = {
             }
 
             var uuids = res.map(function (n) { return n.uuid; }).sort();
-            t.deepEqual(uuids, [ state.noOwnerPool.uuid ].sort(),
+            t.deepEqual(uuids, state.noOwnerPools.concat(
+                    [ state.noOwnerPool.uuid ]).sort(),
                 'provisionable_by returns correct list');
             return t.done();
         });

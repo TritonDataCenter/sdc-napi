@@ -1,10 +1,12 @@
 /*
- * Copyright (c) 2013, Joyent, Inc. All rights reserved.
+ * Copyright (c) 2014, Joyent, Inc. All rights reserved.
  *
  * Integration tests for /network-pools endpoints
  */
 
+var clone = require('clone');
 var helpers = require('./helpers');
+var mod_pool = require('../lib/pool');
 var util = require('util');
 var vasync = require('vasync');
 
@@ -18,6 +20,29 @@ var napi = helpers.createNAPIclient();
 var state = {
     pools: []
 };
+
+
+
+// --- Setup
+
+
+
+/*
+ * Tests whether or not a network pool is in the list
+ */
+function poolInList(t, pool, list) {
+    var found = 0;
+    for (var i = 0; i < list.length; i++) {
+        var cur = list[i];
+        if (cur.uuid == pool.uuid) {
+            t.deepEqual(cur, pool, util.format('pool %s in list', pool.name));
+            found++;
+        }
+    }
+
+    t.equal(found, 1,
+        util.format('found exactly 1 pool %s in list', pool.name));
+}
 
 
 
@@ -50,53 +75,51 @@ exports['create test network 3'] = function (t) {
 
 
 
-exports['POST /network_pools'] = function (t) {
-    var params = {
-        name: 'network_pool' + process.pid,
-        networks: [ state.network.uuid, state.network2.uuid ].sort()
-    };
-
-    napi.createNetworkPool(params.name, params, function (err, res) {
-        t.ifError(err, 'create test network pool: ' + params.uuid);
-        if (err) {
-            return t.done();
-        }
-
-        t.ok(res.uuid, 'test network pool ' + params.name +
-            ' uuid: ' + res.uuid);
-        state.pools.push(res);
-        params.uuid = res.uuid;
-        params.nic_tag = state.network.nic_tag;
-        t.deepEqual(res, params, 'create params');
-
-        return napi.getNetworkPool(res.uuid, function (err2, res2) {
-            t.ifError(err, 'get network pool: ' + params.uuid);
-            if (err) {
-                return t.done();
-            }
-
-            t.deepEqual(res2, params, 'get params for ' + params.uuid);
-            return t.done();
+exports['POST /network_pools'] = {
+    'first': function (t) {
+        mod_pool.createAndGet(t, {
+            name: '<generate>',
+            params: {
+                networks: [ state.network.uuid ].sort()
+            },
+            exp: {
+                networks: [ state.network.uuid ].sort(),
+                nic_tag: state.network.nic_tag
+            },
+            state: state
         });
-    });
+    },
+
+    'second': function (t) {
+        mod_pool.createAndGet(t, {
+            name: '<generate>',
+            params: {
+                networks: [ state.network.uuid, state.network2.uuid ].sort()
+            },
+            exp: {
+                networks: [ state.network.uuid, state.network2.uuid ].sort(),
+                nic_tag: state.network.nic_tag
+            },
+            state: state
+        });
+    }
 };
 
 
 exports['GET /network_pools'] = function (t) {
     napi.listNetworkPools(function (err, res) {
         t.ifError(err, 'get network pools');
-        var found = 0;
-        var pool0 = state.pools[0];
 
-        for (var i = 0; i < res.length; i++) {
-            var cur = res[i];
-            if (cur.uuid == pool0.uuid) {
-                t.deepEqual(cur, pool0, 'pool in list: ' + pool0.name);
-                found++;
-            }
-        }
+        poolInList(t, state.pools[0], res);
+        poolInList(t, state.pools[1], res);
 
-        t.equal(found, 1, 'found pool in list');
+        var uuids = res.map(function (p) {
+            return p.uuid;
+        });
+        var sorted = clone(uuids);
+        sorted.sort();
+
+        t.deepEqual(uuids, sorted, 'results returned sorted by UUIDs');
         return t.done();
     });
 };
@@ -131,7 +154,7 @@ exports['PUT /network_pools/:uuid'] = function (t) {
 };
 
 
-exports['DELETE /nic_tags'] = function (t) {
+exports['DELETE /network-pools/:uuid'] = function (t) {
     vasync.forEachParallel({
         inputs: state.pools,
         func: function (pool, cb) {

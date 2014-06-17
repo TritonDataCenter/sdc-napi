@@ -83,6 +83,11 @@ function afterAPIcall(t, opts, callback, err, res) {
     }
 
     if (opts.exp) {
+        if (opts.hasOwnProperty('idKey') &&
+            !opts.exp.hasOwnProperty(opts.idKey)) {
+            opts.exp[opts.idKey] = res[opts.idKey];
+        }
+
         t.deepEqual(res, opts.exp, type + 'full result' + desc);
     }
 

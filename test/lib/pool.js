@@ -49,6 +49,11 @@ function create(t, opts, callback) {
     }
     opts.reqType = 'create';
     opts.type = 'pool';
+    opts.idKey = 'uuid';
+
+    if (opts.exp && opts.name == '<generate>') {
+        opts.exp.name = name;
+    }
 
     client.createNetworkPool(name, clone(opts.params),
         common.afterAPIcall.bind(null, t, opts, callback));
@@ -67,7 +72,12 @@ function createAndGet(t, opts, callback) {
         }
 
         opts.uuid = res.uuid;
-        opts.reqType = 'get';
+        if (opts.exp && !opts.params.uuid) {
+            // We were assigned a UUID by NAPI, so add that to the
+            // expected params
+            opts.exp.uuid = res.uuid;
+        }
+
         return get(t, opts, callback);
     });
 }
