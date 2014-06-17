@@ -1,7 +1,7 @@
 {
   "name": "napi",
   "description": "Network Provisioning API",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "author": "Joyent (joyent.com)",
   "private": true,
   "dependencies": {
@@ -13,7 +13,7 @@
     "node-uuid": "1.2.0",
     "nodeunit": "0.8.5",
     "restify": "git+ssh://git@github.com:mcavage/node-restify.git#0d7b4ba",
-    "sdc-clients": "git+ssh://git@git.joyent.com:node-sdc-clients.git#dfa69b6aaafe3015fb780c13b116b8bf5fb5dab4",
+    "sdc-clients": "git+ssh://git@git.joyent.com:node-sdc-clients.git#4d4ed83",
     "vasync": "1.3",
     "verror": "1.3.5",
     "wf-client": "git+ssh://git@git.joyent.com:wf-client.git#48f100b",

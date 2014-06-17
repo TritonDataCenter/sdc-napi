@@ -8,6 +8,7 @@ var constants = require('../../lib/util/constants');
 var helpers = require('./helpers');
 var mod_err = require('../../lib/util/errors');
 var mod_uuid = require('node-uuid');
+var mod_pool = require('../lib/pool');
 var util = require('util');
 var util_ip = require('../../lib/util/ip');
 var vasync = require('vasync');
@@ -39,9 +40,9 @@ var ufdsAdminUuid = helpers.ufdsAdminUuid;
  */
 function checkProvisionSuccess(newOwner, t) {
     var params = {
-            belongs_to_type: 'zone',
-            belongs_to_uuid: mod_uuid.v4(),
-            owner_uuid: newOwner
+        belongs_to_type: 'zone',
+        belongs_to_uuid: mod_uuid.v4(),
+        owner_uuid: newOwner
     };
 
     napi.provisionNic(state.network.uuid, params, function (err, res) {
@@ -233,7 +234,7 @@ exports['provisionable_by network: owner'] = function (t) {
     var netUuid = state.ownerNet2.uuid;
 
     napi.getNetwork(netUuid, { params: { provisionable_by: owner } },
-                    function (err, res) {
+        function (err, res) {
         if (helpers.ifErr(t, err, 'get network')) {
             return t.done();
         }
@@ -249,13 +250,13 @@ exports['provisionable_by network: other owner'] = function (t) {
     var netUuid = state.ownerNet3.uuid;
 
     napi.getNetwork(netUuid, { params: { provisionable_by: owner } },
-                    function (err, res) {
+        function (err, res) {
         t.deepEqual(err, {
-            message: 'Owner cannot provision on network',
+            message: constants.msg.NET_OWNER,
             statusCode: 403,
             body: {
                 code: 'NotAuthorized',
-                message: 'Owner cannot provision on network'
+                message: constants.msg.NET_OWNER
             },
             restCode: 'NotAuthorized',
             name: 'NotAuthorizedError'
@@ -299,48 +300,161 @@ exports['provisionable_by networks'] = function (t) {
 };
 
 
-exports['provisionable_by network pools: owner'] = function (t) {
-    napi.listNetworkPools({ provisionable_by: owner }, function (err, res) {
-        if (helpers.ifErr(t, err, 'list network pools')) {
-            return t.done();
-        }
+exports['provisionable_by network pools: owner'] = {
+    'list': function (t) {
+        napi.listNetworkPools({ provisionable_by: owner }, function (err, res) {
+            if (helpers.ifErr(t, err, 'list network pools')) {
+                return t.done();
+            }
 
-        var uuids = res.map(function (n) { return n.uuid; }).sort();
-        t.deepEqual(uuids,
-            [ state.noOwnerPool.uuid, state.ownerPool.uuid ].sort(),
-            'provisionable_by returns correct list');
-        return t.done();
-    });
+            var uuids = res.map(function (n) { return n.uuid; }).sort();
+            t.deepEqual(uuids,
+                [ state.noOwnerPool.uuid, state.ownerPool.uuid ].sort(),
+                'provisionable_by returns correct list');
+            return t.done();
+        });
+    },
+
+    'get owner pool': function (t) {
+        mod_pool.get(t, {
+            uuid: state.ownerPool.uuid,
+            params: {
+                provisionable_by: owner
+            },
+            exp: state.ownerPool
+        });
+    },
+
+    'get owner pool 2': function (t) {
+        mod_pool.get(t, {
+            uuid: state.ownerPool2.uuid,
+            params: {
+                provisionable_by: owner
+            },
+            expCode: 403,
+            expErr: {
+                code: 'NotAuthorized',
+                message: constants.msg.POOL_OWNER
+            }
+        });
+    },
+
+    'get no owner pool': function (t) {
+        mod_pool.get(t, {
+            uuid: state.noOwnerPool.uuid,
+            params: {
+                provisionable_by: owner
+            },
+            exp: state.noOwnerPool
+        });
+    }
 };
 
 
-exports['provisionable_by network pools: owner2'] = function (t) {
-    napi.listNetworkPools({ provisionable_by: owner2 }, function (err, res) {
-        if (helpers.ifErr(t, err, 'list network pools')) {
-            return t.done();
-        }
+exports['provisionable_by network pools: owner2'] = {
+    'list': function (t) {
+        napi.listNetworkPools({ provisionable_by: owner2 },
+            function (err, res) {
+            if (helpers.ifErr(t, err, 'list network pools')) {
+                return t.done();
+            }
 
-        var uuids = res.map(function (n) { return n.uuid; }).sort();
-        t.deepEqual(uuids,
-            [ state.noOwnerPool.uuid, state.ownerPool2.uuid ].sort(),
-            'provisionable_by returns correct list');
-        return t.done();
-    });
+            var uuids = res.map(function (n) { return n.uuid; }).sort();
+            t.deepEqual(uuids,
+                [ state.noOwnerPool.uuid, state.ownerPool2.uuid ].sort(),
+                'provisionable_by returns correct list');
+            return t.done();
+        });
+    },
+
+    'get owner pool': function (t) {
+        mod_pool.get(t, {
+            uuid: state.ownerPool.uuid,
+            params: {
+                provisionable_by: owner2
+            },
+            expCode: 403,
+            expErr: {
+                code: 'NotAuthorized',
+                message: constants.msg.POOL_OWNER
+            }
+        });
+    },
+
+    'get owner pool 2': function (t) {
+        mod_pool.get(t, {
+            uuid: state.ownerPool2.uuid,
+            params: {
+                provisionable_by: owner2
+            },
+            exp: state.ownerPool2
+        });
+    },
+
+    'get no owner pool': function (t) {
+        mod_pool.get(t, {
+            uuid: state.noOwnerPool.uuid,
+            params: {
+                provisionable_by: owner2
+            },
+            exp: state.noOwnerPool
+        });
+    }
 };
 
 
-exports['provisionable_by network pools: other owner'] = function (t) {
-    napi.listNetworkPools({ provisionable_by: mod_uuid.v4() },
-        function (err, res) {
-        if (helpers.ifErr(t, err, 'list network pools')) {
-            return t.done();
-        }
+exports['provisionable_by network pools: other owner'] = {
+    'list': function (t) {
+        napi.listNetworkPools({ provisionable_by: mod_uuid.v4() },
+            function (err, res) {
+            if (helpers.ifErr(t, err, 'list network pools')) {
+                return t.done();
+            }
 
-        var uuids = res.map(function (n) { return n.uuid; }).sort();
-        t.deepEqual(uuids, [ state.noOwnerPool.uuid ].sort(),
-            'provisionable_by returns correct list');
-        return t.done();
-    });
+            var uuids = res.map(function (n) { return n.uuid; }).sort();
+            t.deepEqual(uuids, [ state.noOwnerPool.uuid ].sort(),
+                'provisionable_by returns correct list');
+            return t.done();
+        });
+    },
+
+    'get owner pool': function (t) {
+        mod_pool.get(t, {
+            uuid: state.ownerPool.uuid,
+            params: {
+                provisionable_by: mod_uuid.v4()
+            },
+            expCode: 403,
+            expErr: {
+                code: 'NotAuthorized',
+                message: constants.msg.POOL_OWNER
+            }
+        });
+    },
+
+    'get owner pool 2': function (t) {
+        mod_pool.get(t, {
+            uuid: state.ownerPool2.uuid,
+            params: {
+                provisionable_by: mod_uuid.v4()
+            },
+            expCode: 403,
+            expErr: {
+                code: 'NotAuthorized',
+                message: constants.msg.POOL_OWNER
+            }
+        });
+    },
+
+    'get no owner pool': function (t) {
+        mod_pool.get(t, {
+            uuid: state.noOwnerPool.uuid,
+            params: {
+                provisionable_by: mod_uuid.v4()
+            },
+            exp: state.noOwnerPool
+        });
+    }
 };
 
 

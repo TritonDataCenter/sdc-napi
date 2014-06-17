@@ -5,10 +5,13 @@
  */
 
 var async = require('async');
+var clone = require('clone');
 var constants = require('../../lib/util/constants');
 var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
 var mod_moray = require('../lib/moray');
+var mod_net = require('../lib/net');
+var mod_pool = require('../lib/pool');
 var mod_uuid = require('node-uuid');
 var util = require('util');
 var vasync = require('vasync');
@@ -19,6 +22,7 @@ var vasync = require('vasync');
 
 
 
+var d = {};
 // Set this to any of the exports in this file to only run that test,
 // plus setup and teardown
 var runOne;
@@ -29,6 +33,7 @@ var POOLS = [];
 
 
 // --- Internal helpers
+
 
 
 function netParams(extra) {
@@ -95,6 +100,10 @@ exports['Initial setup'] = function (t) {
 
         vasync.pipeline({
         funcs: [
+            function _deletePrevious(_, cb) {
+                mod_pool.delAll(t, {}, cb);
+            },
+
             function _nicTag(_, cb) {
                 NAPI.createNicTag(net1Params.nic_tag, cb);
             },
@@ -418,6 +427,83 @@ exports['Get pool'] = function (t) {
 };
 
 
+exports['provisionable_by network pools: owner'] = {
+    'create network': function (t) {
+        d.owners = [ mod_uuid.v4(), mod_uuid.v4() ];
+        var params = h.validNetworkParams({
+            owner_uuids: [ d.owners[0] ]
+        });
+
+        mod_net.create(t, {
+            params: params,
+            partialExp: params
+        });
+    },
+
+    'create': function (t) {
+        d.net = mod_net.lastCreated();
+        t.ok(d.net, 'Have last created network');
+
+        var params = {
+            networks: [ d.net.uuid ],
+            owner_uuids: [ d.owners[0] ]
+        };
+
+        mod_pool.create(t, {
+            name: '<generate>',
+            params: params,
+            partialExp: params
+        });
+    },
+
+    'list': function (t) {
+        d.pool = mod_pool.lastCreated();
+        t.ok(d.pool, 'Have last created pool');
+        POOLS.push(d.pool);
+
+        mod_pool.list(t, {
+            params: {
+                provisionable_by: d.owners[0]
+            }
+        }, function (err, res) {
+            if (err) {
+                return t.done();
+            }
+
+            t.ok(res.map(function (n) {
+                    return n.uuid;
+                }).indexOf(d.pool.uuid) !== -1,
+                'pool in list');
+            return t.done();
+        });
+    },
+
+    'get: provisionable_by owner': function (t) {
+        mod_pool.get(t, {
+            uuid: d.pool.uuid,
+            params: {
+                provisionable_by: d.owners[0]
+            },
+            exp: d.pool
+        });
+    },
+
+    'get: provisionable_by other': function (t) {
+        mod_pool.get(t, {
+            uuid: d.pool.uuid,
+            params: {
+                provisionable_by: d.owners[1]
+            },
+            expCode: 403,
+            expErr: {
+                code: 'NotAuthorized',
+                message: constants.msg.POOL_OWNER
+            }
+        });
+    }
+};
+
+
 
 // --- List tests
 
@@ -430,7 +516,9 @@ exports['List pools'] = function (t) {
             return t.done();
         }
 
-        t.deepEqual(res, POOLS, 'list result');
+        var sorted = clone(POOLS);
+        sorted.sort(h.uuidSort);
+        t.deepEqual(res.sort(h.uuidSort), sorted, 'list result');
         return t.done();
     });
 };

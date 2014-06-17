@@ -9,6 +9,7 @@ var clone = require('clone');
 var mod_err = require('../../lib/util/errors');
 var mod_uuid = require('node-uuid');
 var NAPI = require('sdc-clients').NAPI;
+var util = require('util');
 
 
 
@@ -102,6 +103,36 @@ function afterAPIcall(t, opts, callback, err, res) {
     }
 
     return doneRes(res, t, callback);
+}
+
+
+/**
+ * Shared test code for after API delete methods are called
+ */
+function afterAPIdelete(t, opts, callback, err, obj, req, res) {
+    var desc = opts.desc ? (' ' + opts.desc) : '';
+    assert.string(opts.type, 'opts.type');
+    assert.string(opts.id, 'opts.id');
+    var type = util.format('delete %s %s: ', opts.type, opts.id);
+
+    if (opts.expErr) {
+        t.ok(err, 'expected error');
+        if (err) {
+            var code = opts.expCode || 422;
+            t.equal(err.statusCode, code, 'status code');
+            t.deepEqual(err.body, opts.expErr, 'error body');
+        }
+
+        return doneErr(err, t, callback);
+    }
+
+    if (ifErr(t, err, type + desc)) {
+        return doneErr(err, t, callback);
+    }
+
+    t.equal(res.statusCode, 204, type + 'status code' + desc);
+
+    return doneRes(obj, t, callback);
 }
 
 
