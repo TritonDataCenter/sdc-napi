@@ -598,7 +598,7 @@ exports['Provision nic - on network pool'] = function (t) {
                     owner_uuid: params.owner_uuid,
                     primary: false,
                     resolvers: net.resolvers,
-                    status: 'running',
+                    state: 'running',
                     vlan_id: net.vlan_id
                 }, 'result for' + desc);
 
