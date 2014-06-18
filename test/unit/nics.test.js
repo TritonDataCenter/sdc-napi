@@ -184,7 +184,7 @@ exports['Create nic - all invalid params'] = function (t) {
         owner_uuid: 'invalid',
         primary: 'asdf',
         reserved: 'invalid',
-        status: 'oogabooga',
+        state: 'oogabooga',
         vlan_id: 'a'
     };
 
@@ -223,7 +223,7 @@ exports['Create nic - all invalid params'] = function (t) {
                 mod_err.invalidParam('owner_uuid', 'invalid UUID'),
                 mod_err.invalidParam('primary', 'must be a boolean value'),
                 mod_err.invalidParam('reserved', 'must be a boolean value'),
-                mod_err.invalidParam('status', 'must be a valid state'),
+                mod_err.invalidParam('state', 'must be a valid state'),
                 mod_err.invalidParam('vlan_id', constants.VLAN_MSG)
             ]
         }), 'Error body');
@@ -257,7 +257,7 @@ exports['Create nic - network_uuid=admin'] = function (t) {
             owner_uuid: params.owner_uuid,
             primary: false,
             resolvers: ADMIN_NET.resolvers,
-            status: 'running',
+            state: 'running',
             vlan_id: ADMIN_NET.vlan_id
         };
         t.deepEqual(res, exp, 'response');
@@ -312,10 +312,10 @@ exports['Create nic - invalid params'] = function (t) {
                 mod_err.invalidParam('vlan_id',
                     'No networks found matching parameters') ] ],
 
-        [ 'status must be a string',
+        [ 'state must be a string',
             { ip: '10.0.2.3', belongs_to_type: type, belongs_to_uuid: uuid,
-                owner_uuid: owner, network_uuid: NET.uuid, status: true },
-                [ mod_err.invalidParam('status', 'must be a string') ] ]
+                owner_uuid: owner, network_uuid: NET.uuid, state: true },
+                [ mod_err.invalidParam('state', 'must be a string') ] ]
     ];
 
     vasync.forEachParallel({
@@ -354,7 +354,7 @@ exports['Create nic - empty nic_tags_provided'] = {
         d.exp = {
             mac: mac,
             primary: false,
-            status: 'running'
+            state: 'running'
         };
         h.copyParams(d.params, d.exp);
         delete d.exp.nic_tags_provided;
@@ -510,7 +510,7 @@ exports['Provision nic'] = function (t) {
             primary: false,
             resolvers: NET2.resolvers,
             routes: NET2.routes,
-            status: 'running',
+            state: 'running',
             vlan_id: NET2.vlan_id
         };
         t.deepEqual(res, exp, 'result');
@@ -876,7 +876,7 @@ exports['Provision nic - with IP'] = {
                 primary: false,
                 resolvers: NET2.resolvers,
                 routes: NET2.routes,
-                status: 'running',
+                state: 'running',
                 vlan_id: NET2.vlan_id
             };
             t.deepEqual(res, d.exp, 'result');
@@ -995,12 +995,12 @@ exports['Provision nic - with IP'] = {
 };
 
 
-exports['Provision nic - with different status'] = function (t) {
+exports['Provision nic - with different state'] = function (t) {
     var params = {
         belongs_to_type: 'zone',
         belongs_to_uuid: mod_uuid.v4(),
         owner_uuid:  mod_uuid.v4(),
-        status: 'provisioning'
+        state: 'provisioning'
     };
 
     NAPI.provisionNic(NET2.uuid, params, function (err, res) {
@@ -1021,7 +1021,7 @@ exports['Provision nic - with different status'] = function (t) {
             primary: false,
             resolvers: NET2.resolvers,
             routes: NET2.routes,
-            status: 'provisioning',
+            state: 'provisioning',
             vlan_id: NET2.vlan_id
         }, 'result');
 
@@ -1068,7 +1068,7 @@ exports['Update nic - provision IP'] = {
             owner_uuid: d.params.owner_uuid,
             primary: false,
             resolvers: NET3.resolvers,
-            status: 'running',
+            state: 'running',
             vlan_id: NET3.vlan_id
         };
 
@@ -1127,7 +1127,7 @@ exports['Update nic - IP parameters updated'] = {
             owner_uuid: d.params.owner_uuid,
             primary: false,
             resolvers: NET.resolvers,
-            status: 'running',
+            state: 'running',
             vlan_id: NET.vlan_id
         };
 
@@ -1208,7 +1208,7 @@ exports['Update nic - change IP'] = {
             owner_uuid: params.owner_uuid,
             primary: false,
             resolvers: NET.resolvers,
-            status: 'running',
+            state: 'running',
             vlan_id: NET.vlan_id
         };
         d.other = mod_uuid.v4();
@@ -1452,7 +1452,7 @@ exports['Update nic - all invalid params'] = function (t) {
         owner_uuid: 'invalid',
         primary: 'invalid',
         reserved: 'invalid',
-        status: 'oogabooga',
+        state: 'oogabooga',
         vlan_id: 'a'
     };
 
@@ -1482,7 +1482,7 @@ exports['Update nic - all invalid params'] = function (t) {
                     mod_err.invalidParam('owner_uuid', 'invalid UUID'),
                     mod_err.invalidParam('primary', 'must be a boolean value'),
                     mod_err.invalidParam('reserved', 'must be a boolean value'),
-                    mod_err.invalidParam('status', 'must be a valid state'),
+                    mod_err.invalidParam('state', 'must be a valid state'),
                     mod_err.invalidParam('vlan_id', constants.VLAN_MSG)
                 ]
             }), 'Error body');
@@ -1531,9 +1531,9 @@ exports['Update nic - invalid params'] = function (t) {
                 mod_err.invalidParam('vlan_id',
                     'No networks found matching parameters') ] ],
 
-        [ 'status must be a valid state',
-            { ip: '10.0.2.2', network_uuid: NET.uuid, status: 'oogabooga' },
-                [ mod_err.invalidParam('status',
+        [ 'state must be a valid state',
+            { ip: '10.0.2.2', network_uuid: NET.uuid, state: 'oogabooga' },
+                [ mod_err.invalidParam('state',
                     'must be a valid state') ] ]
     ];
 
@@ -1660,7 +1660,7 @@ exports['Update nic - no changes'] = {
 };
 
 
-exports['Update nic - change status'] = function (t) {
+exports['Update nic - change state'] = function (t) {
     var params = {
         belongs_to_type: 'zone',
         belongs_to_uuid: mod_uuid.v4(),
@@ -1677,15 +1677,15 @@ exports['Update nic - change status'] = function (t) {
         }
         t.equal(res.ip, h.nextProvisionableIP(NET2), 'IP');
 
-        t.equal(res.status, 'running');
-        res.status = 'stopped';
+        t.equal(res.state, 'running');
+        res.state = 'stopped';
 
         NAPI.updateNic(res.mac, res, function (err2, res2) {
             if (h.ifErr(t, err2, 'update nic')) {
                 return t.done();
             }
 
-            t.deepEqual(res2, res, 'Status changed to stopped');
+            t.deepEqual(res2, res, 'state changed to stopped');
 
             return t.done();
         });

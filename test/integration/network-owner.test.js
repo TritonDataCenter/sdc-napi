@@ -55,7 +55,7 @@ function checkProvisionSuccess(newOwner, t) {
 
         params.mac = res.mac;
         params.primary = false;
-        params.status = 'running';
+        params.state = 'running';
 
         if (!nextIP) {
             nextIP = state.network.provision_start_ip;
