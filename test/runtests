@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 #
-# Copyright (c) 2013, Joyent, Inc. All rights reserved.
+# Copyright (c) 2014, Joyent, Inc. All rights reserved.
 #
-# Run the NAPI tests. This is expected to be run from the NAPI
-# install dir: /opt/smartdc/napi
+# Run API tests. This is expected to be run from the API
+# install dir: /opt/smartdc/{napi,fwapi,etc}
 #
-# This creates .tap files in the OUTPUT_DIR (/var/tmp/napitest) that
-# can be processed by a TAP reader. Testing config and log files are
-# also placed in this dir.
+# This creates .tap files in OUTPUT_DIR that can be processed by a TAP reader.
+# Testing config and log files are also placed in this dir.
 #
 # Run `./runtests -h` for usage info.
 #
 
+API=napi
 if [ "$TRACE" != "" ]; then
     export PS4='${BASH_SOURCE}:${LINENO}: ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
     set -o xtrace
@@ -91,10 +91,10 @@ done
 
 
 # Setup a clean output dir.
-OUTPUT_DIR=/var/tmp/napitest
+OUTPUT_DIR=/var/tmp/${API}test
 echo "# Setup a clean output dir ($OUTPUT_DIR)."
-rm -rf /var/tmp/napitest
-mkdir -p /var/tmp/napitest
+rm -rf $OUTPUT_DIR
+mkdir -p /$OUTPUT_DIR
 
 cd $TOP
 
@@ -143,7 +143,7 @@ if [[ ${fail} -gt 0 ]]; then
     echo -e "# \033[31mFAIL: ${fail} / ${tests}\033[39m"
     echo ""
     echo -e "# \033[31mFAILING TESTS:\033[39m"
-    grep -l "^# fail  [0-9]" /var/tmp/napitest/*.tap | sed -e 's,/var/tmp/napitest/,,' -e 's,.tap,,' -e 's,^,#   ,'
+    grep -l "^# fail  [0-9]" ${OUTPUT_DIR}/*.tap | sed -e "s,${OUTPUT_DIR}/,," -e 's,.tap,,' -e 's,^,#   ,'
 fi
 echo ""
 
