@@ -1214,26 +1214,33 @@ exports['DELETE /nics/:mac'] = function (t) {
 exports['Check IPs are freed along with nics'] = function (t) {
     var ips = Object.keys(state.ip);
 
-    var checkIP = function (ipNum, cb) {
-        var ip = state.ip[ipNum];
-        var desc = util.format(' %s/%s%s',
-            state.network.uuid, ip, state.desc[ipNum]);
+    var checkIP = function (ipDesc, cb) {
+        var ip = state.ip[ipDesc];
+        var net = state.network;
+
+        if (ipDesc == 'putIPwithName') {
+            net = state.adminNet;
+        }
+
+        var desc = util.format(' %s/%s%s', net.uuid, ip, state.desc[ipDesc]);
 
         if (!ip) {
-            t.ok(false, 'IP "' + ipNum + '" does not exist:' + desc);
+            t.ok(false, 'IP "' + ipDesc + '" does not exist:' + desc);
             return cb();
         }
 
-        napi.getIP(state.network.uuid, ip, function (err, res) {
+        napi.getIP(net.uuid, ip, function (err, res) {
             t.ifError(err, 'get updated IP' + desc);
             if (err) {
+                t.deepEqual(net, {},
+                    util.format('network for Failing IP: %s', desc));
                 return cb();
             }
 
             var exp = {
                 free: true,
                 ip: ip,
-                network_uuid: state.network.uuid,
+                network_uuid: net.uuid,
                 reserved: false
             };
             t.deepEqual(res, exp, 'Updated IP params correct' + desc);
