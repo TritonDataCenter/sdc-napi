@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 #
-# Copyright (c) 2013, Joyent, Inc. All rights reserved.
+# Copyright (c) 2014, Joyent, Inc. All rights reserved.
 #
-# Run a single NAPI test of any type.
+# Run a single test of any type.
 
 TOP=$(cd $(dirname $0)/../; pwd)
 NODE_INSTALL=$TOP/node
 NODEUNIT=$TOP/node_modules/.bin/nodeunit
 UNAME=$(uname -s)
 
-guard_file=/var/tmp/.sdc-test-no-production-data
+guard_file=/lib/sdc/.sdc-test-no-production-data
 if [[ $UNAME == "SunOS" ]] && [[ ! -f "$guard_file" ]]; then
     cat <<EOF
 To run this test you must create the file:

@@ -13,6 +13,7 @@ var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
 var mod_moray = require('../lib/moray');
 var mod_net = require('../lib/net');
+var mod_nic = require('../lib/nic');
 var mod_uuid = require('node-uuid');
 var util = require('util');
 var util_ip = require('../../lib/util/ip');
@@ -933,25 +934,14 @@ exports['Update network - unset owner_uuids'] = {
     },
 
     'list after create': function (t) {
-        mod_net.list(t, { provisionable_by: d.owners[0] },
-            function (err, res) {
-            if (err) {
-                return t.done();
-            }
-
-            var found;
-            res.forEach(function (n) {
-                if (n.uuid == d.exp.uuid) {
-                    found = n;
-                }
-            });
-
-            t.ok(found, 'found network in list');
-            if (found) {
-                t.deepEqual(found.owner_uuids, d.owners, 'owner_uuids correct');
-            }
-
-            return t.done();
+        mod_net.list(t, {
+            params: {
+                provisionable_by: d.owners[0]
+            },
+            present: [ {
+                uuid: d.exp.uuid,
+                owner_uuids: d.owners
+            } ]
         });
     },
 
@@ -991,26 +981,14 @@ exports['Update network - unset owner_uuids'] = {
     },
 
     'list after update': function (t) {
-        mod_net.list(t, { provisionable_by: d.owners[0] },
-            function (err, res) {
-            if (err) {
-                return t.done();
-            }
-
-            var found;
-            res.forEach(function (n) {
-                if (n.uuid == d.exp.uuid) {
-                    found = n;
-                }
-            });
-
-            t.ok(found, 'found network in list');
-            if (found) {
-                t.ok(!found.hasOwnProperty('owner_uuids'),
-                    'no owner_uuids property');
-            }
-
-            return t.done();
+        mod_net.list(t, {
+            params: {
+                provisionable_by: d.owners[0]
+            },
+            present: [ {
+                uuid: d.exp.uuid,
+                owner_uuids: undefined
+            } ]
         });
     },
 
@@ -1053,26 +1031,12 @@ exports['Update network - unset owner_uuids'] = {
     },
 
     'list after empty create': function (t) {
-        mod_net.list(t, { provisionable_by: d.owners[0] },
-            function (err, res) {
-            if (err) {
-                return t.done();
-            }
-
-            var found;
-            res.forEach(function (n) {
-                if (n.uuid == d.exp.uuid) {
-                    found = n;
-                }
-            });
-
-            t.ok(found, 'found network in list');
-            if (found) {
-                t.ok(!found.hasOwnProperty('owner_uuids'),
-                    'no owner_uuids property');
-            }
-
-            return t.done();
+        mod_net.get(t, {
+            uuid: d.exp.uuid,
+            params: {
+                provisionable_by: d.owners[1]
+            },
+            exp: d.exp
         });
     },
 
@@ -1083,6 +1047,28 @@ exports['Update network - unset owner_uuids'] = {
                 provisionable_by: d.owners[1]
             },
             exp: d.exp
+        });
+    },
+
+    'get after moray object change': function (t) {
+        var obj = mod_moray.getObj('napi_networks', d.exp.uuid);
+        obj.owner_uuids = ',,';
+
+        mod_net.get(t, {
+            uuid: d.exp.uuid,
+            params: {
+                provisionable_by: d.owners[1]
+            },
+            exp: d.exp
+        });
+    },
+
+    'list after moray object change': function (t) {
+        mod_net.list(t, {
+            present: [ {
+                uuid: d.exp.uuid,
+                owner_uuids: undefined
+            } ]
         });
     }
 };

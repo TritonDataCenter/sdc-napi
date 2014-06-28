@@ -279,6 +279,7 @@ function randomMAC() {
 module.exports = {
     addToState: addToState,
     afterAPIcall: afterAPIcall,
+    afterAPIdelete: afterAPIdelete,
     createClient: createClient,
     doneErr: doneErr,
     doneRes: doneRes,
