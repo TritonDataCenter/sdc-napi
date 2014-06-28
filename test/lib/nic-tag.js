@@ -16,6 +16,14 @@ var doneErr = common.doneErr;
 
 
 
+// --- Globals
+
+
+
+var NUM = 0;
+
+
+
 // --- Exports
 
 
@@ -25,7 +33,6 @@ var doneErr = common.doneErr;
  */
 function create(t, opts, callback) {
     var client = opts.client || mod_client.get();
-    var desc = opts.desc ? (' ' + opts.desc) : '';
 
     assert.object(t, 't');
     assert.optionalObject(opts.exp, 'opts.exp');
@@ -33,21 +40,50 @@ function create(t, opts, callback) {
     assert.string(opts.name, 'opts.name');
     assert.optionalObject(opts.partialExp, 'opts.partialExp');
 
-    log.debug({ tagName: opts.name }, 'creating nic tag');
-    client.createNicTag(opts.name, function (err, obj, _, res) {
-        if (common.ifErr(t, err, 'create nic tag ' + opts.name + desc)) {
-            return doneErr(err, t, callback);
-        }
+    var name = opts.name;
+    if (name == '<generate>') {
+        name = util.format('test_tag%d_%d', NUM++, process.pid);
+    }
 
-        common.addToState(opts, 'nic_tags', res);
-        t.equal(res.statusCode, 200, 'status code');
+    opts.reqType = 'create';
+    opts.type = 'nic_tag';
+    log.debug({ tagName: name }, 'creating nic tag');
 
-        return doneRes(obj, t, callback);
-    });
+    client.createNicTag(name,
+        common.afterAPIcall.bind(null, t, opts, callback));
+}
+
+
+/**
+ * Delete a nic tag
+ */
+function del(t, opts, callback) {
+    var client = opts.client || mod_client.get();
+
+    assert.object(t, 't');
+    assert.string(opts.name, 'opts.name');
+    assert.optionalObject(opts.expErr, 'opts.expErr');
+
+    opts.type = 'nic_tag';
+    opts.id = opts.name;
+    var params = opts.params || {};
+
+    client.deleteNicTag(opts.name, params,
+        common.afterAPIdelete.bind(null, t, opts, callback));
+}
+
+
+/**
+ * Returns the most recently created nic tag
+ */
+function lastCreated() {
+    return common.lastCreated('nic_tags');
 }
 
 
 
 module.exports = {
-    create: create
+    create: create,
+    del: del,
+    lastCreated: lastCreated
 };
