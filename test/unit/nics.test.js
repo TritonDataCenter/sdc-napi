@@ -1181,6 +1181,21 @@ exports['Update nic - IP parameters updated'] = {
                 reserved: false
             }
         });
+    },
+
+    'update when moray IP object has changed': function (t) {
+        var ipObj = mod_moray.getIP(NET.uuid, d.exp.ip);
+        t.ok(ipObj, 'have IP object');
+        ipObj.network = {};
+
+        ipObj = mod_moray.getIP(NET.uuid, d.exp.ip);
+        t.deepEqual(ipObj.network, {});
+
+        mod_nic.update(t, {
+            mac: d.mac,
+            params: d.exp,
+            exp: d.exp
+        });
     }
 };
 
