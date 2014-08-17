@@ -12,6 +12,7 @@ NODEUNIT	:= ./node_modules/.bin/nodeunit
 #
 # Files
 #
+RESTDOWN_FLAGS   = --brand-dir=deps/restdown-brand-remora
 DOC_FILES	 = index.restdown
 JS_FILES	:= $(shell ls *.js) $(shell find lib test -name '*.js') \
 	bin/ip2num bin/num2ip bin/mac2num bin/num2mac sbin/import-data
