@@ -10,7 +10,7 @@
 
 #
 # NAPI Makefile
-
+#
 
 #
 # Tools
@@ -30,6 +30,7 @@ JSSTYLE_FILES	 = $(JS_FILES)
 JSSTYLE_FLAGS    = -o indent=4,doxygen,unparenthesized-return=0
 SMF_MANIFESTS_IN = smf/manifests/napi.xml.in
 BASH_FILES	:= sbin/napid bin/napictl
+JSON_FILES  := package.json config.json.sample
 
 ifeq ($(shell uname -s),SunOS)
 	NODE_PREBUILT_VERSION := v0.8.26
