@@ -15,11 +15,13 @@
 #
 # Tools
 #
+
 NODEUNIT	:= ./node_modules/.bin/nodeunit
 
 #
 # Files
 #
+
 RESTDOWN_FLAGS   = --brand-dir=deps/restdown-brand-remora
 DOC_FILES	 = index.restdown
 JS_FILES	:= $(shell ls *.js) $(shell find lib test -name '*.js') \
@@ -54,6 +56,7 @@ INSTDIR         := $(PKGDIR)/root/opt/smartdc/napi
 #
 # Repo-specific targets
 #
+
 .PHONY: all
 all: $(SMF_MANIFESTS) | $(NODEUNIT) $(REPO_DEPS) sdc-scripts
 	$(NPM) install
@@ -78,6 +81,7 @@ teststop:
 #
 # Packaging targets
 #
+
 .PHONY: release
 release: $(RELEASE_TARBALL)
 
@@ -129,6 +133,7 @@ publish: release
 #
 # Includes
 #
+
 include ./tools/mk/Makefile.deps
 ifeq ($(shell uname -s),SunOS)
 	include ./tools/mk/Makefile.node_prebuilt.targ

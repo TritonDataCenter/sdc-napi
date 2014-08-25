@@ -296,7 +296,7 @@ $(DOC_MEDIA_FILES_BUILD): | $(DOC_MEDIA_DIRS_BUILD)
 $(DOC_BUILD)/%: docs/% | $(DOC_BUILD)
 	$(CP) $< $@
 
-docs/%.json docs/%.html: docs/%$(RESTDOWN_EXT) | $(DOC_BUILD) $(RESTDOWN_EXEC)
+docs/%.json docs/%.html: docs/%$(RESTDOWN_EXT) | $(DOC_BUILD) $(RESTDOWN_EXEC) deps/restdown-brand-remora/.git
 	$(RESTDOWN) $(RESTDOWN_FLAGS) -m $(DOC_BUILD) $<
 
 $(DOC_BUILD):
