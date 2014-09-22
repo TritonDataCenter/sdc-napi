@@ -1,7 +1,7 @@
 ---
 title: Networking API (NAPI)
 apisections: Nic Tags, Networks, IPs, Nics, Network Pools, Search, Link Aggregations
-markdown2extras: wiki-tables, code-friendly
+markdown2extras: tables, code-friendly
 ---
 <!--
     This Source Code Form is subject to the terms of the Mozilla Public
@@ -101,8 +101,9 @@ Creates a nic tag.
 
 ### Inputs
 
-||**Field**||**Type**||**Description**||
-||name||String||nic tag name||
+| Field | Type   | Description  |
+| ----- | ------ | ------------ |
+| name  | String | nic tag name |
 
 ### Example
 
@@ -120,8 +121,9 @@ Updates a nic tag.
 
 ### Inputs
 
-||**Field**||**Type**||**Description**||
-||name||String||new nic tag name||
+| Field | Type   | Description      |
+| ----- | ------ | ---------------- |
+| name  | String | new nic tag name |
 
 ### Example
 
@@ -161,11 +163,12 @@ Returns a list of all logical networks.
 All parameters are optional filters on the list. A network will be listed if
 it matches *all* of the input parameters.
 
-||**Field**||**Type**||**Description**||
-||name||String||network name||
-||vlan_id||Integer||VLAN ID||
-||nic_tag||String||Nic Tag name||
-||provisionable_by||UUID||Return networks that are provisionable by this owner_uuid||
+| Field            | Type    | Description                                               |
+| ---------------- | ------- | --------------------------------------------------------- |
+| name             | String  | network name                                              |
+| vlan_id          | Integer | VLAN ID                                                   |
+| nic_tag          | String  | Nic Tag name                                              |
+| provisionable_by | UUID    | Return networks that are provisionable by this owner_uuid |
 
 
 **Notes:**
@@ -215,18 +218,19 @@ Creates a new logical network
 
 ### Inputs
 
-||**Field**||**Type**||**Description**||
-||name||String||network name||
-||vlan_id||Number||VLAN ID (0 if no VLAN ID)||
-||subnet||CIDR||Subnet||
-||provision_start_ip||IP||First IP address to allow provisioning on||
-||provision_end_ip||IP||Last IP address to allow provisioning on||
-||nic_tag||String||Name of the nic tag that this logical network is over||
-||gateway||IP||Gateway IP address (Optional)||
-||resolvers||Array of IPs||Resolver IP addresses (Optional)||
-||routes||Routes Object||Static routes for hosts on this network (Optional)||
-||owner_uuids||Array of UUIDs||UFDS user UUIDs allowed to provision on this network (Optional)||
-||description||String||Description (Optional)||
+| Field              | Type           | Description                                                     |
+| ------------------ | -------------- | --------------------------------------------------------------- |
+| name               | String         | network name                                                    |
+| vlan_id            | Number         | VLAN ID (0 if no VLAN ID)                                       |
+| subnet             | CIDR           | Subnet                                                          |
+| provision_start_ip | IP             | First IP address to allow provisioning on                       |
+| provision_end_ip   | IP             | Last IP address to allow provisioning on                        |
+| nic_tag            | String         | Name of the nic tag that this logical network is over           |
+| gateway            | IP             | Gateway IP address (Optional)                                   |
+| resolvers          | Array of IPs   | Resolver IP addresses (Optional)                                |
+| routes             | Routes Object  | Static routes for hosts on this network (Optional)              |
+| owner_uuids        | Array of UUIDs | UFDS user UUIDs allowed to provision on this network (Optional) |
+| description        | String         | Description (Optional)                                          |
 
 **Notes:**
 
@@ -290,15 +294,16 @@ a workflow to be run to update VMs on that network with the changes:
 All fields are optional. At least one must be specified. Only the parameters
 specified in the update are changed, leaving all others unchanged.
 
-||**Field**||**Type**||**Description**||
-||name||String||network name||
-||gateway||IP||Gateway IP address||
-||provision_start_ip||IP||First IP address to allow provisioning on||
-||provision_end_ip||IP||Last IP address to allow provisioning on||
-||resolvers||Array of IPs||Resolver IP addresses||
-||routes||Routes Object||Static routes for hosts on this network (See the Routes Object description above)||
-||owner_uuids||Array of UUIDs||UFDS user UUIDs allowed to provision on this network||
-||description||String||Description||
+| Field              | Type           | Description                                                                       |
+| ------------------ | -------------- | --------------------------------------------------------------------------------- |
+| name               | String         | network name                                                                      |
+| gateway            | IP             | Gateway IP address                                                                |
+| provision_start_ip | IP             | First IP address to allow provisioning on                                         |
+| provision_end_ip   | IP             | Last IP address to allow provisioning on                                          |
+| resolvers          | Array of IPs   | Resolver IP addresses                                                             |
+| routes             | Routes Object  | Static routes for hosts on this network (See the Routes Object description above) |
+| owner_uuids        | Array of UUIDs | UFDS user UUIDs allowed to provision on this network                              |
+| description        | String         | Description                                                                       |
 
 **Notes:**
 
@@ -346,8 +351,9 @@ Gets a logical network by UUID.
 
 All fields are optional.
 
-|| **Field**        || **Type** || **Description** ||
-|| provisionable_by || UUID     || Check whether network is allowed to be provisioned by an owner UUID ||
+| Field            | Type | Description                                                         |
+| ---------------- | ---- | ------------------------------------------------------------------- |
+| provisionable_by | UUID | Check whether network is allowed to be provisioned by an owner UUID |
 
 ### Example
 
@@ -385,15 +391,16 @@ Creates a new nic, provisioning an IP and MAC address in the process.
 
 ### Inputs
 
-||**Field**||**Type**||**Description**||
-||owner_uuid||UUID||Nic Owner||
-||belongs_to_uuid||UUID||The UUID of what this Nic belongs to||
-||belongs_to_type||String||The type that this belongs to (eg: 'zone', 'server')||
-||ip||String||IP address to assign to the nic||
-||reserved||Boolean||Whether the IP address should be reserved||
-||nic_tags_provided||Array of nic tag names||Nic tags this nic provides||
-||check_owner||Boolean||If set to false, skips network ownership checks (optional)||
-||status||String||Set state nic starts in (one of 'provisioning', 'stopped', 'running') (optional)||
+| Field             | Type                   | Description                                                                      |
+| ----------------- | ---------------------- | -------------------------------------------------------------------------------- |
+| owner_uuid        | UUID                   | Nic Owner                                                                        |
+| belongs_to_uuid   | UUID                   | The UUID of what this Nic belongs to                                             |
+| belongs_to_type   | String                 | The type that this belongs to (eg: 'zone', 'server')                             |
+| ip                | String                 | IP address to assign to the nic                                                  |
+| reserved          | Boolean                | Whether the IP address should be reserved                                        |
+| nic_tags_provided | Array of nic tag names | Nic tags this nic provides                                                       |
+| check_owner       | Boolean                | If set to false, skips network ownership checks (optional)                       |
+| status            | String                 | Set state nic starts in (one of 'provisioning', 'stopped', 'running') (optional) |
 
 **Notes:**
 
@@ -484,13 +491,14 @@ Modifies a specific IP on a Logical Network.
 
 ### Inputs
 
-||**Field**||**Type**||**Description**||
-||owner_uuid||UUID||IP Owner||
-||belongs_to_uuid||UUID||The UUID of what this IP belongs to||
-||belongs_to_type||String||The type that this belongs to (eg: 'zone', 'server')||
-||reserved||Boolean||Whether the IP address should be reserved||
-||unassign||Boolean||When set, removes belongs_to_uuid and belongs_to_type, ignoring all other parameters in the request||
-||check_owner||Boolean||If set to false, skips network ownership checks (optional)||
+| Field           | Type    | Description                                                                                         |
+| --------------- | ------- | --------------------------------------------------------------------------------------------------- |
+| owner_uuid      | UUID    | IP Owner                                                                                            |
+| belongs_to_uuid | UUID    | The UUID of what this IP belongs to                                                                 |
+| belongs_to_type | String  | The type that this belongs to (eg: 'zone', 'server')                                                |
+| reserved        | Boolean | Whether the IP address should be reserved                                                           |
+| unassign        | Boolean | When set, removes belongs_to_uuid and belongs_to_type, ignoring all other parameters in the request |
+| check_owner     | Boolean | If set to false, skips network ownership checks (optional)                                          |
 
 ### Reserved IPs
 
@@ -531,12 +539,13 @@ Returns a list of all nics.
 All parameters are optional filters on the list. A nic is output in the list
 if it matches *all* of the input parameters.
 
-||**Field**||**Type**||**Description**||
-||owner_uuid||UUID||Nic Owner||
-||belongs_to_uuid||UUID||The UUID of what this Nic belongs to||
-||belongs_to_type||String||The type that this belongs to (eg: 'zone', 'server')||
-||nic_tag||String||The nic tag that this nic is on||
-||nic_tags_provided||Array of nic tag names||Nic tags provided by the nic||
+| Field             | Type                   | Description                                          |
+| ----------------- | ---------------------- | ---------------------------------------------------- |
+| owner_uuid        | UUID                   | Nic Owner                                            |
+| belongs_to_uuid   | UUID                   | The UUID of what this Nic belongs to                 |
+| belongs_to_type   | String                 | The type that this belongs to (eg: 'zone', 'server') |
+| nic_tag           | String                 | The nic tag that this nic is on                      |
+| nic_tags_provided | Array of nic tag names | Nic tags provided by the nic                         |
 
 Note: all filter fields above can have multiple comma-separated values to search
 on (like a logical OR).
@@ -644,25 +653,26 @@ on (like a logical OR).
 
 Creates a new nic.
 
-||**Field**||**Type**||**Description**||
-||mac||String||MAC address||
-||owner_uuid||UUID||Nic Owner||
-||belongs_to_uuid||UUID||The UUID of what this Nic belongs to||
-||belongs_to_type||String||The type that this belongs to (eg: 'zone', 'server')||
-||ip||String||IP address to assign to the nic||
-||network_uuid||UUID||UUID of the network or network pool to provision an IP on||
-||nic_tag||String||Nic tag (required if IP specified)||
-||vlan_id||Number||VLAN ID (required if IP specified)||
-||reserved||Boolean||Whether the IP address should be reserved||
-||nic_tags_provided||Array of nic tag names||Nic tags this nic provides||
-||model||String||Nic model for KVM VMs (optional for other VM types)||
-||check_owner||Boolean||If set to false, skips network ownership checks (optional)||
-||status||String||Set state nic starts in (one of 'provisioning', 'stopped', 'running') (optional)||
-||allow_dhcp_spoofing||Boolean||Allow operating a DHCP server on this nic||
-||allow_ip_spoofing||Boolean||Allow sending and receiving packets that don't match the nic's IP||
-||allow_mac_spoofing||Boolean||Allow sending and receiving packets that don't match the nic's MAC address||
-||allow_restricted_traffic||Boolean||Allow sending restricted network traffic (packets that are not IPv4, IPv6 or ARP)||
-||allow_unfiltered_promisc||Boolean||Allow this VM to have multiple MAC addresses||
+| Field                    | Type                   | Description                                                                       |
+| ------------------------ | ---------------------- | --------------------------------------------------------------------------------- |
+| mac                      | String                 | MAC address                                                                       |
+| owner_uuid               | UUID                   | Nic Owner                                                                         |
+| belongs_to_uuid          | UUID                   | The UUID of what this Nic belongs to                                              |
+| belongs_to_type          | String                 | The type that this belongs to (eg: 'zone', 'server')                              |
+| ip                       | String                 | IP address to assign to the nic                                                   |
+| network_uuid             | UUID                   | UUID of the network or network pool to provision an IP on                         |
+| nic_tag                  | String                 | Nic tag (required if IP specified)                                                |
+| vlan_id                  | Number                 | VLAN ID (required if IP specified)                                                |
+| reserved                 | Boolean                | Whether the IP address should be reserved                                         |
+| nic_tags_provided        | Array of nic tag names | Nic tags this nic provides                                                        |
+| model                    | String                 | Nic model for KVM VMs (optional for other VM types)                               |
+| check_owner              | Boolean                | If set to false, skips network ownership checks (optional)                        |
+| status                   | String                 | Set state nic starts in (one of 'provisioning', 'stopped', 'running') (optional)  |
+| allow_dhcp_spoofing      | Boolean                | Allow operating a DHCP server on this nic                                         |
+| allow_ip_spoofing        | Boolean                | Allow sending and receiving packets that don't match the nic's IP                 |
+| allow_mac_spoofing       | Boolean                | Allow sending and receiving packets that don't match the nic's MAC address        |
+| allow_restricted_traffic | Boolean                | Allow sending restricted network traffic (packets that are not IPv4, IPv6 or ARP) |
+| allow_unfiltered_promisc | Boolean                | Allow this VM to have multiple MAC addresses                                      |
 
 
 ### Example
@@ -714,20 +724,21 @@ Returns the nic with the given MAC address.
 
 Changes properties of the nic with the given MAC address.
 
-||**Field**||**Type**||**Description**||
-||owner_uuid||UUID||Nic Owner||
-||belongs_to_uuid||UUID||The UUID of what this Nic belongs to||
-||belongs_to_type||String||The type that this belongs to (eg: 'zone', 'server')||
-||ip||String||IP address to assign to the nic||
-||network_uuid||UUID||The network UUID the nic's IP should be on||
-||nic_tags_provided||Array of nic tag names||Nic tags this nic provides||
-||model||String||Nic model for KVM VMs (optional for other VM types)||
-||check_owner||Boolean||If set to false, skips network ownership checks (optional)||
-||allow_dhcp_spoofing||Boolean||Allow operating a DHCP server on this nic||
-||allow_ip_spoofing||Boolean||Allow sending and receiving packets that don't match the nic's IP||
-||allow_mac_spoofing||Boolean||Allow sending and receiving packets that don't match the nic's MAC address||
-||allow_restricted_traffic||Boolean||Allow sending restricted network traffic (packets that are not IPv4, IPv6 or ARP)||
-||allow_unfiltered_promisc||Boolean||Allow this VM to have multiple MAC addresses||
+| Field                    | Type                   | Description                                                                       |
+| ------------------------ | ---------------------- | --------------------------------------------------------------------------------- |
+| owner_uuid               | UUID                   | Nic Owner                                                                         |
+| belongs_to_uuid          | UUID                   | The UUID of what this Nic belongs to                                              |
+| belongs_to_type          | String                 | The type that this belongs to (eg: 'zone', 'server')                              |
+| ip                       | String                 | IP address to assign to the nic                                                   |
+| network_uuid             | UUID                   | The network UUID the nic's IP should be on                                        |
+| nic_tags_provided        | Array of nic tag names | Nic tags this nic provides                                                        |
+| model                    | String                 | Nic model for KVM VMs (optional for other VM types)                               |
+| check_owner              | Boolean                | If set to false, skips network ownership checks (optional)                        |
+| allow_dhcp_spoofing      | Boolean                | Allow operating a DHCP server on this nic                                         |
+| allow_ip_spoofing        | Boolean                | Allow sending and receiving packets that don't match the nic's IP                 |
+| allow_mac_spoofing       | Boolean                | Allow sending and receiving packets that don't match the nic's MAC address        |
+| allow_restricted_traffic | Boolean                | Allow sending restricted network traffic (packets that are not IPv4, IPv6 or ARP) |
+| allow_unfiltered_promisc | Boolean                | Allow this VM to have multiple MAC addresses                                      |
 
 
 **Note: this is the MAC address with all colons removed.**
@@ -794,8 +805,9 @@ Returns a list of all logical network pools.
 All parameters are optional filters on the list. A network pool will be listed
 if it matches *all* of the input parameters.
 
-||**Field**||**Type**||**Description**||
-||provisionable_by||UUID||Return network pools that are provisionable by this owner_uuid||
+| Field            | Type | Description                                                    |
+| ---------------- | ---- | -------------------------------------------------------------- |
+| provisionable_by | UUID | Return network pools that are provisionable by this owner_uuid |
 
 ### Example
 
@@ -826,10 +838,11 @@ Creates a new logical network provisioning pool.
 
 ### Inputs
 
-||**Field**||**Type**||**Description**||
-||name||String||network provisioning pool name||
-||networks||Array of UUIDs||Logical Network UUIDs||
-||owner_uuids||Array of UUIDs||UFDS user UUIDs allowed to provision on this network pool (Optional)||
+| Field       | Type           | Description                                                          |
+| ----------- | -------------- | -------------------------------------------------------------------- |
+| name        | String         | network provisioning pool name                                       |
+| networks    | Array of UUIDs | Logical Network UUIDs                                                |
+| owner_uuids | Array of UUIDs | UFDS user UUIDs allowed to provision on this network pool (Optional) |
 
 **Notes:**
 
@@ -878,9 +891,10 @@ Changes a logical network provisioning pool.
 
 Must specify at least one of:
 
-||**Field**||**Type**||**Description**||
-||name||String||network provisioning pool name||
-||networks||Array of UUIDs||Logical Network UUIDs||
+| Field    | Type           | Description                    |
+| -------- | -------------- | ------------------------------ |
+| name     | String         | network provisioning pool name |
+| networks | Array of UUIDs | Logical Network UUIDs          |
 
 ### Example
 
@@ -922,8 +936,9 @@ Searches IPs across all logical networks.
 
 ### Inputs
 
-||**Field**||**Type**||**Description**||
-||ip||IP address||IP address to search for (required)||
+| Field | Type       | Description                         |
+| ----- | ---------- | ----------------------------------- |
+| ip    | IP address | IP address to search for (required) |
 
 
 ### Example
@@ -962,10 +977,11 @@ Returns a list of aggregations, optionally filtered by parameters.
 
 All parameters are optional filters on the list.
 
-||**Field**||**Type**||**Description**||
-||belongs_to_uuid||UUID||The UUID of the Compute Node the aggregation belongs to||
-||macs||Array of MAC addresses||MAC addresses of nics in the aggregation||
-||nic_tags_provided||Array of nic tag names||Nic tags provided by the nic||
+| Field             | Type                   | Description                                             |
+| ----------------- | ---------------------- | ------------------------------------------------------- |
+| belongs_to_uuid   | UUID                   | The UUID of the Compute Node the aggregation belongs to |
+| macs              | Array of MAC addresses | MAC addresses of nics in the aggregation                |
+| nic_tags_provided | Array of nic tag names | Nic tags provided by the nic                            |
 
 ### Example
 
@@ -1017,11 +1033,12 @@ Creates an aggregation.
 
 ### Inputs
 
-||**Field**||**Type**||**Description**||
-||name||String||aggregation name (**required**)||
-||lacp_mode||String||aggregation LACP mode: can be active, passive or off (default: off)||
-||macs||Array of Strings||MAC addresses of links in the aggregation (**required**)||
-||nic_tags_provided||Array of nic tag names||nic tags that this aggregation provides (same parameter as in [CreateNic](#CreateNic))||
+| Field             | Type                   | Description                                                                            |
+| ----------------- | ---------------------- | -------------------------------------------------------------------------------------- |
+| name              | String                 | aggregation name (**required**)                                                        |
+| lacp_mode         | String                 | aggregation LACP mode: can be active, passive or off (default: off)                    |
+| macs              | Array of Strings       | MAC addresses of links in the aggregation (**required**)                               |
+| nic_tags_provided | Array of nic tag names | nic tags that this aggregation provides (same parameter as in [CreateNic](#CreateNic)) |
 
 ### Example
 
@@ -1053,10 +1070,11 @@ Updates an aggregation.
 
 ### Inputs
 
-||**Field**||**Type**||**Description**||
-||lacp_mode||String||aggregation LACP mode: can be active, passive or off (default: off)||
-||macs||Array of Strings||MAC addresses of links in the aggregation||
-||nic_tags_provided||Array of nic tag names||nic tags that this aggregation provides (same parameter as in [CreateNic](#CreateNic))||
+| Field             | Type                   | Description                                                                            |
+| ----------------- | ---------------------- | -------------------------------------------------------------------------------------- |
+| lacp_mode         | String                 | aggregation LACP mode: can be active, passive or off (default: off)                    |
+| macs              | Array of Strings       | MAC addresses of links in the aggregation                                              |
+| nic_tags_provided | Array of nic tag names | nic tags that this aggregation provides (same parameter as in [CreateNic](#CreateNic)) |
 
 ### Example
 
