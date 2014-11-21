@@ -2,7 +2,7 @@
   "port": 80,
   "datacenter": "{{{datacenter_name}}}",
   "logLevel": "{{{NAPI_LOG_LEVEL}}}",
-  "useNetAgent": {{#USE_NET_AGENT}}true{{/USE_NET_AGENT}}{{^USE_NET_AGENT}}false{{/USE_NET_AGENT}},
+  "useNetAgent": true,
   "macOUI": "{{{napi_mac_prefix}}}",
   "moray": {
     "host": "{{{MORAY_SERVICE}}}",
