@@ -16,7 +16,7 @@
 # Tools
 #
 
-NODEUNIT	:= ./node_modules/.bin/nodeunit
+TAPE	:= ./node_modules/.bin/tape
 
 #
 # Files
@@ -61,23 +61,19 @@ INSTDIR         := $(PKGDIR)/root/opt/smartdc/napi
 #
 
 .PHONY: all
-all: $(SMF_MANIFESTS) | $(NODEUNIT) $(REPO_DEPS) sdc-scripts
+all: $(SMF_MANIFESTS) | $(TAPE) $(REPO_DEPS) sdc-scripts
 	$(NPM) install
 
-$(NODEUNIT): | $(NPM_EXEC)
+$(TAPE): | $(NPM_EXEC)
 	$(NPM) install
 
-CLEAN_FILES += $(NODEUNIT) ./node_modules/nodeunit
+CLEAN_FILES += $(TAPE) ./node_modules/tape
 
 .PHONY: test
-test: $(NODEUNIT)
-	@$(NODEUNIT) --reporter=tap test/unit/*.test.js
-
-.PHONY: teststop
-teststop:
+test: $(TAPE)
 	@(for F in test/unit/*.test.js; do \
 		echo "# $$F" ;\
-		$(NODEUNIT) --reporter tap $$F ;\
+		$(TAPE) $$F ;\
 		[[ $$? == "0" ]] || exit 1; \
 	done)
 
@@ -101,6 +97,7 @@ pkg: all $(SMF_MANIFESTS)
 		$(TOP)/bin \
 		$(TOP)/lib \
 		$(TOP)/node_modules \
+		$(TOP)/package.json \
 		$(TOP)/sapi_manifests \
 		$(TOP)/sbin \
 		$(INSTDIR)/

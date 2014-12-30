@@ -12,12 +12,11 @@
  * MAC address utility unit tests
  */
 
-
 var MAC = require('../../lib/util/mac');
+var test = require('tape');
 
 
-
-exports['macOUItoNumber - valid'] = function (t) {
+test('macOUItoNumber - valid', function (t) {
     var macs = [
         ['90b8d0', 159123438043136, '90:b8:d0:00:00:00'],
         ['ffffff', 281474959933440, 'ff:ff:ff:00:00:00']
@@ -28,11 +27,12 @@ exports['macOUItoNumber - valid'] = function (t) {
         t.equal(MAC.macNumberToAddress(macs[m][1]), macs[m][2],
             'MAC address "' +macs[m][2] + '" is valid');
     }
-    t.done();
-};
+
+    t.end();
+});
 
 
-exports['macNumberToAddress - valid'] = function (t) {
+test('macNumberToAddress - valid', function (t) {
     var macs = {
         '281474976710655': 'ff:ff:ff:ff:ff:ff',
         '345052807169': '00:50:56:c0:00:01',
@@ -46,11 +46,12 @@ exports['macNumberToAddress - valid'] = function (t) {
         t.equal(MAC.macAddressToNumber(macs[m].replace(/:/g, '-')), Number(m),
             'MAC number "' + m + '" is valid (with dashes)');
     }
-    t.done();
-};
+
+    t.end();
+});
 
 
-exports['macAddressToNumber - invalid'] = function (t) {
+test('macAddressToNumber - invalid', function (t) {
     var macs = [
         'asdf', 'ff:ff:ff:ff:ff:fg', 'ff:ff:ff:ff:ff:ff1',
         'ff:ff:ff:ff:ff:ff:11'
@@ -60,5 +61,6 @@ exports['macAddressToNumber - invalid'] = function (t) {
         t.equal(MAC.macAddressToNumber(macs[m]), null,
             'MAC address "' + macs[m] + '" is invalid');
     }
-    t.done();
-};
+
+    t.end();
+});

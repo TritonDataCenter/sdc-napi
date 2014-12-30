@@ -20,6 +20,7 @@ var helpers = require('./helpers');
 var mod_err = require('../../lib/util/errors');
 var mod_uuid = require('node-uuid');
 var restify = require('restify');
+var test = require('tape');
 var util = require('util');
 var vasync = require('vasync');
 
@@ -29,9 +30,6 @@ var vasync = require('vasync');
 
 
 
-// Set this to any of the exports in this file to only run that test,
-// plus setup and teardown
-var runOne;
 var RESERVED_IP = '10.0.2.15';
 var NAPI;
 var NETS = [];
@@ -55,7 +53,7 @@ function uuidSort(a, b) {
 
 
 
-exports['Initial setup'] = function (t) {
+test('Initial setup', function (t) {
     var netParams = helpers.validNetworkParams();
     var net2Params = helpers.validNetworkParams({
         name: 'net2-' + process.pid
@@ -101,9 +99,9 @@ exports['Initial setup'] = function (t) {
 
     ] }, function (pipeErr) {
         helpers.ifErr(t, pipeErr, 'setup pipeline');
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
 
@@ -111,7 +109,7 @@ exports['Initial setup'] = function (t) {
 
 
 
-exports['provisioned nic'] = function (t) {
+test('provisioned nic', function (t) {
     var params = {
         belongs_to_uuid: mod_uuid.v4(),
         belongs_to_type: 'zone',
@@ -120,12 +118,12 @@ exports['provisioned nic'] = function (t) {
 
     NAPI.provisionNic(NETS[2].uuid, params, function (err, nic) {
         if (helpers.ifErr(t, err, 'provision')) {
-            return t.done();
+            return t.end();
         }
 
         NAPI.searchIPs(nic.ip, function (err2, res2) {
             if (helpers.ifErr(t, err2, 'search')) {
-                return t.done();
+                return t.end();
             }
 
             t.deepEqual(res2, [
@@ -140,16 +138,16 @@ exports['provisioned nic'] = function (t) {
                 }
             ], 'response');
 
-            return t.done();
+            return t.end();
         });
     });
-};
+});
 
 
-exports['Multiple IPs: both in moray and not'] = function (t) {
+test('Multiple IPs: both in moray and not', function (t) {
     NAPI.searchIPs(RESERVED_IP, function (err, obj, req, res) {
         if (helpers.ifErr(t, err, 'search')) {
-            return t.done();
+            return t.end();
         }
 
         t.equal(res.statusCode, 200, 'status code');
@@ -169,16 +167,16 @@ exports['Multiple IPs: both in moray and not'] = function (t) {
 
         ].sort(uuidSort), 'response');
 
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['Invalid IP'] = function (t) {
+test('Invalid IP', function (t) {
     NAPI.searchIPs('asdf', function (err) {
         t.ok(err, 'error returned');
         if (!err) {
-            return t.done();
+            return t.end();
         }
 
         t.deepEqual(err.body, helpers.invalidParamErr({
@@ -187,16 +185,16 @@ exports['Invalid IP'] = function (t) {
             ]
         }), 'Error body');
 
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['IP not in any networks'] = function (t) {
+test('IP not in any networks', function (t) {
     NAPI.searchIPs('1.2.3.4', function (err) {
         t.ok(err, 'error returned');
         if (!err) {
-            return t.done();
+            return t.end();
         }
 
         t.equal(err.statusCode, 404, 'status code');
@@ -205,9 +203,9 @@ exports['IP not in any networks'] = function (t) {
             message: 'No networks found containing that IP address'
         }, 'Error body');
 
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
 
@@ -215,20 +213,9 @@ exports['IP not in any networks'] = function (t) {
 
 
 
-exports['Stop server'] = function (t) {
+test('Stop server', function (t) {
     helpers.stopServer(function (err) {
         t.ifError(err, 'server stop');
-        t.done();
+        t.end();
     });
-};
-
-
-
-// Use to run only one test in this file:
-if (runOne) {
-    module.exports = {
-        setup: exports['Initial setup'],
-        oneTest: runOne,
-        teardown: exports['Stop server']
-    };
-}
+});

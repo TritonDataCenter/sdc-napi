@@ -14,7 +14,7 @@
 
 TOP=$(cd $(dirname $0)/../; pwd)
 NODE_INSTALL=$TOP/node
-NODEUNIT=$TOP/node_modules/.bin/nodeunit
+TAPE=$TOP/node_modules/.bin/tape
 UNAME=$(uname -s)
 
 guard_file=/lib/sdc/.sdc-test-no-production-data
@@ -29,4 +29,4 @@ EOF
     exit 2
 fi
 
-PATH=$NODE_INSTALL/bin:$PATH $NODEUNIT --reporter=tap $1
+PATH=$NODE_INSTALL/bin:$PATH $TAPE $1

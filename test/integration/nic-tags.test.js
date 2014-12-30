@@ -12,7 +12,8 @@
  * Integration tests for /nic-tags endpoints
  */
 
-var helpers = require('./helpers');
+var h = require('./helpers');
+var test = require('tape');
 var util = require('util');
 var vasync = require('vasync');
 
@@ -22,7 +23,7 @@ var vasync = require('vasync');
 
 
 
-var napi = helpers.createNAPIclient();
+var napi = h.createNAPIclient();
 var state = {
     nicTags: []
 };
@@ -33,7 +34,7 @@ var state = {
 
 
 
-exports['POST /nic_tags'] = function (t) {
+test('POST /nic_tags', function (t) {
     var createNicTag = function (name, cb) {
         napi.createNicTag(name, function (err, res) {
             t.ifError(err, 'create test nic tag: ' + name);
@@ -61,12 +62,12 @@ exports['POST /nic_tags'] = function (t) {
         inputs: tagNames,
         func: createNicTag
     }, function (err, res) {
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['GET /nic_tags'] = function (t) {
+test('GET /nic_tags', function (t) {
     napi.listNicTags(function (err, res) {
         t.ifError(err, 'get nic tags');
         // Don't assume that there are no other nic tags
@@ -89,12 +90,12 @@ exports['GET /nic_tags'] = function (t) {
         }
 
         t.equal(found, 2, 'both tags found in list');
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['DELETE /nic_tags'] = function (t) {
+test('DELETE /nic_tags', function (t) {
     vasync.forEachParallel({
         inputs: state.nicTags,
         func: function (tag, cb) {
@@ -104,6 +105,6 @@ exports['DELETE /nic_tags'] = function (t) {
             });
         }
     }, function (err, res) {
-        return t.done();
+        return t.end();
     });
-};
+});
