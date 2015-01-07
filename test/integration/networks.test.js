@@ -12,7 +12,8 @@
  * Integration tests for /networks endpoints
  */
 
-var helpers = require('./helpers');
+var h = require('./helpers');
+var test = require('tape');
 var util = require('util');
 var UUID = require('node-uuid');
 var vasync = require('vasync');
@@ -23,11 +24,11 @@ var vasync = require('vasync');
 
 
 
-var napi = helpers.createNAPIclient();
+var napi = h.createNAPIclient();
 var state = {
     testName: 'networks'
 };
-var ufdsAdminUuid = helpers.ufdsAdminUuid;
+var ufdsAdminUuid = h.ufdsAdminUuid;
 
 
 
@@ -35,14 +36,14 @@ var ufdsAdminUuid = helpers.ufdsAdminUuid;
 
 
 
-exports['create test nic tag'] = function (t) {
-    helpers.createNicTag(t, napi, state);
-};
+test('create test nic tag', function (t) {
+    h.createNicTag(t, napi, state);
+});
 
 
-exports['create second test nic tag'] = function (t) {
-    helpers.createNicTag(t, napi, state, 'nicTag2');
-};
+test('create second test nic tag', function (t) {
+    h.createNicTag(t, napi, state, 'nicTag2');
+});
 
 
 
@@ -50,7 +51,7 @@ exports['create second test nic tag'] = function (t) {
 
 
 
-exports['POST /networks (invalid nic tag)'] = function (t) {
+test('POST /networks (invalid nic tag)', function (t) {
     var params = {
         name: 'networks-integration-' + process.pid + '-invalid',
         vlan_id: 2,
@@ -65,7 +66,7 @@ exports['POST /networks (invalid nic tag)'] = function (t) {
     napi.createNetwork(params, function (err, res) {
         t.ok(err, 'error creating network');
         if (!err) {
-            return t.done();
+            return t.end();
         }
 
         t.deepEqual(err.body, {
@@ -80,12 +81,12 @@ exports['POST /networks (invalid nic tag)'] = function (t) {
             ]
         }, 'Error is correct');
 
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['POST /networks'] = function (t) {
+test('POST /networks', function (t) {
     var params = {
         name: 'networks-integration-' + process.pid,
         vlan_id: 0,
@@ -100,7 +101,7 @@ exports['POST /networks'] = function (t) {
     napi.createNetwork(params, function (err, res) {
         t.ifError(err, 'create network');
         if (err) {
-            return t.done();
+            return t.end();
         }
 
         params.uuid = res.uuid;
@@ -108,20 +109,20 @@ exports['POST /networks'] = function (t) {
         state.network = res;
         t.deepEqual(res, params, 'parameters returned for network ' + res.uuid);
 
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['Create network on second nic tag'] = function (t) {
+test('Create network on second nic tag', function (t) {
     var params = {
         nic_tag: state.nicTag2.name
     };
-    helpers.createNetwork(t, napi, state, params, 'network2');
-};
+    h.createNetwork(t, napi, state, params, 'network2');
+});
 
 
-exports['validate IPs created with network'] = function (t) {
+test('validate IPs created with network', function (t) {
     var ips = [ '10.99.99.1', '10.99.99.2'].reduce(function (arr, i) {
             arr.push({
                 ip: i,
@@ -150,42 +151,42 @@ exports['validate IPs created with network'] = function (t) {
         func: checkIP,
         inputs: ips
     }, function (err) {
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['GET /networks/:uuid'] = function (t) {
+test('GET /networks/:uuid', function (t) {
     napi.getNetwork(state.network.uuid, function (err, res) {
         t.ifError(err, 'get network: ' + state.network.uuid);
         if (err) {
-            return t.done();
+            return t.end();
         }
 
         t.deepEqual(res, state.network, 'network params correct');
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['GET /networks/admin'] = function (t) {
+test('GET /networks/admin', function (t) {
     napi.getNetwork('admin', function (err, res) {
         t.ifError(err, 'get admin network');
         if (err) {
-            return t.done();
+            return t.end();
         }
 
         t.equal(res.name, 'admin', 'admin network found');
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['GET /networks'] = function (t) {
+test('GET /networks', function (t) {
     napi.listNetworks(function (err, res) {
         t.ifError(err, 'get networks');
         if (err) {
-            return t.done();
+            return t.end();
         }
 
         t.ok(res.length > 0, 'have networks in list');
@@ -201,12 +202,12 @@ exports['GET /networks'] = function (t) {
         }
 
         t.ok(found, 'found the test network');
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['GET /networks (filtered)'] = function (t) {
+test('GET /networks (filtered)', function (t) {
     var filter = {
         name: state.network.name
     };
@@ -216,17 +217,17 @@ exports['GET /networks (filtered)'] = function (t) {
         t.ifError(err, 'get networks' + desc);
         t.ok(res, 'list returned' + desc);
         if (err || !res) {
-            return t.done();
+            return t.end();
         }
 
         t.equal(res.length, 1, 'only matches one network' + desc);
         t.deepEqual(res[0], state.network, 'network params match' + desc);
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['GET /networks (filter: multiple nic tags)'] = function (t) {
+test('GET /networks (filter: multiple nic tags)', function (t) {
     var filters = [
         { nic_tag: [ state.nicTag.name, state.nicTag2.name ] },
         { nic_tag: state.nicTag.name + ',' + state.nicTag2.name }
@@ -239,7 +240,7 @@ exports['GET /networks (filter: multiple nic tags)'] = function (t) {
             t.ifError(err, 'get networks' + desc);
             t.ok(res, 'list returned' + desc);
             if (err || !res) {
-                return t.done();
+                return t.end();
             }
 
             var found = 0;
@@ -269,13 +270,13 @@ exports['GET /networks (filter: multiple nic tags)'] = function (t) {
         func: filterList,
         inputs: filters
     }, function (err) {
-        t.done();
+        t.end();
     });
 
-};
+});
 
 
-exports['POST /networks (empty gateway)'] = function (t) {
+test('POST /networks (empty gateway)', function (t) {
     var params = {
         name: 'networks-integration-' + process.pid + '-3',
         vlan_id: 0,
@@ -290,7 +291,7 @@ exports['POST /networks (empty gateway)'] = function (t) {
     napi.createNetwork(params, function (err, res) {
         t.ifError(err, 'create network');
         if (err) {
-            return t.done();
+            return t.end();
         }
 
         params.uuid = res.uuid;
@@ -299,12 +300,12 @@ exports['POST /networks (empty gateway)'] = function (t) {
         t.deepEqual(res, params, 'parameters returned for network ' + res.uuid);
         state.network3 = res;
 
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['POST /networks (single resolver)'] = function (t) {
+test('POST /networks (single resolver)', function (t) {
     var params = {
         name: 'networks-integration-single-resolver-' + process.pid,
         vlan_id: 104,
@@ -319,7 +320,7 @@ exports['POST /networks (single resolver)'] = function (t) {
     napi.createNetwork(params, function (err, res) {
         t.ifError(err, 'create network');
         if (err) {
-            return t.done();
+            return t.end();
         }
 
         params.uuid = res.uuid;
@@ -330,17 +331,17 @@ exports['POST /networks (single resolver)'] = function (t) {
         napi.getNetwork(res.uuid, function (err2, res2) {
             t.ifError(err2, 'create network');
             if (err2) {
-                return t.done();
+                return t.end();
             }
 
             t.deepEqual(res2, params, 'get parameters for network ' + res.uuid);
-            return t.done();
+            return t.end();
         });
     });
-};
+});
 
 
-exports['POST /networks (comma-separated resolvers)'] = function (t) {
+test('POST /networks (comma-separated resolvers)', function (t) {
     var params = {
         name: 'networks-integration-comma-resolver-' + process.pid,
         vlan_id: 105,
@@ -355,7 +356,7 @@ exports['POST /networks (comma-separated resolvers)'] = function (t) {
     napi.createNetwork(params, function (err, res) {
         t.ifError(err, 'create network');
         if (err) {
-            return t.done();
+            return t.end();
         }
 
         params.uuid = res.uuid;
@@ -367,21 +368,22 @@ exports['POST /networks (comma-separated resolvers)'] = function (t) {
         napi.getNetwork(res.uuid, function (err2, res2) {
             t.ifError(err2, 'create network');
             if (err2) {
-                return t.done();
+                return t.end();
             }
 
             t.deepEqual(res2, params, 'get parameters for network ' + res.uuid);
-            return t.done();
+            return t.end();
         });
     });
-};
+});
+
 
 
 // --- Teardown
 
 
 
-exports['DELETE /networks/:uuid'] = function (t) {
+test('DELETE /networks/:uuid', function (t) {
     var names = ['network', 'network2', 'network3', 'singleResolver',
         'commaResolvers'];
 
@@ -399,16 +401,16 @@ exports['DELETE /networks/:uuid'] = function (t) {
         func: deleteNet,
         inputs: names
     }, function (err) {
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['remove test nic tag'] = function (t) {
-    helpers.deleteNicTag(t, napi, state);
-};
+test('remove test nic tag', function (t) {
+    h.deleteNicTag(t, napi, state);
+});
 
 
-exports['remove second test nic tag'] = function (t) {
-    helpers.deleteNicTag(t, napi, state, 'nicTag2');
-};
+test('remove second test nic tag', function (t) {
+    h.deleteNicTag(t, napi, state, 'nicTag2');
+});

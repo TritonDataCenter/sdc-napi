@@ -16,13 +16,13 @@ var assert = require('assert-plus');
 var async = require('async');
 var clone = require('clone');
 var constants = require('../../lib/util/constants');
-var fs = require('fs');
 var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
 var mod_moray = require('../lib/moray');
 var mod_net = require('../lib/net');
 var mod_nic = require('../lib/nic');
 var mod_uuid = require('node-uuid');
+var test = require('tape');
 var util = require('util');
 var util_ip = require('../../lib/util/ip');
 var vasync = require('vasync');
@@ -33,12 +33,7 @@ var vasync = require('vasync');
 
 
 
-var CONF = JSON.parse(fs.readFileSync(__dirname + '/test-config.json'));
-
-var d = {};
-// Set this to any of the exports in this file to only run that test,
-// plus setup and teardown
-var runOne;
+var CONF = require('./test-config.json');
 var NAPI;
 var TAG;
 var MSG = {
@@ -46,7 +41,6 @@ var MSG = {
     end_broadcast: 'provision_end_ip cannot be the broadcast address',
     start_outside: 'provision_start_ip cannot be outside subnet',
     start_broadcast: 'provision_start_ip cannot be the broadcast address'
-
 };
 
 
@@ -55,23 +49,23 @@ var MSG = {
 
 
 
-exports['Initial setup'] = function (t) {
+test('Initial setup', function (t) {
     h.createClientAndServer(function (err, res) {
         t.ifError(err, 'server creation');
         t.ok(res, 'client');
         NAPI = res;
         if (!NAPI) {
-            t.done();
+            t.end();
         }
 
         // Match the name of the nic tag in h.validNetworkParams()
         NAPI.createNicTag('nic_tag', function (err2, res2) {
             t.ifError(err2);
             TAG = res2;
-            t.done();
+            t.end();
         });
     });
-};
+});
 
 
 
@@ -79,7 +73,7 @@ exports['Initial setup'] = function (t) {
 
 
 
-exports['Create network'] = function (t) {
+test('Create network', function (t) {
     var params = h.validNetworkParams({
         gateway: '10.0.2.1',
         resolvers: ['8.8.8.8', '10.0.2.2'],
@@ -93,7 +87,7 @@ exports['Create network'] = function (t) {
         t.ifError(err, 'network create');
         if (err) {
             t.deepEqual(err.body, {}, 'error body');
-            return t.done();
+            return t.end();
         }
 
         t.equal(res.statusCode, 200, 'status code');
@@ -127,18 +121,18 @@ exports['Create network'] = function (t) {
                     });
                 }
             }, function () {
-                return t.done();
+                return t.end();
             });
         });
     });
-};
+});
 
 
-exports['Create network - missing parameters'] = function (t) {
+test('Create network - missing parameters', function (t) {
     NAPI.createNetwork({}, function (err, res) {
         t.ok(err, 'error returned');
         if (!err) {
-            return t.done();
+            return t.end();
         }
 
         t.equal(err.statusCode, 422, 'status code');
@@ -154,16 +148,16 @@ exports['Create network - missing parameters'] = function (t) {
             message: 'Missing parameters'
         }), 'Error body');
 
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['Create network - missing and invalid parameters'] = function (t) {
+test('Create network - missing and invalid parameters', function (t) {
     NAPI.createNetwork({ provision_start_ip: 'asdf' }, function (err, res) {
         t.ok(err, 'error returned');
         if (!err) {
-            return t.done();
+            return t.end();
         }
 
         t.equal(err.statusCode, 422, 'status code');
@@ -183,12 +177,12 @@ exports['Create network - missing and invalid parameters'] = function (t) {
             message: 'Invalid parameters'
         }), 'Error body');
 
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['Create network - all invalid parameters'] = function (t) {
+test('Create network - all invalid parameters', function (t) {
     var params = {
         gateway: 'asdf',
         name: '',
@@ -204,7 +198,7 @@ exports['Create network - all invalid parameters'] = function (t) {
     NAPI.createNetwork(params, function (err, res) {
         t.ok(err, 'error returned');
         if (!err) {
-            return t.done();
+            return t.end();
         }
 
         t.equal(err.statusCode, 422, 'status code');
@@ -229,13 +223,13 @@ exports['Create network - all invalid parameters'] = function (t) {
             message: 'Invalid parameters'
         }), 'Error body');
 
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
 
-exports['Create network - invalid parameters'] = function (t) {
+test('Create network - invalid parameters', function (t) {
     var invalid = [
         ['gateway', '10.0.1.254', constants.GATEWAY_SUBNET_MSG],
         ['gateway', '10.0.3.1', constants.GATEWAY_SUBNET_MSG],
@@ -309,12 +303,12 @@ exports['Create network - invalid parameters'] = function (t) {
             });
         }
     }, function () {
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['Create network - provision start IP after end IP'] = function (t) {
+test('Create network - provision start IP after end IP', function (t) {
     NAPI.createNetwork(h.validNetworkParams({
         provision_start_ip: '10.0.2.250',
         provision_end_ip: '10.0.2.25'
@@ -322,7 +316,7 @@ exports['Create network - provision start IP after end IP'] = function (t) {
         t.ok(err, 'error returned');
 
         if (!err) {
-            return t.done();
+            return t.end();
         }
 
         t.equal(err.statusCode, 422, 'status code');
@@ -336,9 +330,9 @@ exports['Create network - provision start IP after end IP'] = function (t) {
             message: 'Invalid parameters'
         }), 'Error body');
 
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
 
@@ -346,7 +340,7 @@ exports['Create network - provision start IP after end IP'] = function (t) {
 
 
 
-exports['Update network'] = function (t) {
+test('Update network', function (t) {
     var before, expected, nets, p, updateParams;
     var vals = h.validNetworkParams({
         name: 'updateme',
@@ -500,12 +494,12 @@ exports['Update network'] = function (t) {
             });
         }
     ] }, function () {
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['Update provision range'] = function (t) {
+test('Update provision range', function (t) {
     // IPs expected from the API when listing IPs for the network
     var ipList;
     var net;
@@ -795,12 +789,12 @@ exports['Update provision range'] = function (t) {
             });
         }
     ] }, function () {
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['Update network - invalid parameters'] = function (t) {
+test('Update network - invalid parameters', function (t) {
     var invalid = [
         [ { provision_start_ip: '10.1.2.254' },
           { provision_start_ip: MSG.start_outside }
@@ -873,7 +867,7 @@ exports['Update network - invalid parameters'] = function (t) {
 
     NAPI.createNetwork(vals, function (err, net) {
         if (h.ifErr(t, err, 'creating network')) {
-            return t.done();
+            return t.end();
         }
 
         vasync.forEachParallel({
@@ -909,177 +903,184 @@ exports['Update network - invalid parameters'] = function (t) {
                 });
             }
         }, function () {
-            return t.done();
+            return t.end();
         });
     });
-};
+});
 
 
-exports['Update network - unset owner_uuids'] = {
-    'create': function (t) {
-        d.owners = [ mod_uuid.v4(), mod_uuid.v4() ].sort();
-        d.params = h.validNetworkParams({
-            owner_uuids: d.owners
+test('Update network - unset owner_uuids', function (t) {
+    t.plan(14);
+
+    var exp;
+    var networks = [];
+    var owners = [];
+    var params = [];
+
+    t.test('create', function (t2) {
+        owners = [ mod_uuid.v4(), mod_uuid.v4() ].sort();
+        params = h.validNetworkParams({
+            owner_uuids: owners
         });
 
-        mod_net.createAndGet(t, {
-            params: d.params,
-            partialExp: d.params,
-            state: d
+        mod_net.createAndGet(t2, {
+            params: params,
+            partialExp: params,
+            state: { networks: networks }
         });
-    },
+    });
 
-    'moray state after create': function (t) {
-        d.exp = d.networks[0];
-        var obj = mod_moray.getObj('napi_networks', d.exp.uuid);
-        t.ok(obj, 'Have moray obj');
+    t.test('moray state after create', function (t2) {
+        exp = networks[0];
+        var obj = mod_moray.getObj('napi_networks', exp.uuid);
+        t2.ok(obj, 'Have moray obj');
 
         if (obj) {
-            t.equal(obj.owner_uuids, ',' + d.owners.join(',') + ',');
+            t2.equal(obj.owner_uuids, ',' + owners.join(',') + ',');
         }
 
-        return t.done();
-    },
+        return t2.end();
+    });
 
-    'list after create': function (t) {
-        mod_net.list(t, {
+    t.test('list after create', function (t2) {
+        mod_net.list(t2, {
             params: {
-                provisionable_by: d.owners[0]
+                provisionable_by: owners[0]
             },
             present: [ {
-                uuid: d.exp.uuid,
-                owner_uuids: d.owners
+                uuid: exp.uuid,
+                owner_uuids: owners
             } ]
         });
-    },
+    });
 
-    'get after create': function (t) {
-        mod_net.get(t, {
-            uuid: d.exp.uuid,
+    t.test('get after create', function (t2) {
+        mod_net.get(t2, {
+            uuid: exp.uuid,
             params: {
-                provisionable_by: d.owners[1]
+                provisionable_by: owners[1]
             },
-            exp: d.exp
+            exp: exp
         });
-    },
+    });
 
-    'update': function (t) {
-        delete d.exp.owner_uuids;
+    t.test('update', function (t2) {
+        delete exp.owner_uuids;
 
-        mod_net.updateAndGet(t, {
-            uuid: d.exp.uuid,
+        mod_net.updateAndGet(t2, {
+            uuid: exp.uuid,
             params: {
                 owner_uuids: []
             },
-            exp: d.exp
+            exp: exp
         });
-    },
+    });
 
-    'moray state after update': function (t) {
-        d.exp = d.networks[0];
-        var obj = mod_moray.getObj('napi_networks', d.exp.uuid);
-        t.ok(obj, 'Have moray obj');
+    t.test('moray state after update', function (t2) {
+        exp = networks[0];
+        var obj = mod_moray.getObj('napi_networks', exp.uuid);
+        t2.ok(obj, 'Have moray obj');
 
         if (obj) {
-            t.ok(!obj.hasOwnProperty('owner_uuids'),
+            t2.ok(!obj.hasOwnProperty('owner_uuids'),
                 'no owner_uuids property');
         }
 
-        return t.done();
-    },
+        return t2.end();
+    });
 
-    'list after update': function (t) {
-        mod_net.list(t, {
+    t.test('list after update', function (t2) {
+        mod_net.list(t2, {
             params: {
-                provisionable_by: d.owners[0]
+                provisionable_by: owners[0]
             },
             present: [ {
-                uuid: d.exp.uuid,
+                uuid: exp.uuid,
                 owner_uuids: undefined
             } ]
         });
-    },
+    });
 
-    'get after update': function (t) {
-        mod_net.get(t, {
-            uuid: d.exp.uuid,
+    t.test('get after update', function (t2) {
+        mod_net.get(t2, {
+            uuid: exp.uuid,
             params: {
-                provisionable_by: d.owners[1]
+                provisionable_by: owners[1]
             },
-            exp: d.exp
+            exp: exp
         });
-    },
+    });
 
-    'create with empty array': function (t) {
-        d.exp = {};
-        d.params = h.validNetworkParams({
+    t.test('create with empty array', function (t2) {
+        exp = {};
+        params = h.validNetworkParams({
             owner_uuids: []
         });
-        h.copyParams(d.param, d.exp);
-        delete d.exp.owner_uuids;
+        h.copyParams(params, exp);
+        delete exp.owner_uuids;
 
-        mod_net.createAndGet(t, {
-            params: d.params,
-            partialExp: d.exp,
-            state: d
+        mod_net.createAndGet(t2, {
+            params: params,
+            partialExp: exp,
+            state: { networks: networks }
         });
-    },
+    });
 
-    'moray state after empty array create': function (t) {
-        d.exp = d.networks[1];
-        var obj = mod_moray.getObj('napi_networks', d.exp.uuid);
-        t.ok(obj, 'Have moray obj');
+    t.test('moray state after empty array create', function (t2) {
+        exp = networks[1];
+        var obj = mod_moray.getObj('napi_networks', exp.uuid);
+        t2.ok(obj, 'Have moray obj');
 
         if (obj) {
-            t.ok(!obj.hasOwnProperty('owner_uuids'),
+            t2.ok(!obj.hasOwnProperty('owner_uuids'),
                 'no owner_uuids property');
         }
 
-        return t.done();
-    },
+        return t2.end();
+    });
 
-    'list after empty create': function (t) {
-        mod_net.get(t, {
-            uuid: d.exp.uuid,
+    t.test('list after empty create', function (t2) {
+        mod_net.get(t2, {
+            uuid: exp.uuid,
             params: {
-                provisionable_by: d.owners[1]
+                provisionable_by: owners[1]
             },
-            exp: d.exp
+            exp: exp
         });
-    },
+    });
 
-    'get after empty create': function (t) {
-        mod_net.get(t, {
-            uuid: d.exp.uuid,
+    t.test('get after empty create', function (t2) {
+        mod_net.get(t2, {
+            uuid: exp.uuid,
             params: {
-                provisionable_by: d.owners[1]
+                provisionable_by: owners[1]
             },
-            exp: d.exp
+            exp: exp
         });
-    },
+    });
 
-    'get after moray object change': function (t) {
-        var obj = mod_moray.getObj('napi_networks', d.exp.uuid);
+    t.test('get after moray object change', function (t2) {
+        var obj = mod_moray.getObj('napi_networks', exp.uuid);
         obj.owner_uuids = ',,';
 
-        mod_net.get(t, {
-            uuid: d.exp.uuid,
+        mod_net.get(t2, {
+            uuid: exp.uuid,
             params: {
-                provisionable_by: d.owners[1]
+                provisionable_by: owners[1]
             },
-            exp: d.exp
+            exp: exp
         });
-    },
+    });
 
-    'list after moray object change': function (t) {
-        mod_net.list(t, {
+    t.test('list after moray object change', function (t2) {
+        mod_net.list(t2, {
             present: [ {
-                uuid: d.exp.uuid,
+                uuid: exp.uuid,
                 owner_uuids: undefined
             } ]
         });
-    }
-};
+    });
+});
 
 
 
@@ -1092,20 +1093,9 @@ exports['Update network - unset owner_uuids'] = {
 
 
 
-exports['Stop server'] = function (t) {
+test('Stop server', function (t) {
     h.stopServer(function (err) {
         t.ifError(err, 'server stop');
-        t.done();
+        t.end();
     });
-};
-
-
-
-// Use to run only one test in this file:
-if (runOne) {
-    module.exports = {
-        setup: exports['Initial setup'],
-        oneTest: runOne,
-        teardown: exports['Stop server']
-    };
-}
+});

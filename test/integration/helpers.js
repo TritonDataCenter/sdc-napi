@@ -105,7 +105,7 @@ function createNicTag(t, napi, state, targetName, callback) {
         if (callback) {
             return callback(err, res);
         } else {
-            return t.done();
+            return t.end();
         }
     });
 }
@@ -123,7 +123,7 @@ function createNicTags(t, napi, state, tags, callback) {
             return callback(err, res);
         }
 
-        return t.done();
+        return t.end();
     });
 }
 
@@ -150,7 +150,7 @@ function deleteNicTag(t, napi, state, name, callback) {
             return callback(err);
         }
 
-        return t.done();
+        return t.end();
     });
 }
 
@@ -160,7 +160,7 @@ function deleteNicTag(t, napi, state, name, callback) {
  */
 function deleteNicTags(t, napi, state) {
     if (!state.hasOwnProperty('nic_tags') || state.nic_tags.length === 0) {
-        return t.done();
+        return t.end();
     }
 
     vasync.forEachParallel({
@@ -175,7 +175,7 @@ function deleteNicTags(t, napi, state) {
             });
         }
     }, function (err) {
-        return t.done();
+        return t.end();
     });
 }
 
@@ -212,7 +212,7 @@ function createNetwork(t, napi, state, extraParams, targetName, callback) {
             if (callback) {
                 return callback(err);
             }
-            return t.done();
+            return t.end();
         }
 
         t.ok(res.uuid, 'test network uuid: ' + res.uuid);
@@ -230,7 +230,7 @@ function createNetwork(t, napi, state, extraParams, targetName, callback) {
         if (callback) {
             return callback();
         }
-        return t.done();
+        return t.end();
     });
 }
 
@@ -249,12 +249,12 @@ function deleteNetwork(t, napi, state, name, callback) {
     }
 
     napi.deleteNetwork(net.uuid, { force: true }, function (err) {
-        common.ifErr(t, err, 'delete network ' + name);
+        common.ifErr(t, err, 'delete network ' + net.name);
         if (callback) {
             return callback(err);
         }
 
-        return t.done();
+        return t.end();
     });
 }
 
@@ -268,7 +268,7 @@ function doneWithError(t, err, desc) {
     if (err.body.hasOwnProperty('errors')) {
         t.deepEqual(err.body.errors, {}, 'display body errors');
     }
-    return t.done();
+    return t.end();
 }
 
 

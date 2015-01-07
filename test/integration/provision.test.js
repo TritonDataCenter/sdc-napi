@@ -22,6 +22,7 @@ var mod_net = require('../lib/net');
 var mod_pool = require('../lib/pool');
 var mod_tag = require('../lib/nic-tag');
 var mod_uuid = require('node-uuid');
+var test = require('tape');
 var util = require('util');
 var util_ip = require('../../lib/util/ip');
 var util_mac = require('../../lib/util/mac');
@@ -33,9 +34,6 @@ var vasync = require('vasync');
 
 
 
-// Set this to any of the exports in this file to only run that test,
-// plus setup and teardown
-var runOne;
 var napi = h.createNAPIclient();
 var d = {};
 var state = {
@@ -127,7 +125,7 @@ function expProvisionFail(t, opts) {
             t.deepEqual(res, {}, 'IP unexpectedly found');
         }
 
-        return t.done();
+        return t.end();
     });
 }
 
@@ -137,13 +135,13 @@ function expProvisionFail(t, opts) {
 
 
 
-exports.setup = {
-    'nic tag': function (t) {
-        mod_tag.create(t, { name: '<generate>', state: state });
-    },
+test('setup', function (t) {
+    t.test('nic tag', function (t2) {
+        mod_tag.create(t2, { name: '<generate>', state: state });
+    });
 
-    'net0': function (t) {
-        mod_net.create(t, {
+    t.test('net0', function (t2) {
+        mod_net.create(t2, {
             params: {
                 name: '<generate>',
                 provision_end_ip: '10.0.1.10',
@@ -159,10 +157,10 @@ exports.setup = {
             },
             state: state
         });
-    },
+    });
 
-    'net1': function (t) {
-        mod_net.create(t, {
+    t.test('net1', function (t2) {
+        mod_net.create(t2, {
             params: {
                 name: '<generate>',
                 provision_start_ip: '10.0.2.20',
@@ -178,10 +176,10 @@ exports.setup = {
             },
             state: state
         });
-    },
+    });
 
-    'net2': function (t) {
-        mod_net.create(t, {
+    t.test('net2', function (t2) {
+        mod_net.create(t2, {
             params: {
                 name: '<generate>',
                 provision_end_ip: '10.0.3.10',
@@ -197,10 +195,10 @@ exports.setup = {
             },
             state: state
         });
-    },
+    });
 
-    'net3': function (t) {
-        mod_net.create(t, {
+    t.test('net3', function (t2) {
+        mod_net.create(t2, {
             params: {
                 name: '<generate>',
                 provision_end_ip: '10.0.4.10',
@@ -216,10 +214,10 @@ exports.setup = {
             },
             state: state
         });
-    },
+    });
 
-    'pool': function (t) {
-        mod_pool.create(t, {
+    t.test('pool', function (t2) {
+        mod_pool.create(t2, {
             name: '<generate>',
             params: {
                 networks: [ state.networks[2].uuid ]
@@ -230,8 +228,8 @@ exports.setup = {
             },
             state: state
         });
-    }
-};
+    });
+});
 
 
 
@@ -303,7 +301,7 @@ function fillNetworkByCreate(t, opts) {
         t.deepEqual(belongsTo.sort(), d.belongsToExp.sort(),
             'All belongs_to_uuids correct');
 
-        return t.done();
+        return t.end();
     });
 }
 
@@ -344,7 +342,7 @@ function createNics(t) {
 
     barrier.on('drain', function () {
         t.equal(state.nics.length, 10, '10 nics provisioned');
-        return t.done();
+        return t.end();
     });
 }
 
@@ -400,7 +398,7 @@ function fillNetworkByUpdate(t) {
 
         state.nics = updatedNics;
 
-        return t.done();
+        return t.end();
     });
 }
 
@@ -411,7 +409,7 @@ function listIPs(t, opts) {
 
     napi.listIPs(opts.network.uuid, function (err, res) {
         if (h.ifErr(t, err, 'listing IPs')) {
-            return t.done();
+            return t.end();
         }
 
         t.equal(res.length, 11, 'number of IPs correct');
@@ -432,7 +430,7 @@ function listIPs(t, opts) {
         }).sort(), d.belongsToExp.concat(h.ufdsAdminUuid).sort(),
             'All belongs_to_uuids returned');
 
-        return t.done();
+        return t.end();
     });
 }
 
@@ -457,7 +455,7 @@ function getIPs(t, opts) {
             });
         }
     }, function () {
-        return t.done();
+        return t.end();
     });
 }
 
@@ -476,7 +474,7 @@ function getNics(t) {
             });
         }
     }, function () {
-        return t.done();
+        return t.end();
     });
 }
 
@@ -486,38 +484,39 @@ function getNics(t) {
  * we get a unique IP for each.  This is a variable because we want
  * to do this twice in this test.
  */
-var fillNetwork = {
-    'fill': function (t) {
-        fillNetworkByCreate(t, {
+function fillNetwork(t) {
+    t.test('fill', function (t2) {
+        fillNetworkByCreate(t2, {
             network_uuid: state.networks[0].uuid,
             expNetwork: state.networks[0],
             params: NIC_PARAMS
         });
-    },
+    });
 
     // Subnet should now be full
-    'provision with subnet full': function (t) {
-        expProvisionFail(t, {
+    t.test('provision with subnet full', function (t2) {
+        expProvisionFail(t2, {
             network_uuid: state.networks[0].uuid
         });
-    },
+    });
 
-    'list': function (t) {
-        listIPs(t, { network: state.networks[0] });
-    },
+    t.test('list', function (t2) {
+        listIPs(t2, { network: state.networks[0] });
+    });
 
     // Make sure all IP params we care about are correct when getting them
     // individually
-    'get IPs': function (t) {
-        getIPs(t, { network: state.networks[0] });
-    },
+    t.test('get IPs', function (t2) {
+        getIPs(t2, { network: state.networks[0] });
+    });
 
     // Make sure nic params are correct when getting them individually
-    'get nics': getNics
-};
+    t.test('get nics', getNics);
+}
 
 
-exports['fill network'] = fillNetwork;
+
+test('fill network', fillNetwork);
 
 // XXX: do the same test as above, but with updateNic()
 
@@ -551,7 +550,7 @@ function deleteTwoNics(t) {
             });
         }
     }, function () {
-        return t.done();
+        return t.end();
     });
 }
 
@@ -559,7 +558,7 @@ function deleteTwoNics(t) {
 /*
  * Delete two of the nics, and make sure their IPs are freed
  */
-exports['delete two nics'] = deleteTwoNics;
+test('delete two nics', deleteTwoNics);
 
 
 function reprovisionDeleted(t, opts) {
@@ -617,15 +616,15 @@ function reprovisionDeleted(t, opts) {
  * Now that we've deleted several IPs, try to reprovision them at the same
  * time
  */
-exports['reprovision deleted'] = function (t) {
+test('reprovision deleted', function (t) {
     reprovisionDeleted(t, {
         network: state.networks[0]
     });
-};
+});
 
 
 
-exports['delete: in order'] = function (t) {
+test('delete: in order', function (t) {
     var toDel = [
         state.nics.pop(),
         state.nics.pop()
@@ -657,12 +656,12 @@ exports['delete: in order'] = function (t) {
             delNext
         ]
     }, function (err) {
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['reprovision: by modification time'] = function (t) {
+test('reprovision: by modification time', function (t) {
     var provisioned = [];
 
     function provisionNext(_, cb) {
@@ -696,32 +695,32 @@ exports['reprovision: by modification time'] = function (t) {
             network_uuid: state.networks[0].uuid
         });
     });
-};
+});
 
 
-var deleteAll = {
-    'delete': function (t) {
-        t.equal(state.nics.length, 10, 'all nics accounted for');
+function deleteAll(t) {
+    t.test('delete', function (t2) {
+        t2.equal(state.nics.length, 10, 'all nics accounted for');
 
         vasync.forEachParallel({
             inputs: state.nics,
             func: function _delOne(nic, cb) {
                 napi.deleteNic(nic.mac, function (err) {
-                    if (h.ifErr(t, err, 'delete nic ' + nic.mac)) {
+                    if (h.ifErr(t2, err, 'delete nic ' + nic.mac)) {
                         return cb(err);
                     }
 
                     napi.getIP(nic.network_uuid, nic.ip, function (err2, ip) {
-                        if (h.ifErr(t, err, 'get IP ' + nic.ip)) {
+                        if (h.ifErr(t2, err, 'get IP ' + nic.ip)) {
                             return cb(err);
                         }
 
-                        t.ok(ip.free, nic.ip + ': free');
-                        t.ok(!ip.hasOwnProperty('belongs_to_uuid'),
+                        t2.ok(ip.free, nic.ip + ': free');
+                        t2.ok(!ip.hasOwnProperty('belongs_to_uuid'),
                             nic.ip + ': belongs_to_uuid');
-                        t.ok(!ip.hasOwnProperty('belongs_to_type'),
+                        t2.ok(!ip.hasOwnProperty('belongs_to_type'),
                             nic.ip + ': belongs_to_type');
-                        t.ok(!ip.hasOwnProperty('owner_uuid'),
+                        t2.ok(!ip.hasOwnProperty('owner_uuid'),
                             nic.ip + ': owner_uuid');
 
                         return cb();
@@ -729,17 +728,17 @@ var deleteAll = {
                 });
             }
         }, function () {
-            return t.done();
+            return t2.end();
         });
-    },
+    });
 
-    'get': function (t) {
+    t.test('get', function (t2) {
         vasync.forEachParallel({
             inputs: state.nics,
             func: function _delOne(nic, cb) {
                 napi.getNic(nic.mac, function (err) {
-                    t.ok(err, 'error returned for nic ' + nic.mac);
-                    t.equal(err.body.code, 'ResourceNotFound',
+                    t2.ok(err, 'error returned for nic ' + nic.mac);
+                    t2.equal(err.body.code, 'ResourceNotFound',
                         'nic no longer exists');
 
                     return cb();
@@ -747,13 +746,13 @@ var deleteAll = {
             }
         }, function () {
             state.nics = [];
-            return t.done();
+            return t2.end();
         });
-    }
-};
+    });
+}
 
 
-exports['delete all: 1'] = deleteAll;
+test('delete all: 1', deleteAll);
 
 
 /*
@@ -761,45 +760,45 @@ exports['delete all: 1'] = deleteAll;
  * different code path than before, since the IP records already exist in
  * moray.
  */
-exports['fill network again'] = fillNetwork;
+test('fill network again', fillNetwork);
 
-exports['delete all: 2'] = deleteAll;
+test('delete all: 2', deleteAll);
 
 /*
  * Fill the network a third time, but this time do it by creating a bunch
  * of nics without IPs, and then adding IPs to them
  */
-exports['fill network by updating'] = {
-    'create': createNics,
+test('fill network by updating', function (t) {
+    t.test('create', createNics);
 
-    'fill': fillNetworkByUpdate,
+    t.test('fill', fillNetworkByUpdate);
 
     // Subnet should now be full
-    'provision with subnet full': function (t) {
-        expProvisionFail(t, {
+    t.test('provision with subnet full', function (t2) {
+        expProvisionFail(t2, {
             network_uuid: state.networks[0].uuid
         });
-    },
+    });
 
-    'list': function (t) {
-        listIPs(t, { network: state.networks[0] });
-    },
+    t.test('list', function (t2) {
+        listIPs(t2, { network: state.networks[0] });
+    });
 
     // Make sure all IP params we care about are correct when getting them
     // individually
-    'get IPs': function (t) {
-        getIPs(t, { network: state.networks[0] });
-    },
+    t.test('get IPs', function (t2) {
+        getIPs(t2, { network: state.networks[0] });
+    });
 
     // Make sure nic params are correct when getting them individually
-    'get nics': getNics
-};
+    t.test('get nics', getNics);
+});
 
 
-exports['delete all: 3'] = deleteAll;
+test('delete all: 3', deleteAll);
 
 
-exports['update network provision range'] = function (t) {
+test('update network provision range', function (t) {
 
     function prov(expected, cb) {
         var params = {
@@ -885,57 +884,57 @@ exports['update network provision range'] = function (t) {
         function (_, cb) { prov(null, cb); }
 
     ] }, function () {
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['delete all: 4'] = deleteAll;
+test('delete all: 4', deleteAll);
 
 
-exports['fill network pool'] = {
-    'fill': function (t) {
-        fillNetworkByCreate(t, {
+test('fill network pool', function (t) {
+    t.test('fill', function (t2) {
+        fillNetworkByCreate(t2, {
             network_uuid: state.pools[0].uuid,
             expNetwork: state.networks[2],
             params: NIC_PARAMS
         });
-    },
+    });
 
     // Subnet should now be full
-    'provision with subnet full': function (t) {
-        expProvisionFail(t, {
+    t.test('provision with subnet full', function (t2) {
+        expProvisionFail(t2, {
             network_uuid: state.pools[0].uuid,
             pool: true
         });
-    },
+    });
 
-    'list': function (t) {
-        listIPs(t, { network: state.networks[2] });
-    },
+    t.test('list', function (t2) {
+        listIPs(t2, { network: state.networks[2] });
+    });
 
     // Make sure all IP params we care about are correct when getting them
     // individually
-    'get IPs': function (t) {
-        getIPs(t, { network: state.networks[2] });
-    },
+    t.test('get IPs', function (t2) {
+        getIPs(t2, { network: state.networks[2] });
+    });
 
     // Make sure nic params are correct when getting them individually
-    'get nics': getNics,
+    t.test('get nics', getNics);
 
     // Remove two nics from the pool, and reprovision twice to get back
     // the same IPs
-    'delete two nics': deleteTwoNics,
+    t.test('delete two nics', deleteTwoNics);
 
-    'reprovision deleted': function (t) {
-        reprovisionDeleted(t, {
+    t.test('reprovision deleted', function (t2) {
+        reprovisionDeleted(t2, {
             network: state.pools[0],
             pool: true
         });
-    },
+    });
 
-    'add net3 to pool': function (t) {
-        mod_pool.update(t, {
+    t.test('add net3 to pool', function (t2) {
+        mod_pool.update(t2, {
             uuid: state.pools[0].uuid,
             params: {
                 networks: [ state.networks[2].uuid, state.networks[3].uuid ]
@@ -946,49 +945,49 @@ exports['fill network pool'] = {
                 ].sort()
             }
         });
-    },
+    });
 
     // XXX: does this blow away state.nics?
-    'fill second network': function (t) {
-        fillNetworkByCreate(t, {
+    t.test('fill second network', function (t2) {
+        fillNetworkByCreate(t2, {
             network_uuid: state.pools[0].uuid,
             expNetwork: state.networks[3],
             params: NIC_PARAMS
         });
-    },
+    });
 
     // Subnet should now be full
-    'provision with second subnet full': function (t) {
-        expProvisionFail(t, {
+    t.test('provision with second subnet full', function (t2) {
+        expProvisionFail(t2, {
             network_uuid: state.pools[0].uuid,
             pool: true
         });
-    },
+    });
 
-    'list 2': function (t) {
-        listIPs(t, { network: state.networks[3] });
-    },
+    t.test('list 2', function (t2) {
+        listIPs(t2, { network: state.networks[3] });
+    });
 
     // Make sure all IP params we care about are correct when getting them
     // individually
-    'get IPs 2': function (t) {
-        getIPs(t, { network: state.networks[3] });
-    },
+    t.test('get IPs 2', function (t2) {
+        getIPs(t2, { network: state.networks[3] });
+    });
 
     // Make sure nic params are correct when getting them individually
-    'get nics 2': getNics,
+    t.test('get nics 2', getNics);
 
     // Remove two nics from the pool, and reprovision twice to get back
     // the same IPs
-    'delete two nics': deleteTwoNics,
+    t.test('delete two nics', deleteTwoNics);
 
-    'reprovision deleted': function (t) {
-        reprovisionDeleted(t, {
+    t.test('reprovision deleted', function (t2) {
+        reprovisionDeleted(t2, {
             network: state.pools[0],
             pool: true
         });
-    }
-};
+    });
+});
 
 
 
@@ -996,56 +995,46 @@ exports['fill network pool'] = {
 
 
 
-exports['teardown'] = {
-    'delete nics': function (t) {
+test('teardown', function (t) {
+    t.test('delete nics', function (t2) {
         vasync.forEachParallel({
             inputs: state.nics,
             func: function _delNic(nic, cb) {
                 napi.deleteNic(nic.mac, function (err) {
-                    t.ifError(err);
+                    t2.ifError(err, 'delete ' + nic.mac);
                     if (err) {
-                        t.deepEqual(err.body, {}, 'error body');
+                        t2.deepEqual(err.body, {}, 'error body');
                     }
 
                     return cb(err);
                 });
             }
         }, function () {
-            return t.done();
+            return t2.end();
         });
-    },
+    });
 
-    'pool': function (t) {
-        mod_pool.del(t, { uuid: state.pools[0].uuid });
-    },
+    t.test('pool', function (t2) {
+        mod_pool.del(t2, { uuid: state.pools[0].uuid });
+    });
 
-    'net0': function (t) {
-        mod_net.del(t, { uuid: state.networks[0].uuid });
-    },
+    t.test('net0', function (t2) {
+        mod_net.del(t2, { uuid: state.networks[0].uuid });
+    });
 
-    'net1': function (t) {
-        mod_net.del(t, { uuid: state.networks[1].uuid });
-    },
+    t.test('net1', function (t2) {
+        mod_net.del(t2, { uuid: state.networks[1].uuid });
+    });
 
-    'net2': function (t) {
-        mod_net.del(t, { uuid: state.networks[2].uuid });
-    },
+    t.test('net2', function (t2) {
+        mod_net.del(t2, { uuid: state.networks[2].uuid });
+    });
 
-    'net3': function (t) {
-        mod_net.del(t, { uuid: state.networks[3].uuid });
-    },
+    t.test('net3', function (t2) {
+        mod_net.del(t2, { uuid: state.networks[3].uuid });
+    });
 
-    'tag': function (t) {
-        mod_tag.del(t, { name: state.nic_tags[0].name });
-    }
-};
-
-
-// Use to run only one test in this file:
-if (runOne) {
-    module.exports = {
-        setup: exports.setup,
-        oneTest: runOne,
-        teardown: exports.teardown
-    };
-}
+    t.test('tag', function (t2) {
+        mod_tag.del(t2, { name: state.nic_tags[0].name });
+    });
+});

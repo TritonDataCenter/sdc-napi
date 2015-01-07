@@ -69,7 +69,7 @@ function addToState(opts, type, obj) {
 /**
  * Shared test code for after API methods are called
  */
-function afterAPIcall(t, opts, callback, err, res) {
+function afterAPIcall(t, opts, callback, err, obj, _, res) {
     var desc = opts.desc ? (' ' + opts.desc) : '';
     assert.string(opts.reqType, 'opts.reqType');
     assert.string(opts.type, 'opts.type');
@@ -86,23 +86,25 @@ function afterAPIcall(t, opts, callback, err, res) {
         return doneErr(err, t, callback);
     }
 
-    if (ifErr(t, err, type + opts.mac + desc)) {
+    if (ifErr(t, err, type + desc)) {
         return doneErr(err, t, callback);
     }
+
+    t.equal(res.statusCode, 200, 'status code' + desc);
 
     if (opts.exp) {
         if (opts.hasOwnProperty('idKey') &&
             !opts.exp.hasOwnProperty(opts.idKey)) {
-            opts.exp[opts.idKey] = res[opts.idKey];
+            opts.exp[opts.idKey] = obj[opts.idKey];
         }
 
-        t.deepEqual(res, opts.exp, type + 'full result' + desc);
+        t.deepEqual(obj, opts.exp, type + 'full result' + desc);
     }
 
     if (opts.partialExp) {
         var partialRes = {};
         for (var p in opts.partialExp) {
-            partialRes[p] = res[p];
+            partialRes[p] = obj[p];
         }
 
         t.deepEqual(partialRes, opts.partialExp,
@@ -110,12 +112,10 @@ function afterAPIcall(t, opts, callback, err, res) {
     }
 
     if (opts.reqType == 'create') {
-        addToState(opts, opts.type + 's', res);
-        // XXX
-        // t.equal(res.statusCode, 200, 'status code');
+        addToState(opts, opts.type + 's', obj);
     }
 
-    return doneRes(res, t, callback);
+    return doneRes(obj, t, callback);
 }
 
 
@@ -180,7 +180,7 @@ function doneErr(err, t, callback) {
         return callback(err);
     }
 
-    return t.done();
+    return t.end();
 }
 
 
@@ -192,7 +192,7 @@ function doneRes(res, t, callback) {
         return callback(null, res);
     }
 
-    return t.done();
+    return t.end();
 }
 
 

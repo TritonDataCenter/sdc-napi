@@ -13,10 +13,11 @@
  */
 
 var constants = require('../../lib/util/constants');
-var helpers = require('./helpers');
+var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
 var mod_uuid = require('node-uuid');
 var mod_pool = require('../lib/pool');
+var test = require('tape');
 var util = require('util');
 var util_ip = require('../../lib/util/ip');
 var vasync = require('vasync');
@@ -27,7 +28,7 @@ var vasync = require('vasync');
 
 
 
-var napi = helpers.createNAPIclient();
+var napi = h.createNAPIclient();
 var nextIP;
 var owner = mod_uuid.v4();
 var owner2 = mod_uuid.v4();
@@ -36,7 +37,7 @@ var state = {
     noOwnerPools: [],
     testName: 'network-owner'
 };
-var ufdsAdminUuid = helpers.ufdsAdminUuid;
+var ufdsAdminUuid = h.ufdsAdminUuid;
 
 
 
@@ -58,7 +59,7 @@ function checkProvisionSuccess(newOwner, t) {
         t.ifError(err, 'error returned');
         if (err) {
             t.deepEqual(err.body, {}, 'err body for debugging');
-            return t.done();
+            return t.end();
         }
 
         params.mac = res.mac;
@@ -72,10 +73,10 @@ function checkProvisionSuccess(newOwner, t) {
         }
         params.ip = nextIP;
 
-        helpers.addNetParamsToNic(state, params);
+        h.addNetParamsToNic(state, params);
         t.deepEqual(res, params, 'nic params');
 
-        return t.done();
+        return t.end();
     });
 }
 
@@ -83,8 +84,8 @@ function checkProvisionSuccess(newOwner, t) {
 function createNetworkPool(t, name, params) {
     var pidName = name + '-' + process.pid;
     napi.createNetworkPool(pidName, params, function (err, res) {
-        if (helpers.ifErr(t, err, 'create network pool ' + name)) {
-            return t.done();
+        if (h.ifErr(t, err, 'create network pool ' + name)) {
+            return t.end();
         }
 
         if (params.owner_uuids) {
@@ -96,7 +97,7 @@ function createNetworkPool(t, name, params) {
 
         t.deepEqual(params, res, 'network pool ' + name);
         state[name] = res;
-        return t.done();
+        return t.end();
     });
 }
 
@@ -104,7 +105,7 @@ function createNetworkPool(t, name, params) {
 function deleteNetworkPool(t, name, callback) {
     napi.deleteNetworkPool(state[name].uuid, function (err) {
         t.ok(!err, 'deleted network pool ' + name);
-        helpers.ifErr(t, err, 'deleting pool ' + name);
+        h.ifErr(t, err, 'deleting pool ' + name);
 
         return callback();
     });
@@ -117,15 +118,15 @@ function deleteNetworkPool(t, name, callback) {
 
 
 
-exports['create test nic tag'] = function (t) {
-    helpers.createNicTag(t, napi, state);
-};
+test('create test nic tag', function (t) {
+    h.createNicTag(t, napi, state);
+});
 
 
 // For the provisionable_by tests below, we want to get a list of any pools
 // without an owner that already exist, since these will show up in the
 // list
-exports['populate no owner pool list'] = function (t) {
+test('populate no owner pool list', function (t) {
     mod_pool.list(t, { }, function (_, res) {
         if (res) {
             state.noOwnerPools = res.map(function (p) {
@@ -133,9 +134,9 @@ exports['populate no owner pool list'] = function (t) {
             });
         }
 
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
 
@@ -143,67 +144,67 @@ exports['populate no owner pool list'] = function (t) {
 
 
 
-exports['Create network'] = function (t) {
-    helpers.createNetwork(t, napi, state, { owner_uuids: [ owner ] });
-};
+test('Create network', function (t) {
+    h.createNetwork(t, napi, state, { owner_uuids: [ owner ] });
+});
 
 
-exports['Create second network'] = function (t) {
-    helpers.createNetwork(t, napi, state, { owner_uuids: [ owner ] },
+test('Create second network', function (t) {
+    h.createNetwork(t, napi, state, { owner_uuids: [ owner ] },
         'ownerNet2');
-};
+});
 
 
-exports['Create third network'] = function (t) {
-    helpers.createNetwork(t, napi, state, { owner_uuids: [ owner2 ] },
+test('Create third network', function (t) {
+    h.createNetwork(t, napi, state, { owner_uuids: [ owner2 ] },
         'ownerNet3');
-};
+});
 
-exports['Create fourth network'] = function (t) {
-    helpers.createNetwork(t, napi, state, { owner_uuids: [ owner2 ] },
+test('Create fourth network', function (t) {
+    h.createNetwork(t, napi, state, { owner_uuids: [ owner2 ] },
         'ownerNet4');
-};
+});
 
-exports['Create fifth network'] = function (t) {
-    helpers.createNetwork(t, napi, state, { owner_uuids: [ mod_uuid.v4() ] },
+test('Create fifth network', function (t) {
+    h.createNetwork(t, napi, state, { owner_uuids: [ mod_uuid.v4() ] },
         'ownerNet5');
-};
+});
 
 
-exports['Create no owner network'] = function (t) {
-    helpers.createNetwork(t, napi, state, { }, 'noOwner');
-};
+test('Create no owner network', function (t) {
+    h.createNetwork(t, napi, state, { }, 'noOwner');
+});
 
 
-exports['Create second no owner network'] = function (t) {
-    helpers.createNetwork(t, napi, state, { }, 'noOwner2');
-};
+test('Create second no owner network', function (t) {
+    h.createNetwork(t, napi, state, { }, 'noOwner2');
+});
 
 
-exports['Create no owner network pool'] = function (t) {
+test('Create no owner network pool', function (t) {
     createNetworkPool(t, 'noOwnerPool', {
         networks: [ state.noOwner.uuid, state.noOwner2.uuid ]
     });
-};
+});
 
 
-exports['Create owner network pool'] = function (t) {
+test('Create owner network pool', function (t) {
     createNetworkPool(t, 'ownerPool', {
         networks: [ state.network.uuid, state.ownerNet2.uuid ],
         owner_uuids: [ owner ]
     });
-};
+});
 
 
-exports['Create owner2 network pool'] = function (t) {
+test('Create owner2 network pool', function (t) {
     createNetworkPool(t, 'ownerPool2', {
         networks: [ state.ownerNet3.uuid, state.ownerNet3.uuid ],
         owner_uuids: [ owner2 ]
     });
-};
+});
 
 
-exports['provision: invalid owner'] = function (t) {
+test('provision: invalid owner', function (t) {
     napi.provisionNic(state.network.uuid, {
             belongs_to_type: 'zone',
             belongs_to_uuid: mod_uuid.v4(),
@@ -211,36 +212,36 @@ exports['provision: invalid owner'] = function (t) {
     }, function (err, res) {
         t.ok(err, 'error returned');
         if (!err) {
-            return t.done();
+            return t.end();
         }
 
         t.equal(err.statusCode, 422, 'status code');
-        t.deepEqual(err.body, helpers.invalidParamErr({
+        t.deepEqual(err.body, h.invalidParamErr({
             errors: [
                 mod_err.invalidParam('owner_uuid', constants.OWNER_MATCH_MSG)
             ]
         }), 'Error body');
 
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['provision: admin owner_uuid'] = function (t) {
+test('provision: admin owner_uuid', function (t) {
     checkProvisionSuccess(ufdsAdminUuid, t);
-};
+});
 
 
-exports['provision: network owner_uuid'] = function (t) {
+test('provision: network owner_uuid', function (t) {
     checkProvisionSuccess(owner, t);
-};
+});
 
 
-exports['get provisionable networks'] = function (t) {
+test('get provisionable networks', function (t) {
     napi.listNetworks(function (err, res) {
         t.ifError(err);
         if (err) {
-            return t.done();
+            return t.end();
         }
 
         res.forEach(function (net) {
@@ -250,28 +251,28 @@ exports['get provisionable networks'] = function (t) {
         });
 
         provisionable.sort();
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['provisionable_by network: owner'] = function (t) {
+test('provisionable_by network: owner', function (t) {
     var netUuid = state.ownerNet2.uuid;
 
     napi.getNetwork(netUuid, { params: { provisionable_by: owner } },
         function (err, res) {
-        if (helpers.ifErr(t, err, 'get network')) {
-            return t.done();
+        if (h.ifErr(t, err, 'get network')) {
+            return t.end();
         }
 
         t.deepEqual(res.uuid, netUuid);
 
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['provisionable_by network: other owner'] = function (t) {
+test('provisionable_by network: other owner', function (t) {
     var netUuid = state.ownerNet3.uuid;
 
     napi.getNetwork(netUuid, { params: { provisionable_by: owner } },
@@ -289,15 +290,15 @@ exports['provisionable_by network: other owner'] = function (t) {
 
         t.ifError(res);
 
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['provisionable_by networks'] = function (t) {
+test('provisionable_by networks', function (t) {
     napi.listNetworks({ provisionable_by: owner }, function (err, res) {
-        if (helpers.ifErr(t, err, 'list networks')) {
-            return t.done();
+        if (h.ifErr(t, err, 'list networks')) {
+            return t.end();
         }
 
         var uuids = res.map(function (n) { return n.uuid; }).sort();
@@ -320,39 +321,39 @@ exports['provisionable_by networks'] = function (t) {
         t.ok(uuids.indexOf(state.noOwner2.uuid) !== -1,
             'list contains second network with no owner');
 
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['provisionable_by network pools: owner'] = {
-    'list': function (t) {
+test('provisionable_by network pools: owner', function (t) {
+    t.test('list', function (t2) {
         napi.listNetworkPools({ provisionable_by: owner }, function (err, res) {
-            if (helpers.ifErr(t, err, 'list network pools')) {
-                return t.done();
+            if (h.ifErr(t2, err, 'list network pools')) {
+                return t2.end();
             }
 
             var uuids = res.map(function (n) { return n.uuid; }).sort();
-            t.deepEqual(uuids,
+            t2.deepEqual(uuids,
                 state.noOwnerPools.concat([
                     state.noOwnerPool.uuid, state.ownerPool.uuid ]).sort(),
                 'provisionable_by returns correct list');
-            return t.done();
+            return t2.end();
         });
-    },
+    });
 
-    'get owner pool': function (t) {
-        mod_pool.get(t, {
+    t.test('get owner pool', function (t2) {
+        mod_pool.get(t2, {
             uuid: state.ownerPool.uuid,
             params: {
                 provisionable_by: owner
             },
             exp: state.ownerPool
         });
-    },
+    });
 
-    'get owner pool 2': function (t) {
-        mod_pool.get(t, {
+    t.test('get owner pool 2', function (t2) {
+        mod_pool.get(t2, {
             uuid: state.ownerPool2.uuid,
             params: {
                 provisionable_by: owner
@@ -363,39 +364,39 @@ exports['provisionable_by network pools: owner'] = {
                 message: constants.msg.POOL_OWNER
             }
         });
-    },
+    });
 
-    'get no owner pool': function (t) {
-        mod_pool.get(t, {
+    t.test('get no owner pool', function (t2) {
+        mod_pool.get(t2, {
             uuid: state.noOwnerPool.uuid,
             params: {
                 provisionable_by: owner
             },
             exp: state.noOwnerPool
         });
-    }
-};
+    });
+});
 
 
-exports['provisionable_by network pools: owner2'] = {
-    'list': function (t) {
+test('provisionable_by network pools: owner2', function (t) {
+    t.test('list', function (t2) {
         napi.listNetworkPools({ provisionable_by: owner2 },
             function (err, res) {
-            if (helpers.ifErr(t, err, 'list network pools')) {
-                return t.done();
+            if (h.ifErr(t2, err, 'list network pools')) {
+                return t2.end();
             }
 
             var uuids = res.map(function (n) { return n.uuid; }).sort();
-            t.deepEqual(uuids,
+            t2.deepEqual(uuids,
                 state.noOwnerPools.concat([
                     state.noOwnerPool.uuid, state.ownerPool2.uuid ]).sort(),
                 'provisionable_by returns correct list');
-            return t.done();
+            return t2.end();
         });
-    },
+    });
 
-    'get owner pool': function (t) {
-        mod_pool.get(t, {
+    t.test('get owner pool', function (t2) {
+        mod_pool.get(t2, {
             uuid: state.ownerPool.uuid,
             params: {
                 provisionable_by: owner2
@@ -406,48 +407,48 @@ exports['provisionable_by network pools: owner2'] = {
                 message: constants.msg.POOL_OWNER
             }
         });
-    },
+    });
 
-    'get owner pool 2': function (t) {
-        mod_pool.get(t, {
+    t.test('get owner pool 2', function (t2) {
+        mod_pool.get(t2, {
             uuid: state.ownerPool2.uuid,
             params: {
                 provisionable_by: owner2
             },
             exp: state.ownerPool2
         });
-    },
+    });
 
-    'get no owner pool': function (t) {
-        mod_pool.get(t, {
+    t.test('get no owner pool', function (t2) {
+        mod_pool.get(t2, {
             uuid: state.noOwnerPool.uuid,
             params: {
                 provisionable_by: owner2
             },
             exp: state.noOwnerPool
         });
-    }
-};
+    });
+});
 
 
-exports['provisionable_by network pools: other owner'] = {
-    'list': function (t) {
+test('provisionable_by network pools: other owner', function (t) {
+    t.test('list', function (t2) {
         napi.listNetworkPools({ provisionable_by: mod_uuid.v4() },
             function (err, res) {
-            if (helpers.ifErr(t, err, 'list network pools')) {
-                return t.done();
+            if (h.ifErr(t2, err, 'list network pools')) {
+                return t2.end();
             }
 
             var uuids = res.map(function (n) { return n.uuid; }).sort();
-            t.deepEqual(uuids, state.noOwnerPools.concat(
+            t2.deepEqual(uuids, state.noOwnerPools.concat(
                     [ state.noOwnerPool.uuid ]).sort(),
                 'provisionable_by returns correct list');
-            return t.done();
+            return t2.end();
         });
-    },
+    });
 
-    'get owner pool': function (t) {
-        mod_pool.get(t, {
+    t.test('get owner pool', function (t2) {
+        mod_pool.get(t2, {
             uuid: state.ownerPool.uuid,
             params: {
                 provisionable_by: mod_uuid.v4()
@@ -458,10 +459,10 @@ exports['provisionable_by network pools: other owner'] = {
                 message: constants.msg.POOL_OWNER
             }
         });
-    },
+    });
 
-    'get owner pool 2': function (t) {
-        mod_pool.get(t, {
+    t.test('get owner pool 2', function (t2) {
+        mod_pool.get(t2, {
             uuid: state.ownerPool2.uuid,
             params: {
                 provisionable_by: mod_uuid.v4()
@@ -472,18 +473,18 @@ exports['provisionable_by network pools: other owner'] = {
                 message: constants.msg.POOL_OWNER
             }
         });
-    },
+    });
 
-    'get no owner pool': function (t) {
-        mod_pool.get(t, {
+    t.test('get no owner pool', function (t2) {
+        mod_pool.get(t2, {
             uuid: state.noOwnerPool.uuid,
             params: {
                 provisionable_by: mod_uuid.v4()
             },
             exp: state.noOwnerPool
         });
-    }
-};
+    });
+});
 
 
 
@@ -491,7 +492,7 @@ exports['provisionable_by network pools: other owner'] = {
 
 
 
-exports['teardown'] = function (t) {
+test('teardown', function (t) {
     vasync.pipeline({
     funcs: [
         function (_, cb) {
@@ -504,31 +505,31 @@ exports['teardown'] = function (t) {
             deleteNetworkPool(t, 'ownerPool2', cb);
 
         }, function (_, cb) {
-            helpers.deleteNetwork(t, napi, state, cb);
+            h.deleteNetwork(t, napi, state, cb);
 
         }, function (_, cb) {
-            helpers.deleteNetwork(t, napi, state, 'ownerNet2', cb);
+            h.deleteNetwork(t, napi, state, 'ownerNet2', cb);
 
         }, function (_, cb) {
-            helpers.deleteNetwork(t, napi, state, 'ownerNet3', cb);
+            h.deleteNetwork(t, napi, state, 'ownerNet3', cb);
 
         }, function (_, cb) {
-            helpers.deleteNetwork(t, napi, state, 'ownerNet4', cb);
+            h.deleteNetwork(t, napi, state, 'ownerNet4', cb);
 
         }, function (_, cb) {
-            helpers.deleteNetwork(t, napi, state, 'ownerNet5', cb);
+            h.deleteNetwork(t, napi, state, 'ownerNet5', cb);
 
         }, function (_, cb) {
-            helpers.deleteNetwork(t, napi, state, 'noOwner', cb);
+            h.deleteNetwork(t, napi, state, 'noOwner', cb);
 
         }, function (_, cb) {
-            helpers.deleteNetwork(t, napi, state, 'noOwner2', cb);
+            h.deleteNetwork(t, napi, state, 'noOwner2', cb);
 
         }, function (_, cb) {
-            helpers.deleteNicTags(t, napi, state);
+            h.deleteNicTags(t, napi, state);
         }
     ] }, function (err) {
-        helpers.ifError(t, err, 'teardown pipeline');
-        return t.done();
+        h.ifError(t, err, 'teardown pipeline');
+        return t.end();
     });
-};
+});

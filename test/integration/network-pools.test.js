@@ -13,8 +13,9 @@
  */
 
 var clone = require('clone');
-var helpers = require('./helpers');
+var h = require('./helpers');
 var mod_pool = require('../lib/pool');
+var test = require('tape');
 var util = require('util');
 var vasync = require('vasync');
 
@@ -24,7 +25,7 @@ var vasync = require('vasync');
 
 
 
-var napi = helpers.createNAPIclient();
+var napi = h.createNAPIclient();
 var state = {
     pools: []
 };
@@ -58,24 +59,24 @@ function poolInList(t, pool, list) {
 
 
 
-exports['create test nic tag'] = function (t) {
-    helpers.createNicTag(t, napi, state);
-};
+test('create test nic tag', function (t) {
+    h.createNicTag(t, napi, state);
+});
 
 
-exports['create test network'] = function (t) {
-    helpers.createNetwork(t, napi, state);
-};
+test('create test network', function (t) {
+    h.createNetwork(t, napi, state);
+});
 
 
-exports['create test network 2'] = function (t) {
-    helpers.createNetwork(t, napi, state, {}, 'network2');
-};
+test('create test network 2', function (t) {
+    h.createNetwork(t, napi, state, {}, 'network2');
+});
 
 
-exports['create test network 3'] = function (t) {
-    helpers.createNetwork(t, napi, state, {}, 'network3');
-};
+test('create test network 3', function (t) {
+    h.createNetwork(t, napi, state, {}, 'network3');
+});
 
 
 
@@ -83,9 +84,9 @@ exports['create test network 3'] = function (t) {
 
 
 
-exports['POST /network_pools'] = {
-    'first': function (t) {
-        mod_pool.createAndGet(t, {
+test('POST /network_pools', function (t) {
+    t.test('first', function (t2) {
+        mod_pool.createAndGet(t2, {
             name: '<generate>',
             params: {
                 networks: [ state.network.uuid ].sort()
@@ -96,10 +97,10 @@ exports['POST /network_pools'] = {
             },
             state: state
         });
-    },
+    });
 
-    'second': function (t) {
-        mod_pool.createAndGet(t, {
+    t.test('second', function (t2) {
+        mod_pool.createAndGet(t2, {
             name: '<generate>',
             params: {
                 networks: [ state.network.uuid, state.network2.uuid ].sort()
@@ -110,11 +111,11 @@ exports['POST /network_pools'] = {
             },
             state: state
         });
-    }
-};
+    });
+});
 
 
-exports['GET /network_pools'] = function (t) {
+test('GET /network_pools', function (t) {
     napi.listNetworkPools(function (err, res) {
         t.ifError(err, 'get network pools');
 
@@ -128,12 +129,12 @@ exports['GET /network_pools'] = function (t) {
         sorted.sort();
 
         t.deepEqual(uuids, sorted, 'results returned sorted by UUIDs');
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['PUT /network_pools/:uuid'] = function (t) {
+test('PUT /network_pools/:uuid', function (t) {
     var params = {
         name: 'network_pool2' + process.pid,
         networks: [ state.network.uuid, state.network3.uuid ].sort()
@@ -142,7 +143,7 @@ exports['PUT /network_pools/:uuid'] = function (t) {
     napi.updateNetworkPool(state.pools[0].uuid, params, function (err, res) {
         t.ifError(err, 'update test network pool: ' + params.uuid);
         if (err) {
-            return t.done();
+            return t.end();
         }
 
         params.uuid = state.pools[0].uuid;
@@ -152,17 +153,17 @@ exports['PUT /network_pools/:uuid'] = function (t) {
         return napi.getNetworkPool(res.uuid, function (err2, res2) {
             t.ifError(err, 'get network pool: ' + params.uuid);
             if (err) {
-                return t.done();
+                return t.end();
             }
 
             t.deepEqual(res2, params, 'get params for ' + params.uuid);
-            return t.done();
+            return t.end();
         });
     });
-};
+});
 
 
-exports['DELETE /network-pools/:uuid'] = function (t) {
+test('DELETE /network-pools/:uuid', function (t) {
     vasync.forEachParallel({
         inputs: state.pools,
         func: function (pool, cb) {
@@ -172,9 +173,9 @@ exports['DELETE /network-pools/:uuid'] = function (t) {
             });
         }
     }, function (err, res) {
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
 
@@ -182,18 +183,18 @@ exports['DELETE /network-pools/:uuid'] = function (t) {
 
 
 
-exports['remove test network'] = function (t) {
-    helpers.deleteNetwork(t, napi, state);
-};
+test('remove test network', function (t) {
+    h.deleteNetwork(t, napi, state);
+});
 
-exports['remove test network 2'] = function (t) {
-    helpers.deleteNetwork(t, napi, state, 'network2');
-};
+test('remove test network 2', function (t) {
+    h.deleteNetwork(t, napi, state, 'network2');
+});
 
-exports['remove test network 3'] = function (t) {
-    helpers.deleteNetwork(t, napi, state, 'network3');
-};
+test('remove test network 3', function (t) {
+    h.deleteNetwork(t, napi, state, 'network3');
+});
 
-exports['remove test nic tag'] = function (t) {
-    helpers.deleteNicTag(t, napi, state);
-};
+test('remove test nic tag', function (t) {
+    h.deleteNicTag(t, napi, state);
+});

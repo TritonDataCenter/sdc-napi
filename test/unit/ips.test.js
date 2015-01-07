@@ -19,6 +19,7 @@ var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
 var mod_uuid = require('node-uuid');
 var restify = require('restify');
+var test = require('tape');
 var util = require('util');
 var vasync = require('vasync');
 
@@ -28,9 +29,6 @@ var vasync = require('vasync');
 
 
 
-// Set this to any of the exports in this file to only run that test,
-// plus setup and teardown
-var runOne;
 var d = {};
 var MORAY_IP = '10.0.2.15';
 var NON_MORAY_IP = '10.0.2.115';
@@ -57,43 +55,45 @@ var MULTIPLE_PARAMS_REQ = [
 
 
 
-exports['Initial setup'] = {
-    'create client and server': function (t) {
+test('Initial setup', function (t) {
+    t.plan(4);
+    var netParams = h.validNetworkParams();
+
+    t.test('create client and server', function (t2) {
         h.createClientAndServer(function (err, res) {
-            t.ifError(err, 'server creation');
-            t.ok(res, 'client');
+            t2.ifError(err, 'server creation');
+            t2.ok(res, 'client');
             NAPI = res;
 
-            return t.done();
+            return t2.end();
         });
-    },
+    });
 
-    'create nic tag': function (t) {
-        d.netParams = h.validNetworkParams();
+    t.test('create nic tag', function (t2) {
 
-        NAPI.createNicTag(d.netParams.nic_tag, function (err) {
-            h.ifErr(t, err, 'create nic tag');
-            return t.done();
+        NAPI.createNicTag(netParams.nic_tag, function (err) {
+            h.ifErr(t2, err, 'create nic tag');
+            return t2.end();
         });
-    },
+    });
 
-    'create network': function (t) {
-        NAPI.createNetwork(d.netParams, function (err, res) {
-            h.ifErr(t, err, 'create network');
+    t.test('create network', function (t2) {
+        NAPI.createNetwork(netParams, function (err, res) {
+            h.ifErr(t2, err, 'create network');
             NET = res;
 
-            return t.done();
+            return t2.end();
         });
-    },
+    });
 
-    'add IP to moray': function (t) {
+    t.test('add IP to moray', function (t2) {
         NAPI.updateIP(NET.uuid, MORAY_IP, { reserved: true }, function (err) {
-            h.ifErr(t, err, 'add IP to moray');
+            h.ifErr(t2, err, 'add IP to moray');
 
-            return t.done();
+            return t2.end();
         });
-    }
-};
+    });
+});
 
 
 
@@ -101,11 +101,11 @@ exports['Initial setup'] = {
 
 
 
-exports['Get IP - non-existent network'] = function (t) {
+test('Get IP - non-existent network', function (t) {
     NAPI.getIP(mod_uuid.v4(), '1.2.3.4', function (err, res) {
         t.ok(err, 'error returned');
         if (!err) {
-            return t.done();
+            return t.end();
         }
 
         t.equal(err.statusCode, 404, 'status code');
@@ -114,12 +114,12 @@ exports['Get IP - non-existent network'] = function (t) {
             message: 'network not found'
         }, 'Error body');
 
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['Get IP - outside subnet'] = function (t) {
+test('Get IP - outside subnet', function (t) {
     var invalid = [
         '10.0.3.1',
         '10.0.1.255',
@@ -145,12 +145,12 @@ exports['Get IP - outside subnet'] = function (t) {
             });
         }
     }, function () {
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['Get IP - invalid'] = function (t) {
+test('Get IP - invalid', function (t) {
     var invalid = [
         'a',
         '32',
@@ -176,16 +176,16 @@ exports['Get IP - invalid'] = function (t) {
             });
         }
     }, function () {
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['Get IP - record not in moray'] = function (t) {
+test('Get IP - record not in moray', function (t) {
     NAPI.getIP(NET.uuid, NON_MORAY_IP, function (err, obj, req, res) {
         t.ifError(err, 'error returned');
         if (err) {
-            return t.done();
+            return t.end();
         }
 
         t.equal(res.statusCode, 200, 'status code');
@@ -196,16 +196,16 @@ exports['Get IP - record not in moray'] = function (t) {
             free: true
         }, 'response');
 
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['Get IP - record in moray'] = function (t) {
+test('Get IP - record in moray', function (t) {
     NAPI.getIP(NET.uuid, MORAY_IP, function (err, obj, req, res) {
         t.ifError(err, 'error returned');
         if (err) {
-            return t.done();
+            return t.end();
         }
 
         t.equal(res.statusCode, 200, 'status code');
@@ -216,9 +216,9 @@ exports['Get IP - record in moray'] = function (t) {
             free: false
         }, 'response');
 
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
 
@@ -226,12 +226,12 @@ exports['Get IP - record in moray'] = function (t) {
 
 
 
-exports['Update IP - invalid network'] = function (t) {
+test('Update IP - invalid network', function (t) {
     NAPI.updateIP('doesnotexist', '1.2.3.4', { reserved: true },
         function (err, res) {
         t.ok(err, 'error returned');
         if (!err) {
-            return t.done();
+            return t.end();
         }
 
         t.equal(err.statusCode, 404, 'status code');
@@ -240,17 +240,17 @@ exports['Update IP - invalid network'] = function (t) {
             message: 'network not found'
         }, 'Error body');
 
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['Update IP - non-existent network'] = function (t) {
+test('Update IP - non-existent network', function (t) {
     NAPI.updateIP(mod_uuid.v4(), '1.2.3.4', { reserved: true },
         function (err, res) {
         t.ok(err, 'error returned');
         if (!err) {
-            return t.done();
+            return t.end();
         }
 
         t.equal(err.statusCode, 404, 'status code');
@@ -259,12 +259,12 @@ exports['Update IP - non-existent network'] = function (t) {
             message: 'network not found'
         }, 'Error body');
 
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['Update IP - outside subnet'] = function (t) {
+test('Update IP - outside subnet', function (t) {
     var invalid = [
         '10.0.3.1',
         '10.0.1.255',
@@ -291,12 +291,12 @@ exports['Update IP - outside subnet'] = function (t) {
             });
         }
     }, function () {
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['Update IP - invalid'] = function (t) {
+test('Update IP - invalid', function (t) {
     var invalid = [
         'a',
         '32',
@@ -323,12 +323,12 @@ exports['Update IP - invalid'] = function (t) {
             });
         }
     }, function () {
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['Update IP - invalid params (IP not in moray)'] = function (t) {
+test('Update IP - invalid params (IP not in moray)', function (t) {
     vasync.forEachParallel({
         inputs: INVALID_PARAMS,
         func: function (data, cb) {
@@ -354,12 +354,12 @@ exports['Update IP - invalid params (IP not in moray)'] = function (t) {
             });
         }
     }, function () {
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['Update IP - invalid params (IP in moray)'] = function (t) {
+test('Update IP - invalid params (IP in moray)', function (t) {
     vasync.forEachParallel({
         inputs: INVALID_PARAMS,
         func: function (data, cb) {
@@ -385,9 +385,9 @@ exports['Update IP - invalid params (IP in moray)'] = function (t) {
             });
         }
     }, function () {
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
 /*
@@ -395,8 +395,7 @@ exports['Update IP - invalid params (IP in moray)'] = function (t) {
  * for the IP as well (either it should be already set in UFDS, or updated in
  * the same payload).  If either is set, owner_uuid needs to be set as well.
  */
-exports['Update IP - invalid param combinations (IP not in moray)'] =
-    function (t) {
+test('Update IP - invalid param combinations (IP not in moray)', function (t) {
     vasync.forEachParallel({
         inputs: MULTIPLE_PARAMS_REQ,
         func: function (params, cb) {
@@ -422,13 +421,12 @@ exports['Update IP - invalid param combinations (IP not in moray)'] =
             });
         }
     }, function () {
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['Update IP - invalid param combinations (IP in moray)'] =
-    function (t) {
+test('Update IP - invalid param combinations (IP in moray)', function (t) {
     vasync.forEachParallel({
         inputs: MULTIPLE_PARAMS_REQ,
         func: function (params, cb) {
@@ -453,18 +451,18 @@ exports['Update IP - invalid param combinations (IP in moray)'] =
             });
         }
     }, function () {
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['Update IP - both missing and invalid params (IP not in moray)'] =
+test('Update IP - both missing and invalid params (IP not in moray)',
     function (t) {
     NAPI.updateIP(NET.uuid, '10.0.2.4', { belongs_to_uuid: 'asdf' },
         function (err, res) {
         t.ok(err, 'error returned');
         if (!err) {
-            return t.done();
+            return t.end();
         }
 
         t.equal(err.statusCode, 422, 'status code');
@@ -476,18 +474,17 @@ exports['Update IP - both missing and invalid params (IP not in moray)'] =
             ]
         }), 'Error body');
 
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['Update IP - both missing and invalid params (IP in moray)'] =
-    function (t) {
+test('Update IP - both missing and invalid params (IP in moray)', function (t) {
     NAPI.updateIP(NET.uuid, MORAY_IP, { belongs_to_uuid: 'asdf' },
         function (err, res) {
         t.ok(err, 'error returned');
         if (!err) {
-            return t.done();
+            return t.end();
         }
 
         t.equal(err.statusCode, 422, 'status code');
@@ -499,16 +496,15 @@ exports['Update IP - both missing and invalid params (IP in moray)'] =
             ]
         }), 'Error body');
 
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
 /*
  * Allow updating all parameters
  */
-exports['Update IP - valid param combinations (IP in moray)'] =
-    function (t) {
+test('Update IP - valid param combinations (IP in moray)', function (t) {
     var ipParams = {
         belongs_to_type: 'other',
         belongs_to_uuid: mod_uuid.v4(),
@@ -547,15 +543,14 @@ exports['Update IP - valid param combinations (IP in moray)'] =
                 return cb();
             });
         }, function () {
-            return t.done();
+            return t.end();
         });
     });
-};
+});
 
 
 
-exports['Update IP - valid param combinations (IP not in moray)'] =
-    function (t) {
+test('Update IP - valid param combinations (IP not in moray)', function (t) {
     var i = 0;
     var updateList = [
         { reserved: false },
@@ -589,12 +584,12 @@ exports['Update IP - valid param combinations (IP not in moray)'] =
             return cb();
         });
     }, function () {
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['Update IP - free (IP in moray)'] = function (t) {
+test('Update IP - free (IP in moray)', function (t) {
     var params = {
         belongs_to_type: 'other',
         belongs_to_uuid: mod_uuid.v4(),
@@ -611,7 +606,7 @@ exports['Update IP - free (IP in moray)'] = function (t) {
             t.ifError(err2);
             if (err2) {
                 t.deepEqual(err.body, {}, 'error body');
-                return t.done();
+                return t.end();
             }
 
             t.equal(res.statusCode, 200, 'status code');
@@ -622,19 +617,19 @@ exports['Update IP - free (IP in moray)'] = function (t) {
                 reserved: false
             }, 'Response');
 
-            return t.done();
+            return t.end();
         });
     });
-};
+});
 
 
-exports['Update IP - free (IP not in moray)'] = function (t) {
+test('Update IP - free (IP not in moray)', function (t) {
     NAPI.updateIP(NET.uuid, '10.0.2.4', { free: 'true' },
         function (err, obj, req, res) {
         t.ifError(err);
         if (err) {
             t.deepEqual(err.body, {}, 'error body');
-            return t.done();
+            return t.end();
         }
 
         t.equal(res.statusCode, 200, 'status code');
@@ -645,12 +640,12 @@ exports['Update IP - free (IP not in moray)'] = function (t) {
             reserved: false
         }, 'Response');
 
-        return t.done();
+        return t.end();
     });
-};
+});
 
 
-exports['Update IP - unassign (IP in moray)'] = function (t) {
+test('Update IP - unassign (IP in moray)', function (t) {
     var params = {
         belongs_to_type: 'server',
         belongs_to_uuid: mod_uuid.v4(),
@@ -665,7 +660,7 @@ exports['Update IP - unassign (IP in moray)'] = function (t) {
             t.ifError(err2);
             if (err2) {
                 t.deepEqual(err.body, {}, 'error body');
-                return t.done();
+                return t.end();
             }
 
             t.equal(res.statusCode, 200, 'status code');
@@ -677,19 +672,19 @@ exports['Update IP - unassign (IP in moray)'] = function (t) {
                 reserved: false
             }, 'Response');
 
-            return t.done();
+            return t.end();
         });
     });
-};
+});
 
 
-exports['Update IP - unassign (IP not in moray)'] = function (t) {
+test('Update IP - unassign (IP not in moray)', function (t) {
     NAPI.updateIP(NET.uuid, '10.0.2.35', { unassign: 'true' },
         function (err, obj, req, res) {
         t.ifError(err);
         if (err) {
             t.deepEqual(err.body, {}, 'error body');
-            return t.done();
+            return t.end();
         }
 
         t.equal(res.statusCode, 200, 'status code');
@@ -700,30 +695,18 @@ exports['Update IP - unassign (IP not in moray)'] = function (t) {
             reserved: false
         }, 'Response');
 
-        return t.done();
+        return t.end();
     });
-};
-
+});
 
 
 // --- Teardown
 
 
 
-exports['Stop server'] = function (t) {
+test('Stop server', function (t) {
     h.stopServer(function (err) {
         t.ifError(err, 'server stop');
-        t.done();
+        t.end();
     });
-};
-
-
-
-// Use to run only one test in this file:
-if (runOne) {
-    module.exports = {
-        setup: exports['Initial setup'],
-        oneTest: runOne,
-        teardown: exports['Stop server']
-    };
-}
+});
