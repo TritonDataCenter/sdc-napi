@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright (c) 2015, Joyent, Inc.
  */
 
 /*
@@ -16,6 +16,7 @@ var assert = require('assert-plus');
 var async = require('async');
 var clone = require('clone');
 var constants = require('../../lib/util/constants');
+var fmt = require('util').format;
 var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
 var mod_moray = require('../lib/moray');
@@ -37,10 +38,10 @@ var CONF = require('./test-config.json');
 var NAPI;
 var TAG;
 var MSG = {
-    end_outside: 'provision_end_ip cannot be outside subnet',
-    end_broadcast: 'provision_end_ip cannot be the broadcast address',
-    start_outside: 'provision_start_ip cannot be outside subnet',
-    start_broadcast: 'provision_start_ip cannot be the broadcast address'
+    end_outside: constants.msg.PROV_END_IP_OUTSIDE,
+    end_broadcast: constants.msg.PROV_END_IP_BCAST,
+    start_outside: constants.msg.PROV_START_IP_OUTSIDE,
+    start_broadcast: constants.msg.PROV_START_IP_BCAST
 };
 
 
@@ -84,9 +85,7 @@ test('Create network', function (t) {
     });
 
     NAPI.createNetwork(params, function (err, obj, req, res) {
-        t.ifError(err, 'network create');
-        if (err) {
-            t.deepEqual(err.body, {}, 'error body');
+        if (h.ifErr(t, err, 'network create')) {
             return t.end();
         }
 
@@ -96,7 +95,7 @@ test('Create network', function (t) {
         params.netmask = '255.255.255.0';
         params.vlan_id = 0;
 
-        t.deepEqual(obj, params, 'response');
+        t.deepEqual(obj, params, 'response: network ' + params.uuid);
 
         NAPI.getNetwork(obj.uuid, function (err2, obj2) {
             t.ifError(err2);
@@ -230,9 +229,13 @@ test('Create network - all invalid parameters', function (t) {
 
 
 test('Create network - invalid parameters', function (t) {
+    // NET_NUM will be the next network number used by h.validNetworkParams():
+    var num = h.NET_NUM;
+    var baseParams = h.validNetworkParams();
+
     var invalid = [
-        ['gateway', '10.0.1.254', constants.GATEWAY_SUBNET_MSG],
-        ['gateway', '10.0.3.1', constants.GATEWAY_SUBNET_MSG],
+        ['gateway', fmt('10.0.%d.254', num - 1), constants.GATEWAY_SUBNET_MSG],
+        ['gateway', fmt('10.0.%d.1', num + 1), constants.GATEWAY_SUBNET_MSG],
 
         ['subnet', '1.2.3.4/a', 'Subnet bits invalid'],
         ['subnet', '1.2.3.4/7', 'Subnet bits invalid'],
@@ -245,13 +248,13 @@ test('Create network - invalid parameters', function (t) {
         ['vlan_id', '1', constants.VLAN_MSG],
         ['vlan_id', '4095', constants.VLAN_MSG],
 
-        ['provision_start_ip', '10.0.1.254', MSG.start_outside],
-        ['provision_start_ip', '10.0.3.1', MSG.start_outside],
-        ['provision_start_ip', '10.0.2.255', MSG.start_broadcast],
+        ['provision_start_ip', fmt('10.0.%d.254', num - 1), MSG.start_outside],
+        ['provision_start_ip', fmt('10.0.%d.1', num + 1), MSG.start_outside],
+        ['provision_start_ip', fmt('10.0.%d.255', num), MSG.start_broadcast],
 
-        ['provision_end_ip', '10.0.1.254', MSG.end_outside],
-        ['provision_end_ip', '10.0.3.1', MSG.end_outside],
-        ['provision_end_ip', '10.0.2.255', MSG.end_broadcast],
+        ['provision_end_ip', fmt('10.0.%d.254', num - 1), MSG.end_outside],
+        ['provision_end_ip', fmt('10.0.%d.1', num + 1), MSG.end_outside],
+        ['provision_end_ip', fmt('10.0.%d.255', num), MSG.end_broadcast],
 
         ['routes', { 'asdf': 'asdf', 'foo': 'bar' },
             [ 'asdf', 'asdf', 'foo', 'bar' ],
@@ -273,7 +276,7 @@ test('Create network - invalid parameters', function (t) {
     vasync.forEachParallel({
         inputs: invalid,
         func: function (data, cb) {
-            var toCreate = h.validNetworkParams();
+            var toCreate = clone(baseParams);
             toCreate[data[0]] = data[1];
 
             NAPI.createNetwork(toCreate, function (err, res) {
@@ -310,8 +313,8 @@ test('Create network - invalid parameters', function (t) {
 
 test('Create network - provision start IP after end IP', function (t) {
     NAPI.createNetwork(h.validNetworkParams({
-        provision_start_ip: '10.0.2.250',
-        provision_end_ip: '10.0.2.25'
+        provision_start_ip: fmt('10.0.%d.250', h.NET_NUM),
+        provision_end_ip: fmt('10.0.%d.25', h.NET_NUM)
     }), function (err, res) {
         t.ok(err, 'error returned');
 
@@ -342,11 +345,12 @@ test('Create network - provision start IP after end IP', function (t) {
 
 test('Update network', function (t) {
     var before, expected, nets, p, updateParams;
+    var num = h.NET_NUM;
     var vals = h.validNetworkParams({
         name: 'updateme',
-        provision_start_ip: '10.1.2.10',
-        provision_end_ip: '10.1.2.250',
-        subnet: '10.1.2.0/24'
+        provision_start_ip: fmt('10.1.%d.10', num),
+        provision_end_ip: fmt('10.1.%d.250', num),
+        subnet: fmt('10.1.%d.0/24', num)
     });
     delete vals.resolvers;
 
@@ -379,11 +383,11 @@ test('Update network', function (t) {
         }, function _firstUpdate(_, cb) {
             updateParams = {
                 description: 'description here',
-                gateway: '10.1.2.1',
+                gateway: fmt('10.1.%d.1', num),
                 owner_uuids: [ mod_uuid.v4() ],
                 resolvers: ['8.8.4.4'],
                 routes: {
-                    '10.2.0.0/16': '10.1.2.1'
+                    '10.2.0.0/16': fmt('10.1.%d.1', num)
                 }
             };
 
@@ -434,14 +438,14 @@ test('Update network', function (t) {
             // to a different value
             updateParams = {
                 description: 'description 2',
-                gateway: '10.1.2.2',
+                gateway: fmt('10.1.%d.2', num),
                 owner_uuids: [ mod_uuid.v4(), mod_uuid.v4() ].sort(),
-                provision_start_ip: '10.1.2.9',
-                provision_end_ip: '10.1.2.251',
-                resolvers: ['8.8.8.8', '10.1.2.1'],
+                provision_start_ip: fmt('10.1.%d.9', num),
+                provision_end_ip: fmt('10.1.%d.251', num),
+                resolvers: ['8.8.8.8', fmt('10.1.%d.1', num)],
                 routes: {
-                    '10.2.0.0/16': '10.1.2.2',
-                    '10.3.0.0/16': '10.1.2.2'
+                    '10.2.0.0/16': fmt('10.1.%d.2', num),
+                    '10.3.0.0/16': fmt('10.1.%d.2', num)
                 }
             };
 

@@ -19,7 +19,6 @@
 # Run `./runtests -h` for usage info.
 #
 
-API=napi
 if [ "$TRACE" != "" ]; then
     export PS4='${BASH_SOURCE}:${LINENO}: ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
     set -o xtrace
@@ -69,9 +68,12 @@ function usage
 
 start_time=$(date +%s)
 
+API=napi
 TOP=$(cd $(dirname $0)/../; pwd)
 NODE_INSTALL=$TOP/node
+OUTPUT_DIR=/var/tmp/${API}test
 TAPE=$TOP/node_modules/.bin/tape
+FAILING_LIST=$OUTPUT_DIR/failing-tests.txt
 
 
 # Options.
@@ -99,10 +101,10 @@ done
 
 
 # Setup a clean output dir.
-OUTPUT_DIR=/var/tmp/${API}test
 echo "# Setup a clean output dir ($OUTPUT_DIR)."
 rm -rf $OUTPUT_DIR
 mkdir -p /$OUTPUT_DIR
+touch $FAILING_LIST
 
 cd $TOP
 
@@ -121,7 +123,10 @@ for file in $test_files; do
     echo "# $test_file"
     PATH=$NODE_INSTALL/bin:$PATH $TAPE $file \
         | tee $OUTPUT_DIR/$test_file.tap
-    [[ "$?" != "0" ]] && [[ -n "$opt_stop_on_failure" ]] && break
+    if [[ "$?" != "0" ]]; then
+        echo $file >> $OUTPUT_DIR/failing-tests.txt
+        [[ -n "$opt_stop_on_failure" ]] && break
+    fi
 done
 
 set -o errexit
@@ -144,17 +149,19 @@ passed=$(grep "^# pass  [0-9]" $OUTPUT_DIR/*.tap | tr -s ' ' | cut -d ' ' -f3 | 
 [[ -z ${tests} ]] && tests=0
 [[ -z ${passed} ]] && passed=0
 fail=$((${tests} - ${passed}))
+failing_tests=$(cat ${FAILING_LIST} | wc -l)
 
 echo "# Completed in ${elapsed} seconds."
 echo -e "# \033[32mPASS: ${passed} / ${tests}\033[39m"
 if [[ ${fail} -gt 0 ]]; then
     echo -e "# \033[31mFAIL: ${fail} / ${tests}\033[39m"
+fi
+
+if [[ ${failing_tests} -gt 0 ]]; then
     echo ""
     echo -e "# \033[31mFAILING TESTS:\033[39m"
-    grep -l "^# fail  [0-9]" ${OUTPUT_DIR}/*.tap | sed -e "s,${OUTPUT_DIR}/,," -e 's,.tap,,' -e 's,^,#   ,'
+    cat $FAILING_LIST | sed -e 's,^,#   ,'
 fi
 echo ""
 
-if [[ ${tests} != ${passed} ]]; then
-    exit 1
-fi
+exit $failing_tests

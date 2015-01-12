@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright (c) 2015, Joyent, Inc.
  */
 
 /*
@@ -76,18 +76,18 @@ function afterAPIcall(t, opts, callback, err, obj, _, res) {
     var type = opts.reqType + ' ' + opts.type + ': ';
 
     if (opts.expErr) {
-        t.ok(err, 'expected error');
+        t.ok(err, type + 'expected error' + desc);
         if (err) {
             var code = opts.expCode || 422;
-            t.equal(err.statusCode, code, 'status code');
-            t.deepEqual(err.body, opts.expErr, 'error body');
+            t.equal(err.statusCode, code, type + 'status code' + desc);
+            t.deepEqual(err.body, opts.expErr, type + 'error body' + desc);
         }
 
-        return doneErr(err, t, callback);
+        return done(err, null, opts, t, callback);
     }
 
     if (ifErr(t, err, type + desc)) {
-        return doneErr(err, t, callback);
+        return done(err, null, opts, t, callback);
     }
 
     t.equal(res.statusCode, 200, 'status code' + desc);
@@ -115,7 +115,7 @@ function afterAPIcall(t, opts, callback, err, obj, _, res) {
         addToState(opts, opts.type + 's', obj);
     }
 
-    return doneRes(obj, t, callback);
+    return done(null, obj, opts, t, callback);
 }
 
 
@@ -136,16 +136,16 @@ function afterAPIdelete(t, opts, callback, err, obj, req, res) {
             t.deepEqual(err.body, opts.expErr, 'error body');
         }
 
-        return doneErr(err, t, callback);
+        return done(err, null, opts, t, callback);
     }
 
     if (ifErr(t, err, type + desc)) {
-        return doneErr(err, t, callback);
+        return done(err, null, opts, t, callback);
     }
 
     t.equal(res.statusCode, 204, type + 'status code' + desc);
 
-    return doneRes(obj, t, callback);
+    return done(null, obj, opts, t, callback);
 }
 
 
@@ -169,6 +169,18 @@ function createClient(url, t) {
     }
 
     return client;
+}
+
+
+/**
+ * Finish a test
+ */
+function done(err, res, opts, t, callback) {
+    if (callback) {
+        return callback(opts.continueOnErr ? null : err, res);
+    }
+
+    return t.end();
 }
 
 

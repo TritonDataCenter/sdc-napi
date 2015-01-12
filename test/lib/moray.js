@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright (c) 2015, Joyent, Inc.
  */
 
 /*
@@ -13,7 +13,7 @@
  */
 
 var assert = require('assert-plus');
-var mock_moray = require('../lib/mock-moray');
+var mock_moray = require('./mock-moray');
 var mod_ip = require('../../lib/models/ip');
 var util = require('util');
 var util_ip = require('../../lib/util/ip');
@@ -26,10 +26,26 @@ var util_mac = require('../../lib/util/mac');
 
 
 /**
+ * Returns a moray bucket
+ */
+function getBucket(name) {
+    return mock_moray._buckets[name];
+}
+
+
+/**
  * Returns the moray buckets
  */
 function getBuckets() {
     return mock_moray._buckets;
+}
+
+
+/**
+ * Returns a moray bucket's schema
+ */
+function getBucketSchema(name) {
+    return mock_moray._bucketSchemas[name];
 }
 
 
@@ -122,7 +138,9 @@ function setErrors(obj) {
 
 
 module.exports = {
+    getBucket: getBucket,
     getBuckets: getBuckets,
+    getBucketSchema: getBucketSchema,
     getErrors: getErrors,
     getIP: getIP,
     getIPs: getIPs,

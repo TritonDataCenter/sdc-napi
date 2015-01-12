@@ -27,6 +27,7 @@ var verror = require('verror');
 
 
 var BUCKETS = {};
+var BUCKET_VALUES = {};
 var MORAY_ERRORS = {};
 
 
@@ -76,13 +77,13 @@ function checkEtag(opts, bucket, key, batch) {
         };
     }
 
-    if (BUCKETS[bucket].hasOwnProperty(key)) {
+    if (BUCKET_VALUES[bucket].hasOwnProperty(key)) {
         if (opts.etag === null) {
             throw etagConflictErr(util.format('key "%s" already exists', key),
                 errOpts);
         }
 
-        var obj = BUCKETS[bucket][key];
+        var obj = BUCKET_VALUES[bucket][key];
         if (opts.etag != obj._etag) {
             throw etagConflictErr(
                 util.format('wanted to put etag "%s", but object has etag "%s"',
@@ -137,7 +138,7 @@ function FakeMoray(opts) {
     assert.object(opts.log, 'opts.log');
 
     this.log = opts.log.child({ component: 'mock-moray' });
-    BUCKETS = {};
+    BUCKET_VALUES = {};
     EventEmitter.call(this);
 }
 
@@ -150,15 +151,15 @@ FakeMoray.prototype._del = function _del(bucket, key) {
         throw err;
     }
 
-    if (!BUCKETS.hasOwnProperty(bucket)) {
+    if (!BUCKET_VALUES.hasOwnProperty(bucket)) {
         throw bucketNotFoundErr(bucket);
     }
 
-    if (!BUCKETS[bucket].hasOwnProperty(key)) {
+    if (!BUCKET_VALUES[bucket].hasOwnProperty(key)) {
         throw objectNotFoundErr(key);
     }
 
-    delete BUCKETS[bucket][key];
+    delete BUCKET_VALUES[bucket][key];
 };
 
 
@@ -170,7 +171,7 @@ FakeMoray.prototype._put = function _store(bucket, key, val) {
     };
 
     this.log.trace({ bucket: bucket, obj: obj }, '_put object');
-    BUCKETS[bucket][key] = obj;
+    BUCKET_VALUES[bucket][key] = obj;
 };
 
 
@@ -182,18 +183,18 @@ FakeMoray.prototype._updateObjects =
     // XXX: should throw if trying to set a non-indexed field
 
     var filterObj = ldapjs.parseFilter(filter);
-    for (var r in BUCKETS[bucket]) {
+    for (var r in BUCKET_VALUES[bucket]) {
         // The LDAP matching function .matches() assumes that the
         // values are strings, so stringify properties so that matches
         // work correctly
         var obj = {};
-        for (var k in BUCKETS[bucket][r].value) {
-            obj[k] = BUCKETS[bucket][r].value[k].toString();
+        for (var k in BUCKET_VALUES[bucket][r].value) {
+            obj[k] = BUCKET_VALUES[bucket][r].value[k].toString();
         }
 
         if (filterObj.matches(obj)) {
             for (var nk in fields) {
-                BUCKETS[bucket][r].value[nk] = fields[nk];
+                BUCKET_VALUES[bucket][r].value[nk] = fields[nk];
             }
         }
     }
@@ -233,7 +234,7 @@ FakeMoray.prototype.batch = function _batch(data, callback) {
 
         if (item.operation === 'put') {
             assert.object(item.value, 'item.value');
-            if (!BUCKETS.hasOwnProperty(item.bucket)) {
+            if (!BUCKET_VALUES.hasOwnProperty(item.bucket)) {
                 return callback(bucketNotFoundErr(item.bucket));
             }
 
@@ -255,7 +256,7 @@ FakeMoray.prototype.batch = function _batch(data, callback) {
         }
 
         if (item.operation === 'update') {
-            if (!BUCKETS.hasOwnProperty(item.bucket)) {
+            if (!BUCKET_VALUES.hasOwnProperty(item.bucket)) {
                 return callback(bucketNotFoundErr(item.bucket));
             }
 
@@ -275,7 +276,8 @@ FakeMoray.prototype.createBucket =
         return callback(err);
     }
 
-    BUCKETS[bucket] = {};
+    BUCKETS[bucket] = clone(schema);
+    BUCKET_VALUES[bucket] = {};
     return callback();
 };
 
@@ -286,11 +288,11 @@ FakeMoray.prototype.delBucket = function delBucket(bucket, callback) {
         return callback(err);
     }
 
-    if (!BUCKETS.hasOwnProperty(bucket)) {
+    if (!BUCKET_VALUES.hasOwnProperty(bucket)) {
         return callback(bucketNotFoundErr(bucket));
     }
 
-    delete BUCKETS[bucket];
+    delete BUCKET_VALUES[bucket];
     return callback();
 };
 
@@ -316,22 +318,22 @@ FakeMoray.prototype.findObjects = function findObjects(bucket, filter, opts) {
             return;
         }
 
-        if (!BUCKETS.hasOwnProperty(bucket)) {
+        if (!BUCKET_VALUES.hasOwnProperty(bucket)) {
             res.emit('error', bucketNotFoundErr(bucket));
             return;
         }
 
-        for (var r in BUCKETS[bucket]) {
+        for (var r in BUCKET_VALUES[bucket]) {
             // The LDAP matching function .matches() assumes that the
             // values are strings, so stringify properties so that matches
             // work correctly
             var obj = {};
-            for (var k in BUCKETS[bucket][r].value) {
-                obj[k] = BUCKETS[bucket][r].value[k].toString();
+            for (var k in BUCKET_VALUES[bucket][r].value) {
+                obj[k] = BUCKET_VALUES[bucket][r].value[k].toString();
             }
 
             if (filterObj.matches(obj)) {
-                res.emit('record', clone(BUCKETS[bucket][r]));
+                res.emit('record', clone(BUCKET_VALUES[bucket][r]));
             }
         }
 
@@ -352,9 +354,7 @@ FakeMoray.prototype.getBucket = function getBucket(bucket, callback) {
         return callback(bucketNotFoundErr(bucket));
     }
 
-    // The real moray returns the bucket schema here, but NAPI only
-    // uses this for an existence check, so this suffices
-    return callback(null, BUCKETS[bucket]);
+    return callback(null, clone(BUCKETS[bucket]));
 };
 
 
@@ -364,15 +364,15 @@ FakeMoray.prototype.getObject = function getObject(bucket, key, callback) {
         return callback(err);
     }
 
-    if (!BUCKETS.hasOwnProperty(bucket)) {
+    if (!BUCKET_VALUES.hasOwnProperty(bucket)) {
         return callback(bucketNotFoundErr(bucket));
     }
 
-    if (!BUCKETS[bucket].hasOwnProperty(key)) {
+    if (!BUCKET_VALUES[bucket].hasOwnProperty(key)) {
         return callback(objectNotFoundErr(key));
     }
 
-    var rec = clone(BUCKETS[bucket][key]);
+    var rec = clone(BUCKET_VALUES[bucket][key]);
     this.log.trace({ bucket: bucket, key: key, rec: rec }, 'got object');
     return callback(null, rec);
 };
@@ -390,7 +390,7 @@ FakeMoray.prototype.putObject =
         return callback(err);
     }
 
-    if (!BUCKETS.hasOwnProperty(bucket)) {
+    if (!BUCKET_VALUES.hasOwnProperty(bucket)) {
         return callback(bucketNotFoundErr(bucket));
     }
 
@@ -429,12 +429,12 @@ FakeMoray.prototype.sql = function sql(str) {
             return;
         }
 
-        if (!BUCKETS.hasOwnProperty(bucket)) {
+        if (!BUCKET_VALUES.hasOwnProperty(bucket)) {
             res.emit('error', bucketNotFoundErr(bucket));
             return;
         }
 
-        var bucketKeys = Object.keys(BUCKETS[bucket]).map(function (k) {
+        var bucketKeys = Object.keys(BUCKET_VALUES[bucket]).map(function (k) {
             return Number(k); }).sort();
         var found = 0;
         var last = bucketKeys[0];
@@ -465,7 +465,8 @@ FakeMoray.prototype.sql = function sql(str) {
 FakeMoray.prototype.updateBucket =
     function updateBucket(bucket, schema, callback) {
 
-    return callback(new Error('FakeMoray: not implemented'));
+    BUCKETS[bucket] = clone(schema);
+    return callback();
 };
 
 
@@ -474,7 +475,7 @@ FakeMoray.prototype.updateObjects =
     function updateObjects(bucket, fields, filter, callback) {
     assert.object(bucket, 'bucket');
 
-    if (!BUCKETS.hasOwnProperty(bucket)) {
+    if (!BUCKET_VALUES.hasOwnProperty(bucket)) {
         return callback(bucketNotFoundErr(bucket));
     }
 
@@ -500,8 +501,11 @@ function createClient(opts) {
 
 
 module.exports = {
-    get _buckets() {
+    get _bucketSchemas() {
         return BUCKETS;
+    },
+    get _buckets() {
+        return BUCKET_VALUES;
     },
     get _errors() {
         return MORAY_ERRORS;

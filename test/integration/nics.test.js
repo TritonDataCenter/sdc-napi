@@ -79,7 +79,15 @@ test('setup', function (t) {
             return t.end();
         }
 
-        h.createNetwork(t, napi, state, { gateway: '10.99.99.4' });
+        // "TEST-NET-2" in RFC 5737:
+        h.createNetwork(t, napi, state, {
+            gateway: '198.51.100.4',
+            nic_tag: state.nicTag.name,
+            provision_end_ip: '198.51.100.250',
+            provision_start_ip: '198.51.100.5',
+            resolvers: [ '8.8.8.8' ],
+            subnet: '198.51.100.0/24'
+        });
     });
 });
 
@@ -124,7 +132,7 @@ test('POST /nics (with IP, network and state)', function (t) {
             owner_uuid: uuids.b,
             belongs_to_uuid: uuids.a,
             belongs_to_type: 'server',
-            ip: '10.99.99.77',
+            ip: '198.51.100.77',
             network_uuid: state.network.uuid,
             state: 'provisioning'
         };
@@ -168,7 +176,7 @@ test('POST /nics (with IP but no network)', function (t) {
         owner_uuid: uuids.b,
         belongs_to_uuid: uuids.a,
         belongs_to_type: 'server',
-        ip: '10.99.99.79',
+        ip: '198.51.100.79',
         nic_tag: state.network.nic_tag,
         vlan_id: state.network.vlan_id,
         nic_tags_provided: [ 'external' ]
@@ -218,7 +226,7 @@ test('POST /nics (with IP already reserved)', function (t) {
     });
 
     t.test('reserve IP', function (t2) {
-        d.params.ip = '10.99.99.252';
+        d.params.ip = '198.51.100.252';
         napi.updateIP(state.network.uuid, d.params.ip, { reserved: true },
             function (err, res) {
             if (h.ifErr(t2, err, 'update IP ' + d.params.ip)) {
@@ -369,7 +377,7 @@ test('POST /networks/:uuid/nics (with IP)', function (t) {
         owner_uuid: uuids.b,
         belongs_to_uuid: uuids.a,
         belongs_to_type: 'server',
-        ip: '10.99.99.201'
+        ip: '198.51.100.201'
     };
     napi.provisionNic(state.network.uuid, params, function (err, res) {
         t.ifError(err, 'provision nic [network nic - with IP]');

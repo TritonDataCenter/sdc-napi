@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright (c) 2015, Joyent, Inc.
  */
 
 /*
@@ -16,8 +16,11 @@ var assert = require('assert-plus');
 var async = require('async');
 var clone = require('clone');
 var constants = require('../../lib/util/constants');
-var helpers = require('./helpers');
+var fmt = require('util').format;
+var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
+var mod_net = require('../lib/net');
+var mod_nicTag = require('../lib/nic-tag');
 var mod_uuid = require('node-uuid');
 var restify = require('restify');
 var test = require('tape');
@@ -30,9 +33,10 @@ var vasync = require('vasync');
 
 
 
-var RESERVED_IP = '10.0.2.15';
+var RESERVED_IP;
 var NAPI;
 var NETS = [];
+var NOT_IN_MORAY_IP;
 
 
 
@@ -54,52 +58,58 @@ function uuidSort(a, b) {
 
 
 test('Initial setup', function (t) {
-    var netParams = helpers.validNetworkParams();
-    var net2Params = helpers.validNetworkParams({
-        name: 'net2-' + process.pid
-    });
-    var net3Params = helpers.validNetworkParams({
-        name: 'net3-' + process.pid,
-        provision_end_ip: '10.0.3.254',
-        provision_start_ip: '10.0.3.1',
-        subnet: '10.0.3.0/24'
-    });
+    var num = h.NET_NUM;
+    var netParams = h.validNetworkParams();
+    var net2Params = h.validNetworkParams();
+    var net3Params = h.validNetworkParams();
 
-    function createNet(params, _, cb) {
-        NAPI.createNetwork(params, function (err, res) {
+    RESERVED_IP = fmt('10.0.%d.15', num);
+    NOT_IN_MORAY_IP = fmt('10.0.%d.19', h.NET_NUM - 1);
+
+    function createNet(params, t2) {
+        mod_net.create(t2, {
+            params: params,
+            partialExp: params
+        }, function (err, res) {
             if (res) {
                 NETS.push(res);
+                t.ok(res.uuid, 'network uuid: ' + res.uuid);
             }
 
-            return cb(err);
+            return t2.end();
         });
     }
 
-    vasync.pipeline({
-    funcs: [
-        function createClient(_, cb) {
-            helpers.createClientAndServer(function (err, res) {
-                t.ok(res, 'client');
-                NAPI = res;
-                return cb(err);
-            });
-        },
+    t.test('create client and server', function (t2) {
+        h.createClientAndServer(function (err, res) {
+            t.ok(res, 'client');
+            NAPI = res;
+            return t2.end();
+        });
+    });
 
-        function _createNicTag(_, cb) {
-            NAPI.createNicTag(netParams.nic_tag, cb);
-        },
+    t.test('create nic tag', function (t2) {
+        mod_nicTag.create(t2, { name: netParams.nic_tag });
+    });
 
-        createNet.bind(null, netParams),
-        createNet.bind(null, net2Params),
-        createNet.bind(null, net3Params),
+    t.test('create NETS[0]', function (t2) {
+        createNet(netParams, t2);
+    });
 
-        function _reserveIP(_, cb) {
-            NAPI.updateIP(NETS[0].uuid, RESERVED_IP, { reserved: true }, cb);
-        }
+    t.test('create NETS[1]', function (t2) {
+        createNet(net2Params, t2);
+    });
 
-    ] }, function (pipeErr) {
-        helpers.ifErr(t, pipeErr, 'setup pipeline');
-        return t.end();
+    t.test('create NETS[2]', function (t2) {
+        createNet(net3Params, t2);
+    });
+
+    t.test('reserve IP', function (t2) {
+        NAPI.updateIP(NETS[0].uuid, RESERVED_IP, { reserved: true },
+            function (err) {
+            h.ifErr(t2, err, 'reserve IP');
+            return t2.end();
+        });
     });
 });
 
@@ -117,12 +127,12 @@ test('provisioned nic', function (t) {
     };
 
     NAPI.provisionNic(NETS[2].uuid, params, function (err, nic) {
-        if (helpers.ifErr(t, err, 'provision')) {
+        if (h.ifErr(t, err, 'provision')) {
             return t.end();
         }
 
         NAPI.searchIPs(nic.ip, function (err2, res2) {
-            if (helpers.ifErr(t, err2, 'search')) {
+            if (h.ifErr(t, err2, 'search')) {
                 return t.end();
             }
 
@@ -144,9 +154,9 @@ test('provisioned nic', function (t) {
 });
 
 
-test('Multiple IPs: both in moray and not', function (t) {
+test('IP in moray', function (t) {
     NAPI.searchIPs(RESERVED_IP, function (err, obj, req, res) {
-        if (helpers.ifErr(t, err, 'search')) {
+        if (h.ifErr(t, err, 'search')) {
             return t.end();
         }
 
@@ -157,15 +167,29 @@ test('Multiple IPs: both in moray and not', function (t) {
                 ip: RESERVED_IP,
                 reserved: true,
                 network_uuid: NETS[0].uuid
-            },
+            }
+        ]);
+
+        return t.end();
+    });
+});
+
+
+test('IP not in moray', function (t) {
+    NAPI.searchIPs(NOT_IN_MORAY_IP, function (err, obj, req, res) {
+        if (h.ifErr(t, err, 'search')) {
+            return t.end();
+        }
+
+        t.equal(res.statusCode, 200, 'status code');
+        t.deepEqual(obj.sort(uuidSort), [
             {
                 free: true,
-                ip: RESERVED_IP,
+                ip: NOT_IN_MORAY_IP,
                 reserved: false,
-                network_uuid: NETS[1].uuid
+                network_uuid: NETS[2].uuid
             }
-
-        ].sort(uuidSort), 'response');
+        ]);
 
         return t.end();
     });
@@ -179,7 +203,7 @@ test('Invalid IP', function (t) {
             return t.end();
         }
 
-        t.deepEqual(err.body, helpers.invalidParamErr({
+        t.deepEqual(err.body, h.invalidParamErr({
             errors: [
                 mod_err.invalidParam('ip', constants.INVALID_IP_MSG)
             ]
@@ -200,7 +224,7 @@ test('IP not in any networks', function (t) {
         t.equal(err.statusCode, 404, 'status code');
         t.deepEqual(err.body, {
             code: 'ResourceNotFound',
-            message: 'No networks found containing that IP address'
+            message: constants.msg.SEARCH_NO_NETS
         }, 'Error body');
 
         return t.end();
@@ -214,7 +238,7 @@ test('IP not in any networks', function (t) {
 
 
 test('Stop server', function (t) {
-    helpers.stopServer(function (err) {
+    h.stopServer(function (err) {
         t.ifError(err, 'server stop');
         t.end();
     });

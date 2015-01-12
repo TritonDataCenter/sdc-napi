@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright (c) 2015, Joyent, Inc.
  */
 
 /*
@@ -15,6 +15,7 @@
 var assert = require('assert-plus');
 var clone = require('clone');
 var constants = require('../../lib/util/constants');
+var fmt = require('util').format;
 var h = require('./helpers');
 var ip_common = require('../../lib/models/ip/common');
 var mod_err = require('../../lib/util/errors');
@@ -53,70 +54,96 @@ var PROV_MAC_NET;
 
 
 test('Initial setup', function (t) {
-    h.createClientAndServer(function (err, res) {
-        t.ifError(err, 'server creation');
-        t.ok(res, 'client');
-        NAPI = res;
+    var num = h.NET_NUM;
+    var netParams = h.validNetworkParams();
 
-        if (!NAPI) {
+    t.test('create client and server', function (t2) {
+        h.createClientAndServer(function (err, res) {
+            t.ifError(err, 'server creation');
+            t.ok(res, 'client');
+            NAPI = res;
+
             return t.end();
-        }
+        });
+    });
 
-        var netParams = h.validNetworkParams();
+    t.test('create nic tag', function (t2) {
+        mod_nicTag.create(t2, {
+            name: netParams.nic_tag
+        });
+    });
 
-        vasync.pipeline({
-        funcs: [
-            function _nicTag(_, cb) {
-                NAPI.createNicTag(netParams.nic_tag, cb);
+    t.test('create net', function (t2) {
+        mod_net.create(t2, {
+            params: netParams,
+            partialExp: netParams
+        }, function (_, res) {
+            NET = res;
+            NET.num = num;
+            return t2.end();
+        });
+    });
+
+    t.test('create net2', function (t2) {
+        num = h.NET_NUM;
+        var params = h.validNetworkParams({
+            routes: {
+              '10.0.3.4': '10.0.2.2',
+              '10.0.4.0/24': '10.0.2.2'
             },
+            vlan_id: 46
+        });
 
-            function _testNet(_, cb) {
-                NAPI.createNetwork(netParams, function (err2, res2) {
-                    NET = res2;
-                    cb(err2);
-                });
-            },
+        mod_net.create(t2, {
+            params: params,
+            partialExp: params
+        }, function (_, res) {
+            NET2 = res;
+            NET2.num = num;
 
-            function _testNet2(_, cb) {
-                NAPI.createNetwork(h.validNetworkParams({
-                    routes: {
-                      '10.0.3.4': '10.0.2.2',
-                      '10.0.4.0/24': '10.0.2.2'
-                    },
-                    vlan_id: 46
-                }), function (err2, res2) {
-                    NET2 = res2;
-                    cb(err2);
-                });
-            },
+            return t2.end();
+        });
+    });
 
-            function _testNet3(_, cb) {
-                NAPI.createNetwork(h.validNetworkParams({ vlan_id: 47 }),
-                    function (err2, res2) {
-                    NET3 = res2;
-                    cb(err2);
-                });
-            },
+    t.test('create net3', function (t2) {
+        num = h.NET_NUM;
+        var params = h.validNetworkParams({ vlan_id: 47 });
+        mod_net.create(t2, {
+            params: params,
+            partialExp: params
+        }, function (_, res) {
+            NET3 = res;
+            NET3.num = num;
 
-            function _adminNet(_, cb) {
-                var params = h.validNetworkParams({ name: 'admin' });
-                NAPI.createNetwork(params, function (err2, res2) {
-                    ADMIN_NET = res2;
-                    cb(err2);
-                });
-            },
+            return t2.end();
+        });
+    });
 
-            function _macNet3(_, cb) {
-                NAPI.createNetwork(h.validNetworkParams({ vlan_id: 48 }),
-                    function (err2, res2) {
-                    PROV_MAC_NET = res2;
-                    cb(err2);
-                });
-            }
+    t.test('create admin net', function (t2) {
+        num = h.NET_NUM;
+        var params = h.validNetworkParams({ name: 'admin' });
+        mod_net.create(t2, {
+            params: params,
+            partialExp: params
+        }, function (_, res) {
+            ADMIN_NET = res;
+            ADMIN_NET.num = num;
 
-        ] }, function (overallErr) {
-            t.ifError(overallErr);
-            return t.end();
+            return t2.end();
+        });
+    });
+
+    t.test('create mac provision network', function (t2) {
+        num = h.NET_NUM;
+        var params = h.validNetworkParams({ name: 'admin' });
+        mod_net.create(t2, {
+            params: params,
+            partialExp: params
+        }, function (_, res) {
+            PROV_MAC_NET = res;
+            PROV_MAC_NET.num = num;
+
+            return t2.end();
         });
     });
 });
@@ -284,17 +311,16 @@ test('Create nic - invalid params', function (t) {
 
     var invalid = [
         [ 'IP address outside subnet',
-            { ip: '10.0.3.1', belongs_to_type: type, belongs_to_uuid: uuid,
-                owner_uuid: owner, network_uuid: NET.uuid },
+            { ip: fmt('10.0.%d.1', NET.num + 1), belongs_to_type: type,
+                belongs_to_uuid: uuid, owner_uuid: owner,
+                network_uuid: NET.uuid },
                 [ mod_err.invalidParam('ip', 'ip cannot be outside subnet') ] ],
 
         [ 'IP specified, but not nic_tag or vlan_id',
             { ip: '10.0.2.2', belongs_to_type: type, belongs_to_uuid: uuid,
                 owner_uuid: owner },
-                [ h.missingParam('nic_tag',
-                    'required if IP specified but not network_uuid'),
-                h.missingParam('vlan_id',
-                    'required if IP specified but not network_uuid') ],
+                [ h.missingParam('nic_tag', constants.msg.IP_NO_VLAN_TAG),
+                h.missingParam('vlan_id', constants.msg.IP_NO_VLAN_TAG) ],
                 'Missing parameters' ],
 
         [ 'Non-existent network',
@@ -304,9 +330,9 @@ test('Create nic - invalid params', function (t) {
                     'network does not exist') ] ],
 
         [ 'nic_tag and vlan_id present, IP outside subnet',
-            { ip: '10.0.3.1', belongs_to_type: type, belongs_to_uuid: uuid,
-                nic_tag: NET2.nic_tag, owner_uuid: owner,
-                vlan_id: NET2.vlan_id },
+            { ip: fmt('10.0.%d.1', NET2.num + 1), belongs_to_type: type,
+                belongs_to_uuid: uuid, nic_tag: NET2.nic_tag,
+                owner_uuid: owner, vlan_id: NET2.vlan_id },
                 [ mod_err.invalidParam('ip', 'ip cannot be outside subnet') ] ],
 
         [ 'nic_tag and vlan_id do not match any networks',
@@ -871,7 +897,7 @@ test('Provision nic - with IP', function (t) {
         var params = {
             belongs_to_type: 'zone',
             belongs_to_uuid: mod_uuid.v4(),
-            ip: '10.0.2.200',
+            ip: fmt('10.0.%d.200', NET2.num),
             owner_uuid: mod_uuid.v4()
         };
 
@@ -883,7 +909,7 @@ test('Provision nic - with IP', function (t) {
             d.exp = {
                 belongs_to_type: params.belongs_to_type,
                 belongs_to_uuid: params.belongs_to_uuid,
-                ip: '10.0.2.200',
+                ip: fmt('10.0.%d.200', NET2.num),
                 mac: res.mac,
                 netmask: '255.255.255.0',
                 network_uuid: NET2.uuid,
@@ -919,7 +945,7 @@ test('Provision nic - with IP', function (t) {
         var params = {
             belongs_to_type: 'zone',
             belongs_to_uuid: mod_uuid.v4(),
-            ip: '10.0.2.200',
+            ip: fmt('10.0.%d.200', NET2.num),
             owner_uuid: mod_uuid.v4()
         };
 
@@ -957,7 +983,7 @@ test('Provision nic - with IP', function (t) {
         mod_nic.update(t2, {
             mac: d.mac,
             params: {
-                ip: '10.0.2.200',
+                ip: fmt('10.0.%d.200', NET2.num),
                 network_uuid: NET2.uuid
             },
             expErr: h.invalidParamErr({
@@ -996,7 +1022,7 @@ test('Provision nic - with IP', function (t) {
         mod_nic.update(t2, {
             mac: d.nics[0].mac,
             params: {
-                ip: '10.0.2.200',
+                ip: fmt('10.0.%d.200', NET2.num),
                 network_uuid: NET2.uuid
             },
             expErr: h.invalidParamErr({
@@ -1548,36 +1574,39 @@ test('Update nic - invalid params', function (t) {
     var invalid = [
         [ 'IP address outside subnet',
             { ip: '10.0.3.1', network_uuid: NET.uuid },
-                [ mod_err.invalidParam('ip', 'ip cannot be outside subnet') ] ],
+            [ mod_err.invalidParam('ip', constants.msg.IP_OUTSIDE) ] ],
 
         [ 'IP specified, but not nic_tag or vlan_id',
             { ip: '10.0.2.2' },
-                [ h.missingParam('nic_tag',
-                    'required if IP specified but not network_uuid'),
-                h.missingParam('vlan_id',
-                    'required if IP specified but not network_uuid') ],
-                'Missing parameters' ],
+            [ h.missingParam('nic_tag',
+                'required if IP specified but not network_uuid'),
+            h.missingParam('vlan_id',
+                'required if IP specified but not network_uuid') ],
+            'Missing parameters' ],
 
         [ 'Non-existent network',
             { ip: '10.0.2.2', network_uuid: mod_uuid.v4() },
-                [ mod_err.invalidParam('network_uuid',
-                    'network does not exist') ] ],
+            [ mod_err.invalidParam('network_uuid',
+                'network does not exist') ] ],
 
         [ 'nic_tag and vlan_id present, IP outside subnet',
-            { ip: '10.0.3.1', nic_tag: NET2.nic_tag, vlan_id: NET2.vlan_id },
-                [ mod_err.invalidParam('ip', 'ip cannot be outside subnet') ] ],
+            { ip: fmt('10.0.%d.1', NET2.num + 1), nic_tag: NET2.nic_tag,
+                vlan_id: NET2.vlan_id },
+            [ mod_err.invalidParam('ip', constants.msg.IP_OUTSIDE) ] ],
 
         [ 'nic_tag and vlan_id do not match any networks',
-            { ip: '10.0.2.3', nic_tag: NET.nic_tag, vlan_id: 656 },
-                [ mod_err.invalidParam('nic_tag',
-                    'No networks found matching parameters'),
-                mod_err.invalidParam('vlan_id',
-                    'No networks found matching parameters') ] ],
+            { ip: fmt('10.0.%d.3', NET.num), nic_tag: NET.nic_tag,
+                vlan_id: 656 },
+            [ mod_err.invalidParam('nic_tag',
+                'No networks found matching parameters'),
+            mod_err.invalidParam('vlan_id',
+                'No networks found matching parameters') ] ],
 
         [ 'state must be a valid state',
-            { ip: '10.0.2.2', network_uuid: NET.uuid, state: 'oogabooga' },
-                [ mod_err.invalidParam('state',
-                    'must be a valid state') ] ]
+            { ip: fmt('10.0.%d.2', NET.num), network_uuid: NET.uuid,
+                state: 'oogabooga' },
+            [ mod_err.invalidParam('state',
+                'must be a valid state') ] ]
     ];
 
     NAPI.createNic(mac, goodParams, function (err, res) {

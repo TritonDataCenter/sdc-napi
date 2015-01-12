@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright (c) 2015, Joyent, Inc.
  */
 
 /*
@@ -178,14 +178,9 @@ test('Create nic tag - duplicate name', function (t) {
 
 test('Delete nic tag in use', function (t) {
     newTag(t, function (tErr, curTag) {
-        var netParams = {
-            name: 'foo',
-            nic_tag: curTag.name,
-            provision_start_ip: '10.0.2.1',
-            provision_end_ip: '10.0.2.10',
-            subnet: '10.0.2.0/24',
-            vlan_id: 200
-        };
+        var netParams = h.validNetworkParams({
+            nic_tag: curTag.name
+        });
 
         NAPI.createNetwork(netParams, function (err, net) {
             t.ifError(err);
@@ -258,14 +253,9 @@ test('Update nic tag - missing name', function (t) {
 
 test('Update nic tag - in use', function (t) {
     newTag(t, function (tErr, curTag) {
-        var netParams = {
-            name: 'foo2',
-            nic_tag: curTag.name,
-            provision_start_ip: '10.0.2.1',
-            provision_end_ip: '10.0.2.10',
-            subnet: '10.0.2.0/24',
-            vlan_id: 200
-        };
+        var netParams = h.validNetworkParams({
+            nic_tag: curTag.name
+        });
 
         NAPI.createNetwork(netParams, function (err, net) {
             t.ifError(err);

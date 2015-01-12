@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright (c) 2015, Joyent, Inc.
  */
 
 /*
@@ -248,6 +248,7 @@ function validNetworkParams(override) {
     for (var o in override) {
         newNet[o] = override[o];
     }
+    NET_NUM++;
 
     return newNet;
 }
@@ -264,7 +265,13 @@ module.exports = {
     missingParamErr: common.missingParamErr,
     missingParam: missingParam,
     nextProvisionableIP: nextProvisionableIP,
+    get NET_NUM() {
+        return NET_NUM;
+    },
     randomMAC: common.randomMAC,
+    get server() {
+        return SERVER;
+    },
     stopServer: stopServer,
     uuidSort: uuidSort,
     validIPparams: validIPparams,
@@ -272,7 +279,6 @@ module.exports = {
     validNetworkParams: validNetworkParams,
     get wfJobs() {
         return JOBS;
-
     },
     set wfJobs(val) {
         JOBS = val;
