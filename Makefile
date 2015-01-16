@@ -73,7 +73,7 @@ CLEAN_FILES += $(TAPE) ./node_modules/tape
 test: $(TAPE)
 	@(for F in test/unit/*.test.js; do \
 		echo "# $$F" ;\
-		$(TAPE) $$F ;\
+		$(NODE_EXEC) $(TAPE) $$F ;\
 		[[ $$? == "0" ]] || exit 1; \
 	done)
 
