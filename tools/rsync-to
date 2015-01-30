@@ -1,0 +1,53 @@
+#!/bin/bash
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+
+#
+# Copyright (c) 2014, Joyent, Inc.
+#
+
+#
+# Rsync the master in this working copy to the install on the given HN.
+#
+
+#set -o xtrace
+set -o errexit
+
+TOP=$(cd $(dirname $0)/../; pwd)
+NODE=$1
+
+if [[ -z "$NAPI_ZONE" ]]; then
+    NAPI_ZONE=$(ssh $NODE "/opt/smartdc/bin/sdc-vmapi /vms" 2>/dev/null \
+        | json -H -c 'this.tags && this.tags.smartdc_role === "napi"' \
+            -c 'this.state === "running"' 0.uuid)
+fi
+echo "NAPI_ZONE: $NAPI_ZONE"
+
+extraOpts=
+if [[ $(uname -s) != "SunOS" ]]; then
+    extraOpts="--exclude *.node --exclude build"
+else
+    # Clean node_modules everytime.
+    ssh $NODE rm -rf /zones/$NAPI_ZONE/root/opt/smartdc/napi/node_modules
+fi
+
+rsync -av ${TOP}/ \
+    $NODE:/zones/$NAPI_ZONE/root/opt/smartdc/napi/ \
+    $extraOpts \
+    --exclude .git/ \
+    --exclude /etc/config.json \
+    --exclude /deps/ \
+    --exclude /docs/ \
+    --exclude /tools/ \
+    --exclude /tmp/
+
+state=$(ssh ${NODE} svcs -z ${NAPI_ZONE} -H -o state napi)
+if [[ "$state" == "maintenance" ]]; then
+    ssh ${NODE} svcadm -z ${NAPI_ZONE} clear napi
+else
+    ssh ${NODE} svcadm -z ${NAPI_ZONE} restart napi
+fi
+ssh ${NODE} svcadm -z ${NAPI_ZONE} restart config-agent
