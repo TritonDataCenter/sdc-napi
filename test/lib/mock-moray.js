@@ -18,6 +18,7 @@ var clone = require('clone');
 var EventEmitter = require('events').EventEmitter;
 var ldapjs = require('ldapjs');
 var util = require('util');
+var util_ip = require('../../lib/util/ip.js');
 var verror = require('verror');
 
 
@@ -311,6 +312,14 @@ FakeMoray.prototype.findObjects = function findObjects(bucket, filter, opts) {
     var res = new EventEmitter;
     var filterObj = ldapjs.parseFilter(filter);
 
+    function compareTo(a, b) {
+        if (typeof (a) === 'number') {
+            return a - b;
+        } else {
+            return util_ip.compareTo(a, b);
+        }
+    }
+
     process.nextTick(function () {
         var err = getNextMorayError('findObjects');
         if (err) {
@@ -323,7 +332,10 @@ FakeMoray.prototype.findObjects = function findObjects(bucket, filter, opts) {
             return;
         }
 
-        for (var r in BUCKET_VALUES[bucket]) {
+        // Whenever we call findObjects, it's either unsorted or sorted by ASC,
+        // so just sort them ASC every time
+        var keys = Object.keys(BUCKET_VALUES[bucket]).sort(compareTo);
+        keys.forEach(function (r) {
             // The LDAP matching function .matches() assumes that the
             // values are strings, so stringify properties so that matches
             // work correctly
@@ -335,7 +347,7 @@ FakeMoray.prototype.findObjects = function findObjects(bucket, filter, opts) {
             if (filterObj.matches(obj)) {
                 res.emit('record', clone(BUCKET_VALUES[bucket][r]));
             }
-        }
+        });
 
         res.emit('end');
     });
@@ -406,23 +418,116 @@ FakeMoray.prototype.putObject =
 
 
 FakeMoray.prototype.sql = function sql(str) {
-    // Mock out PG's gap detection
+    // Mock out PG's gap detection and subnet filtering
 
-    /* JSSTYLED */
-    var bucket = str.match(/from ([a-z0-9_]+)/)[1];
-    /* JSSTYLED */
-    var gt = Number(str.match(/>= (\d+)/)[1]);
-    /* JSSTYLED */
-    var limit = Number(str.match(/limit (\d+)/)[1]);
-    /* JSSTYLED */
-    var lt = Number(str.match(/<= (\d+)/)[1]);
-    var res = new EventEmitter;
+    /* BEGIN JSSTYLED */
+    var bucket = str.match(/from ([a-z0-9_]+)/);
+    var limit = str.match(/limit (\d+)/) || undefined;
+    var minIP = str.match(/>= "([a-f0-9.:]+)"/);
+    var maxIP = str.match(/<= "([a-f0-9.:]+)"/);
+    var min = str.match(/>= (\d+)/);
+    var max  = str.match(/<= (\d+)/);
+    var subnet = str.match(/ip >> "([a-f0-9.:/]+)"/);
+    var subnet_start_ip = str.match(/>> "([a-f0-9.:]+)"/);
+    /* END JSSTYLED */
 
-    assert.string(bucket, 'bucket');
-    assert.number(gt, 'gt');
-    assert.number(lt, 'lt');
+    if (limit) {
+        limit = Number(limit[1]);
+    }
 
-    process.nextTick(function () {
+    bucket = bucket[1];
+
+    if (minIP && maxIP) {
+        return this._gapIP({
+            min: util_ip.toIPAddr(minIP[1]),
+            max: util_ip.toIPAddr(maxIP[1]),
+            bucket: bucket,
+            limit: limit
+        });
+    }
+
+    if (min && max) {
+        return this._gapNumber({
+            min: Number(min[1]),
+            max: Number(max[1]),
+            bucket: bucket,
+            limit: limit
+        });
+    }
+
+    if (subnet && subnet_start_ip) {
+        return this._subnetFilter({
+            subnet: subnet[1],
+            subnet_start_ip: util_ip.toIPAddr(subnet_start_ip[1]),
+            bucket: bucket,
+            limit: limit
+        });
+    }
+
+    return null;
+};
+
+
+FakeMoray.prototype._subnetFilter = function _subnetFilter(opts) {
+    var subnet = opts.subnet;
+    var subnetStart = opts.subnet_start_ip;
+    var bucket = opts.bucket;
+    var limit = opts.limit;
+
+    assert.string(subnet);
+    assert.object(subnetStart);
+    assert.string(bucket);
+    assert.optionalNumber(limit);
+
+    var bits = Number(subnet.split('/')[1]);
+
+    var res = new EventEmitter();
+    setImmediate(function () {
+        var err = getNextMorayError('sql');
+        if (err) {
+            res.emit('error', err);
+            return;
+        }
+
+        if (!BUCKET_VALUES.hasOwnProperty(bucket)) {
+            res.emit('error', bucketNotFoundErr(bucket));
+            return;
+        }
+
+        var bucketKeys = Object.keys(BUCKET_VALUES[bucket]).sort();
+        var found = 0;
+        for (var i in bucketKeys) {
+            var value = BUCKET_VALUES[bucket][bucketKeys[i]].value;
+            var other = value.subnet.split('/');
+            var otherSubnet = util_ip.toIPAddr(other[0]);
+            var otherBits = Number(other[1]);
+            if (subnetStart.match(otherSubnet, otherBits) ||
+                otherSubnet.match(subnetStart, bits)) {
+                if (limit && found < limit) {
+                    res.emit('record', value);
+                }
+                found++;
+            }
+        }
+        res.emit('end');
+    });
+    return res;
+};
+
+
+FakeMoray.prototype._gapNumber = function _gapNumber(opts) {
+    var min = opts.min;
+    var max = opts.max;
+    var bucket = opts.bucket;
+    var limit = opts.limit;
+
+    assert.number(min);
+    assert.number(max);
+    assert.string(bucket);
+    assert.optionalNumber(limit);
+
+    var res = new EventEmitter();
+    setImmediate(function () {
         var err = getNextMorayError('sql');
         if (err) {
             res.emit('error', err);
@@ -438,13 +543,12 @@ FakeMoray.prototype.sql = function sql(str) {
             return Number(k); }).sort();
         var found = 0;
         var last = bucketKeys[0];
-
         for (var i in bucketKeys) {
             var ip = bucketKeys[i];
-            if ((ip - last) > 1 && (last + 1) <= lt && (last + 1) >= gt) {
+            if ((ip - last) > 1 && (last + 1) <= max && (last + 1) >= min) {
                 if (limit && found < limit) {
                     res.emit('record', {
-                        // XXX: is this right?
+                        // XXX is this right?
                         gap_length: ip - last + 1,
                         gap_start: last + 1
                     });
@@ -454,12 +558,81 @@ FakeMoray.prototype.sql = function sql(str) {
             }
             last = ip;
         }
-
         res.emit('end');
     });
-
     return res;
 };
+
+
+FakeMoray.prototype._gapIP = function _gapIP(opts) {
+    var min = util_ip.toIPAddr(opts.min);
+    var max = util_ip.toIPAddr(opts.max);
+    var bucket = opts.bucket;
+    var limit = opts.limit;
+
+    assert.object(min);
+    assert.object(max);
+    assert.string(bucket);
+    assert.optionalNumber(limit);
+
+    function lte(a, b) {
+        return util_ip.compareTo(a, b) <= 0;
+    }
+
+    function gt(a, b) {
+        return util_ip.compareTo(a, b) > 0;
+    }
+
+    function gte(a, b) {
+        return util_ip.compareTo(a, b) >= 0;
+    }
+
+    function plus(a, b) {
+        return util_ip.ipAddrPlus(a, b);
+    }
+
+    var res = new EventEmitter();
+    setImmediate(function () {
+        var err = getNextMorayError('sql');
+        if (err) {
+            res.emit('error', err);
+            return;
+        }
+
+        if (!BUCKET_VALUES.hasOwnProperty(bucket)) {
+            res.emit('error', bucketNotFoundErr(bucket));
+            return;
+        }
+
+        var bucketKeys = Object.keys(BUCKET_VALUES[bucket]).map(function (k) {
+            return util_ip.toIPAddr(k); }).sort(util_ip.compareTo);
+        var found = 0;
+        var last = bucketKeys[0];
+        for (var i in bucketKeys) {
+            var ip = bucketKeys[i];
+            if (gt(ip, plus(last, 1)) && // ip > last + 1, or (ip - last) > 1
+                lte(plus(last, 1), max) && // (last + 1) <= max
+                gte(plus(last, 1), min)) { // (last + 1) >= min
+
+                if (limit && found < limit) {
+                    res.emit('record', {
+                        // XXX ipaddr minus ipaddr not implemented,
+                        // so just return 1 for gap length
+                        gap_length: 1,
+                        gap_start: plus(last, 1) // last + 1
+                    });
+                }
+                found++;
+                break;
+            }
+            last = ip;
+        }
+        res.emit('end');
+    });
+    return res;
+};
+
+
 
 
 FakeMoray.prototype.updateBucket =

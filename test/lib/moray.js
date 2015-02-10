@@ -67,7 +67,7 @@ function getIP(network, ip) {
         return util.format('Bucket %s not found', bucketName);
     }
 
-    var rec = buckets[bucketName][util_ip.aton(ip).toString()];
+    var rec = buckets[bucketName][ip];
     if (rec) {
         return rec.value;
     }
@@ -88,7 +88,7 @@ function getIPs(network) {
 
     return Object.keys(buckets[bucketName]).map(function (key) {
         return buckets[bucketName][key].value;
-    }).sort(function (a, b) { return Number(a.ip) > Number(b.ip); });
+    }).sort(function (a, b) { return util_ip.compareTo(a.ip, b.ip); });
 }
 
 /**

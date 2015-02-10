@@ -59,11 +59,11 @@ var net5Params = helpers.validNetworkParams({
 });
 var pools = [];
 
-var ip1 = util_ip.ntoa(util_ip.aton(netParams.provision_end_ip) - 1);
-var ip2 = util_ip.ntoa(util_ip.aton(netParams.provision_end_ip) - 2);
-var ip3 = util_ip.ntoa(util_ip.aton(netParams.provision_end_ip) - 3);
-var ip4 = util_ip.ntoa(util_ip.aton(netParams.provision_end_ip) - 4);
-var ip5 = util_ip.ntoa(util_ip.aton(netParams.provision_end_ip) - 5);
+var ip1 = util_ip.ipAddrMinus(util_ip.toIPAddr(netParams.provision_end_ip), 1);
+var ip2 = util_ip.ipAddrMinus(util_ip.toIPAddr(netParams.provision_end_ip), 2);
+var ip3 = util_ip.ipAddrMinus(util_ip.toIPAddr(netParams.provision_end_ip), 3);
+var ip4 = util_ip.ipAddrMinus(util_ip.toIPAddr(netParams.provision_end_ip), 4);
+var ip5 = util_ip.ipAddrMinus(util_ip.toIPAddr(netParams.provision_end_ip), 5);
 
 
 
@@ -204,7 +204,7 @@ function createNic(params, ip, t) {
 
 
 function updateIPWithDifferentOwner(t) {
-    NAPI.updateIP(nets[0].uuid, ip1, {
+    NAPI.updateIP(nets[0].uuid, ip1.toString(), {
         owner_uuid: mod_uuid.v4(),
         reserved: true
     }, function (err, res) {
@@ -235,7 +235,8 @@ function successfulReserve(params, t) {
 
     t.ok(updateParams.owner_uuid, 'passed owner_uuid');
 
-    NAPI.updateIP(nets[0].uuid, ip1, updateParams, function (err, res) {
+    NAPI.updateIP(nets[0].uuid, ip1.toString(), updateParams,
+        function (err, res) {
         t.ifError(err, 'error returned');
         if (err) {
             t.deepEqual(err.body, {}, 'error body for debugging');
@@ -244,7 +245,7 @@ function successfulReserve(params, t) {
 
         t.deepEqual(res, {
                 free: false,
-                ip: ip1,
+                ip: ip1.toString(),
                 network_uuid: nets[0].uuid,
                 owner_uuid: updateParams.owner_uuid,
                 reserved: true
@@ -680,7 +681,7 @@ test('nic create', function (t) {
         var provParams = {
             belongs_to_type: 'zone',
             belongs_to_uuid: mod_uuid.v4(),
-            ip: ip2,
+            ip: ip2.toString(),
             network_uuid: nets[0].uuid,
             owner_uuid: mod_uuid.v4()
         };
@@ -711,14 +712,14 @@ test('nic create', function (t) {
         t2.plan(2);
 
         t2.test('create', function (t3) {
-            createNic({ owner_uuid: owner }, ip2, t3);
+            createNic({ owner_uuid: owner }, ip2.toString(), t3);
         });
 
         t2.test('get', function (t3) {
             mod_nic.get(t3, {
                 mac: nic.mac,
                 partialExp: {
-                    ip: ip2,
+                    ip: ip2.toString(),
                     network_uuid: nets[0].uuid,
                     owner_uuid: owner
                 }
@@ -731,14 +732,14 @@ test('nic create', function (t) {
         t2.plan(2);
 
         t2.test('create', function (t3) {
-            createNic({ owner_uuid: owner }, ip3, t3);
+            createNic({ owner_uuid: owner }, ip3.toString(), t3);
         });
 
         t2.test('get', function (t3) {
             mod_nic.get(t3, {
                 mac: nic.mac,
                 partialExp: {
-                    ip: ip3,
+                    ip: ip3.toString(),
                     network_uuid: nets[0].uuid,
                     owner_uuid: owner
                 }
@@ -779,7 +780,7 @@ test('update nic: add admin owner_uuid and IP', function (t) {
     // UFDS admin UUID
     t.test('update', function (t2) {
         updateNic({
-            ip: ip4,
+            ip: ip4.toString(),
             network_uuid: nets[0].uuid,
             owner_uuid: CONF.ufdsAdminUuid
         }, t2);
@@ -789,7 +790,7 @@ test('update nic: add admin owner_uuid and IP', function (t) {
         mod_nic.get(t2, {
             mac: nic.mac,
             partialExp: {
-                ip: ip4,
+                ip: ip4.toString(),
                 network_uuid: nets[0].uuid,
                 owner_uuid: CONF.ufdsAdminUuid
             }
@@ -831,7 +832,7 @@ test('update nic with network owner_uuid and IP', function (t) {
         updateNic({
             // This is the fifth IP provisioned in this test, so it
             // will get ip5
-            ip: ip5,
+            ip: ip5.toString(),
             network_uuid: nets[0].uuid,
             owner_uuid: owner
         }, t2);
@@ -841,7 +842,7 @@ test('update nic with network owner_uuid and IP', function (t) {
         mod_nic.get(t2, {
             mac: nic.mac,
             partialExp: {
-                ip: ip5,
+                ip: ip5.toString(),
                 network_uuid: nets[0].uuid,
                 owner_uuid: owner
             }
@@ -851,7 +852,7 @@ test('update nic with network owner_uuid and IP', function (t) {
     t.test('update with different owner_uuid and IP', function (t2) {
         // XXX: explain what this is doing
         updateNicFailure({
-            ip: ip5,
+            ip: ip5.toString(),
             network_uuid: nets[0].uuid,
             owner_uuid: mod_uuid.v4()
         }, t2);
