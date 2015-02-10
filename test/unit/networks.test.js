@@ -126,7 +126,6 @@ test('Create network', function (t) {
     });
 });
 
-
 test('Create network - missing parameters', function (t) {
     NAPI.createNetwork({}, function (err, res) {
         t.ok(err, 'error returned');
@@ -188,7 +187,7 @@ test('Create network - all invalid parameters', function (t) {
         nic_tag: 'nictag0',
         provision_end_ip: '10.0.1.256',
         provision_start_ip: '10.256.1.255',
-        resolvers: ['10.5.0.256', 'asdf', '2'],
+        resolvers: ['10.5.0.256', 'asdf'],
         routes: 'blah',
         subnet: 'asdf',
         vlan_id: 'a'
@@ -241,7 +240,7 @@ test('Create network - invalid parameters', function (t) {
         ['subnet', '1.2.3.4/7', 'Subnet bits invalid'],
         ['subnet', '1.2.3.4/33', 'Subnet bits invalid'],
         ['subnet', 'c/32', 'Subnet IP invalid'],
-        ['subnet', 'a/d', 'Subnet IP and bits invalid'],
+        ['subnet', 'a/d', 'Subnet IP invalid'],
 
         ['vlan_id', 'a', constants.VLAN_MSG],
         ['vlan_id', '-1', constants.VLAN_MSG],
@@ -546,7 +545,7 @@ test('Update provision range', function (t) {
     // moray placeholder record
     function placeholderRec(ip) {
         return {
-            ip: util_ip.aton(ip),
+            ip: ip,
             reserved: false
         };
     }
@@ -554,7 +553,7 @@ test('Update provision range', function (t) {
     // moray placeholder for an admin 'other' IP
     function adminOtherRec(ip) {
         var ser = adminOtherIP(ip);
-        ser.ip = util_ip.aton(ip);
+        ser.ip = ip;
         delete ser.free;
         delete ser.network_uuid;
         return ser;
@@ -563,7 +562,7 @@ test('Update provision range', function (t) {
     // moray placeholder for an admin 'other' IP
     function zoneRec(ip) {
         var ser = zoneIP(ip);
-        ser.ip = util_ip.aton(ip);
+        ser.ip = ip;
         delete ser.free;
         delete ser.network_uuid;
         return ser;

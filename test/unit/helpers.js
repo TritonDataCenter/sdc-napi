@@ -104,7 +104,8 @@ function createClientAndServer(callback) {
                 level: process.env.LOG_LEVEL || 'fatal',
                 stream: process.stderr
             }
-        ]
+        ],
+        src: true
     });
 
     var server = new NAPI({
