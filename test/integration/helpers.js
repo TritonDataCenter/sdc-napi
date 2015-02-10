@@ -14,7 +14,6 @@
 
 var assert = require('assert');
 var bunyan = require('bunyan');
-var config = require('../../lib/config');
 var common = require('../lib/common');
 var fmt = require('util').format;
 var fs = require('fs');
@@ -30,14 +29,13 @@ var vasync = require('vasync');
 
 
 
+var ADMIN_UUID;
 // 198.18.0.0/15 is supposed to be used for benchmarking network devices,
 // according to RFC 2544, and therefore shouldn't be used for anything:
 var TEST_NET_FMT = '198.18.%d.%d';
 var TEST_NET_PFX = '198.18.%d.';
 var NIC_NET_PARAMS = ['gateway', 'netmask', 'vlan_id', 'nic_tag', 'resolvers',
     'routes'];
-var CONFIG_FILE = path.normalize(__dirname + '/../../config.json');
-var CONF = config.load(CONFIG_FILE);
 var DEFAULT_NIC_TAG = 'int_test_' + process.pid;
 var NET_NUM = 0;
 
@@ -62,11 +60,17 @@ function addNetParamsToNic(state, params) {
 
 
 /**
- * Create a NAPI client pointed at the local zone's NAPI (with a req_id for
- * tracking requests)
+ * Create a NAPI client, with a req_id for tracking requests.
+ *
+ * If the NAPI_HOST and NAPI_PORT environment variables are set, use the host
+ * specified by them.  Otherwise, use the local zone's NAPI.
  */
 function createNAPIclient(t) {
-    var client = common.createClient('http://localhost:' + CONF.port, t);
+    var host = process.env.NAPI_HOST || 'localhost';
+    var port = process.env.NAPI_PORT || 80;
+
+    var client = common.createClient(fmt('http://%s:%d', host, port), t);
+
     if (!mod_client.initialized()) {
         mod_client.set(client);
     }
@@ -311,7 +315,28 @@ function doneWithError(t, err, desc) {
     if (err.body.hasOwnProperty('errors')) {
         t.deepEqual(err.body.errors, {}, 'display body errors');
     }
+
     return t.end();
+}
+
+
+/**
+ * Load the UFDS admin UUID - cheat by grabbing the first owner_uuid of the
+ * admin network.
+ */
+function loadUFDSadminUUID(t) {
+    var client = createNAPIclient(t);
+
+    client.getNetwork('admin', function (err, res) {
+        if (common.ifErr(t, err, 'get admin network')) {
+            return t.end();
+        }
+
+        ADMIN_UUID = res.owner_uuids[0];
+        t.ok(ADMIN_UUID, 'admin UUID: ' + ADMIN_UUID);
+
+        return t.end();
+    });
 }
 
 
@@ -367,6 +392,14 @@ module.exports = {
     nicNetParams: NIC_NET_PARAMS,
     randomMAC: common.randomMAC,
     similar: similar,
-    ufdsAdminUuid: CONF.ufdsAdminUuid,
+    get ufdsAdminUuid() {
+        if (!ADMIN_UUID) {
+            throw new Error(
+                'UFDS admin UUID undefined! ' +
+                'Have you run helpers.loadUFDSadminUUID()?');
+        }
+
+        return ADMIN_UUID;
+    },
     validNetworkParams: validNetworkParams
 };

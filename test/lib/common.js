@@ -150,6 +150,86 @@ function afterAPIdelete(t, opts, callback, err, obj, req, res) {
 
 
 /**
+ * Shared test code for after API list methods are called
+ */
+function afterAPIlist(t, opts, callback, err, obj, _, res) {
+    assert.string(opts.type, 'opts.type');
+    assert.string(opts.id, 'opts.id');
+
+    var desc = opts.desc ? (' ' + opts.desc) : '';
+    var id = opts.id;
+    var type = opts.type;
+
+    if (opts.expErr) {
+        t.ok(err, type + 'expected error' + desc);
+        if (err) {
+            var code = opts.expCode || 422;
+            t.equal(err.statusCode, code, type + 'status code' + desc);
+            t.deepEqual(err.body, opts.expErr, type + 'error body' + desc);
+        }
+
+        return done(err, null, opts, t, callback);
+    }
+
+    if (ifErr(t, err, type + desc)) {
+        return done(err, null, opts, t, callback);
+    }
+
+    t.equal(res.statusCode, 200, 'status code' + desc);
+
+    if (opts.present) {
+        var left = clone(opts.present);
+        var ids = left.map(function (o) { return o[id]; });
+
+        for (var n in obj) {
+            var resObj = obj[n];
+            var idx = ids.indexOf(resObj[id]);
+            if (idx !== -1) {
+                var expObj = left[idx];
+                var partialRes = {};
+                for (var p in expObj) {
+                    partialRes[p] = resObj[p];
+                }
+
+                t.deepEqual(partialRes, expObj,
+                    'partial result for ' + resObj[id] + desc);
+
+                ids.splice(idx, 1);
+                left.splice(idx, 1);
+            }
+        }
+
+        t.deepEqual(ids, [], 'found all ' + type + 's ' + desc);
+    }
+
+    return done(null, obj, opts, t, callback);
+}
+
+
+/**
+ * Gets all of the created objects of the given type
+ */
+function allCreated(type) {
+    return CREATED[type] || [];
+}
+
+
+/**
+ * Assert the arguments to one of the helper functions are correct
+ */
+function assertArgs(t, opts, callback) {
+    assert.object(t, 't');
+    assert.optionalObject(opts.exp, 'opts.exp');
+    assert.optionalObject(opts.expErr, 'opts.expErr');
+    assert.optionalObject(opts.partialExp, 'opts.partialExp');
+    assert.ok(opts.exp || opts.partialExp || opts.expErr,
+        'one of exp, expErr, partialExp required');
+    assert.object(opts.params, 'opts.params');
+    assert.optionalFunc(callback, 'callback');
+}
+
+
+/**
  * Creates a NAPI client for the configured NAPI instance, with a unique
  * req_id.
  */
@@ -300,6 +380,9 @@ module.exports = {
     addToState: addToState,
     afterAPIcall: afterAPIcall,
     afterAPIdelete: afterAPIdelete,
+    afterAPIlist: afterAPIlist,
+    allCreated: allCreated,
+    assertArgs: assertArgs,
     createClient: createClient,
     doneErr: doneErr,
     doneRes: doneRes,
