@@ -153,7 +153,6 @@ test('Get IP - outside subnet', function (t) {
 test('Get IP - invalid', function (t) {
     var invalid = [
         'a',
-        '32',
         '10.0.2.256'
     ];
 
@@ -268,6 +267,7 @@ test('Update IP - outside subnet', function (t) {
     var invalid = [
         '10.0.3.1',
         '10.0.1.255',
+        '32',
         '8.8.8.8'
     ];
 
@@ -299,7 +299,6 @@ test('Update IP - outside subnet', function (t) {
 test('Update IP - invalid', function (t) {
     var invalid = [
         'a',
-        '32',
         '10.0.2.256'
     ];
 

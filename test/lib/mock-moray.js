@@ -423,12 +423,12 @@ FakeMoray.prototype.sql = function sql(str) {
     /* BEGIN JSSTYLED */
     var bucket = str.match(/from ([a-z0-9_]+)/);
     var limit = str.match(/limit (\d+)/) || undefined;
-    var minIP = str.match(/>= "([a-f0-9.:]+)"/);
-    var maxIP = str.match(/<= "([a-f0-9.:]+)"/);
+    var minIP = str.match(/>= '([a-f0-9.:]+)'/);
+    var maxIP = str.match(/<= '([a-f0-9.:]+)'/);
     var min = str.match(/>= (\d+)/);
     var max  = str.match(/<= (\d+)/);
-    var subnet = str.match(/ip >> "([a-f0-9.:/]+)"/);
-    var subnet_start_ip = str.match(/>> "([a-f0-9.:]+)"/);
+    var subnet = str.match(/ip >> '([a-f0-9.:/]+)'/);
+    var subnet_start_ip = str.match(/>> '([a-f0-9.:]+)'/);
     /* END JSSTYLED */
 
     if (limit) {
@@ -617,8 +617,8 @@ FakeMoray.prototype._gapIP = function _gapIP(opts) {
                 if (limit && found < limit) {
                     res.emit('record', {
                         // XXX ipaddr minus ipaddr not implemented,
-                        // so just return 1 for gap length
-                        gap_length: 1,
+                        // so just return something for gap length
+                        gap_length: 100,
                         gap_start: plus(last, 1) // last + 1
                     });
                 }
