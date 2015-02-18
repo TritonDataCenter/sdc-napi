@@ -174,27 +174,27 @@ test('Create nic tag - duplicate name', function (t) {
 
 
 test('Create nic tag - with MTU', function (t) {
-    NAPI.createNicTag('newtagnamemtu', { mtu : constants.MTU_NICTAG_MIN },
+    NAPI.createNicTag('newtagnamemtu', { mtu : constants.MTU_MAX },
         function (err, obj, req, res) {
-        if (h.ifErr(t, err, 'nic tag create ')) {
+        if (h.ifErr(t, err, 'nic tag create - MTU')) {
             return t.end();
         }
 
         var added = mod_moray.getObj('napi_nic_tags', 'newtagnamemtu');
-        t.equal(res.statusCode, 200, 'status code');
+        t.equal(res.statusCode, 200, 'status code - MTU');
         var expObj = {
             name: 'newtagnamemtu',
             uuid: added.uuid,
-            mtu : constants.MTU_NICTAG_MIN
+            mtu : constants.MTU_MAX
         };
-        t.deepEqual(obj, expObj, 'create response');
+        t.deepEqual(obj, expObj, 'create response - MTU');
 
         NAPI.getNicTag('newtagnamemtu', function (_err, _obj) {
-            if (h.ifErr(t, _err, 'nic tag get')) {
+            if (h.ifErr(t, _err, 'nic tag get - MTU')) {
                 return t.end();
             }
 
-            t.deepEqual(_obj, expObj, 'get response');
+            t.deepEqual(_obj, expObj, 'get response - MTU');
             return t.end();
         });
     });
@@ -352,7 +352,6 @@ test('Delete nic tag in use', function (t) {
 
 test('Update nic tag - successful', function (t) {
     newTag(t, function (tErr, curTag) {
-        console.log('XXX - NAPI-174 curTag: ', util.inspect(curTag));
         NAPI.updateNicTag(curTag.name, { name: 'bar2' },
             function (err, obj, req, res) {
             t.ifError(err, 'error returned');
@@ -655,7 +654,6 @@ test('Update nic tag - MTU < networks', function (t) {
         if (h.ifErr(t, err, 'nic tag create')) {
             return t.end();
         }
-
         var netParams = h.validNetworkParams({
             nic_tag: tagName,
             mtu: constants.MTU_MAX
@@ -666,7 +664,6 @@ test('Update nic tag - MTU < networks', function (t) {
                 return t.end();
             }
             t.ok(net, 'created network');
-
             NAPI.updateNicTag(tagName, { mtu: constants.MTU_DEFAULT },
                 function (err3, _) {
                 t.ok(err3, 'error returned');

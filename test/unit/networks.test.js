@@ -381,13 +381,13 @@ test('Create network where mtu nic_tag > network > default', function (t) {
             networkParams.netmask = '255.255.255.0';
             networkParams.vlan_id = 0;
 
-            t.deepEqual(obj, networkParams, 'respons: network '
+            t.deepEqual(obj, networkParams, 'response: network creation'
                 + networkParams.uuid);
 
             NAPI.getNetwork(obj.uuid, function (err3, res3) {
                 t.ifError(err3);
 
-                t.equal(res3.mtu, networkParams.mtu);
+                t.equal(res3.mtu, networkParams.mtu, 'MTU correct after get');
                 return t.end();
             });
         });
