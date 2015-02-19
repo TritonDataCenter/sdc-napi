@@ -350,10 +350,6 @@ test('Create network - provision start IP after end IP', function (t) {
 });
 
 
-// nic_tag       network
-// default/min  < default
-// max           max
-
 test('Create network where mtu nic_tag > network > default', function (t) {
     var nicTagName = 'ntmax1';
     var nicTagParams = {
