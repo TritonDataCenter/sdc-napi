@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright (c) 2015, Joyent, Inc.
  */
 
 /*
@@ -31,7 +31,7 @@ var doneErr = common.doneErr;
 /**
  * Create a nic and compare the output
  */
-function create(t, opts, callback) {
+function createNic(t, opts, callback) {
     var client = opts.client || mod_client.get();
 
     assert.object(t, 't');
@@ -58,8 +58,8 @@ function create(t, opts, callback) {
  * Create a nic, compare the output, then do the same for a get of
  * that nic.
  */
-function createAndGet(t, opts, callback) {
-    create(t, opts, function (err, res) {
+function createAndGetNic(t, opts, callback) {
+    createNic(t, opts, function (err, res) {
         if (err) {
             return doneErr(err, t, callback);
         }
@@ -108,7 +108,7 @@ function createN(t, opts, callback) {
     }
 
     for (var i = 0; i < opts.num; i++) {
-        create(t, opts, _afterProvision);
+        createNic(t, opts, _afterProvision);
     }
 }
 
@@ -157,51 +157,20 @@ function get(t, opts, callback) {
 /**
  * Provision a nic and compare the output
  */
-function provision(t, opts, callback) {
+function provisionNic(t, opts, callback) {
+    common.assertArgs(t, opts, callback);
+
     var client = opts.client || mod_client.get();
-    var desc = opts.desc ? (' ' + opts.desc) : '';
-
-    assert.object(t, 't');
-    assert.string(opts.net, 'opts.net');
-    assert.object(opts.params, 'opts.params');
-    assert.optionalObject(opts.state, 'opts.state');
-    assert.optionalObject(opts.exp, 'opts.exp');
-    assert.optionalObject(opts.expErr, 'opts.expErr');
-    assert.optionalObject(opts.partialExp, 'opts.partialExp');
-    assert.ok(opts.exp || opts.partialExp || opts.expErr,
-            'one of exp, expErr, partialExp required');
-
     log.debug({ params: opts.params }, 'provisioning nic');
-    client.provisionNic(opts.net, opts.params, function (err, res) {
-        if (opts.expErr) {
-            t.ok(err, 'expected error');
-            if (err) {
-                var code = opts.expCode || 422;
-                t.equal(err.statusCode, code, 'status code');
-                t.deepEqual(err.body, opts.expErr, 'error body');
-            }
+    opts.type = 'nic';
+    opts.reqType = 'create';
 
-            return doneErr(err, t, callback);
-        }
+    if (opts.exp && opts.fillInMissing) {
+        opts.fillIn = [ 'ip', 'mac', 'primary', 'state' ];
+    }
 
-        if (common.ifErr(t, err, 'provisioning nic ' + desc)) {
-            return doneErr(err, t, callback);
-        }
-
-        common.addToState(opts, 'nics', res);
-
-        if (opts.exp) {
-            t.deepEqual(res, opts.exp, 'full result' + desc);
-        }
-
-        if (opts.partialExp) {
-            for (var p in opts.partialExp) {
-                t.equal(res[p], opts.partialExp[p], p + ' correct' + desc);
-            }
-        }
-
-        return doneRes(res, t, callback);
-    });
+    client.provisionNic(opts.net, opts.params, common.reqOpts(t),
+        common.afterAPIcall.bind(null, t, opts, callback));
 }
 
 
@@ -221,7 +190,7 @@ function update(t, opts, callback) {
     assert.object(opts.params, 'opts.params');
 
     opts.type = 'nic';
-    opts.reqType = 'create';
+    opts.reqType = 'update';
 
     client.updateNic(opts.mac, opts.params,
         common.afterAPIcall.bind(null, t, opts, callback));
@@ -244,12 +213,12 @@ function updateAndGet(t, opts, callback) {
 
 
 module.exports = {
-    create: create,
-    createAndGet: createAndGet,
+    create: createNic,
+    createAndGet: createAndGetNic,
     createN: createN,
     del: del,
     get: get,
-    provision: provision,
+    provision: provisionNic,
     update: update,
     updateAndGet: updateAndGet
 };

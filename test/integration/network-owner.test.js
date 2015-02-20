@@ -37,7 +37,7 @@ var state = {
     noOwnerPools: [],
     testName: 'network-owner'
 };
-var ufdsAdminUuid = h.ufdsAdminUuid;
+var ufdsAdminUuid;  // Loaded in setup below
 
 
 
@@ -120,6 +120,17 @@ function deleteNetworkPool(t, name, callback) {
 
 test('create test nic tag', function (t) {
     h.createNicTag(t, napi, state);
+});
+
+
+test('load UFDS admin UUID', function (t) {
+    h.loadUFDSadminUUID(t, function (adminUUID) {
+        if (adminUUID) {
+            ufdsAdminUuid = adminUUID;
+        }
+
+        return t.end();
+    });
 });
 
 

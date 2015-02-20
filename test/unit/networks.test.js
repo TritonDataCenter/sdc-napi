@@ -436,8 +436,12 @@ test('Create network where mtu == nic_tag == max', function (t) {
 
 
 test('Update network', function (t) {
-    var before, expected, nets, p, updateParams;
+    var before;
+    var expected;
+    var nets;
     var num = h.NET_NUM;
+    var p;
+    var updateParams;
     var vals = h.validNetworkParams({
         name: 'updateme',
         provision_start_ip: fmt('10.1.%d.10', num),
@@ -446,152 +450,152 @@ test('Update network', function (t) {
     });
     delete vals.resolvers;
 
-    vasync.pipeline({
-    funcs: [
-        function _getNetworksBefore(_, cb) {
-            // Get the list of networks before creating the new network - these
-            // are added to the workflow parameters so that zone resolvers can
-            // be updated
-            NAPI.listNetworks(function (err, res) {
-                if (h.ifErr(t, err, 'listing networks')) {
-                    return cb(err);
-                }
-
-                nets = res;
-                return cb();
-            });
-
-        }, function _create(_, cb) {
-            NAPI.createNetwork(vals, function (err, res) {
-                if (h.ifErr(t, err, 'creating network')) {
-                    return cb(err);
-                }
-
-                before = res;
-                expected = clone(res);
-                return cb();
-            });
-
-        }, function _firstUpdate(_, cb) {
-            updateParams = {
-                description: 'description here',
-                gateway: fmt('10.1.%d.1', num),
-                owner_uuids: [ mod_uuid.v4() ],
-                resolvers: ['8.8.4.4'],
-                routes: {
-                    '10.2.0.0/16': fmt('10.1.%d.1', num)
-                }
-            };
-
-            for (p in updateParams) {
-                expected[p] = updateParams[p];
+    t.test('store networks from before', function (t2) {
+        // Get the list of networks before creating the new network - these
+        // are added to the workflow parameters so that zone resolvers can
+        // be updated
+        NAPI.listNetworks(function (err, res) {
+            if (h.ifErr(t2, err, 'listing networks')) {
+                return t2.end();
             }
 
-            // First, an update from no value to value
-            NAPI.updateNetwork(before.uuid, updateParams,
-                function (err2, res2) {
-                if (h.ifErr(t, err2, 'updating network')) {
-                    return cb(err2);
-                }
+            nets = res;
+            return t2.end();
+        });
+    });
 
-                t.ok(res2.job_uuid, 'job_uuid present');
-                expected.job_uuid = res2.job_uuid;
-
-                t.deepEqual(res2, expected, 'params updated');
-                delete expected.job_uuid;
-
-                var jobs = h.wfJobs;
-                jobs[0].params.networks.sort(h.uuidSort);
-                t.deepEqual(jobs, [ {
-                    name: 'net-update',
-                    params: {
-                        original_network: before,
-                        target: 'net-update-' + before.uuid,
-                        task: 'update',
-                        networks:
-                            [ expected ].concat(nets).sort(h.uuidSort),
-                        update_params: {
-                            gateway: updateParams.gateway,
-                            resolvers: updateParams.resolvers,
-                            routes: updateParams.routes
-                        }
-                    },
-                    uuid: res2.job_uuid
-                } ], 'params updated');
-                h.wfJobs = [];
-                before = res2;
-                delete before.job_uuid;
-
-                return cb();
-            });
-
-        }, function _secondUpdate(_, cb) {
-            // Now update again to make sure we can go from existing value
-            // to a different value
-            updateParams = {
-                description: 'description 2',
-                gateway: fmt('10.1.%d.2', num),
-                owner_uuids: [ mod_uuid.v4(), mod_uuid.v4() ].sort(),
-                provision_start_ip: fmt('10.1.%d.9', num),
-                provision_end_ip: fmt('10.1.%d.251', num),
-                resolvers: ['8.8.8.8', fmt('10.1.%d.1', num)],
-                routes: {
-                    '10.2.0.0/16': fmt('10.1.%d.2', num),
-                    '10.3.0.0/16': fmt('10.1.%d.2', num)
-                },
-                mtu: constants.MTU_DEFAULT - 100
-            };
-
-            for (p in updateParams) {
-                expected[p] = updateParams[p];
+    t.test('create', function (t2) {
+        NAPI.createNetwork(vals, function (err, res) {
+            if (h.ifErr(t2, err, 'creating network')) {
+                return t2.end();
             }
 
-            NAPI.updateNetwork(before.uuid, updateParams,
-                function (err3, res3) {
-                if (h.ifErr(t, err3, 'second update')) {
-                    return cb(err3);
-                }
+            before = res;
+            expected = clone(res);
+            return t2.end();
+        });
+    });
 
-                t.ok(res3.job_uuid, 'job_uuid present');
-                expected.job_uuid = res3.job_uuid;
+    t.test('first update', function (t2) {
+        updateParams = {
+            description: 'description here',
+            gateway: fmt('10.1.%d.1', num),
+            owner_uuids: [ mod_uuid.v4() ],
+            resolvers: ['8.8.4.4'],
+            routes: {
+                '10.2.0.0/16': fmt('10.1.%d.1', num)
+            }
+        };
 
-                t.deepEqual(res3, expected, 'params updated');
-                delete expected.job_uuid;
-
-                var jobs = h.wfJobs;
-                jobs[0].params.networks.sort(h.uuidSort);
-                t.deepEqual(jobs, [ {
-                    name: 'net-update',
-                    params: {
-                        original_network: before,
-                        target: 'net-update-' + before.uuid,
-                        task: 'update',
-                        networks:
-                            [ expected ].concat(nets).sort(h.uuidSort),
-                        update_params: {
-                            gateway: updateParams.gateway,
-                            resolvers: updateParams.resolvers,
-                            routes: updateParams.routes
-                        }
-                    },
-                    uuid: res3.job_uuid
-                } ], 'params updated');
-                h.wfJobs = [];
-
-                return cb();
-            });
-        }, function _checkResult(_, cb) {
-            NAPI.getNetwork(before.uuid, function (err4, res4) {
-                if (h.ifErr(t, err4, 'second update')) {
-                    return cb(err4);
-                }
-
-                t.deepEqual(res4, expected, 'params saved');
-                return cb();
-            });
+        for (p in updateParams) {
+            expected[p] = updateParams[p];
         }
-    ] }, function () {
-        return t.end();
+
+        // First, an update from no value to value
+        NAPI.updateNetwork(before.uuid, updateParams,
+            function (err2, res2) {
+            if (h.ifErr(t2, err2, 'updating network')) {
+                return t2.end();
+            }
+
+            t2.ok(res2.job_uuid, 'job_uuid present');
+            expected.job_uuid = res2.job_uuid;
+
+            t2.deepEqual(res2, expected, 'params updated');
+            delete expected.job_uuid;
+
+            var jobs = h.wfJobs;
+            jobs[0].params.networks.sort(h.uuidSort);
+            t2.deepEqual(jobs, [ {
+                name: 'net-update',
+                params: {
+                    original_network: before,
+                    target: 'net-update-' + before.uuid,
+                    task: 'update',
+                    networks:
+                        [ expected ].concat(nets).sort(h.uuidSort),
+                    update_params: {
+                        gateway: updateParams.gateway,
+                        resolvers: updateParams.resolvers,
+                        routes: updateParams.routes
+                    }
+                },
+                uuid: res2.job_uuid
+            } ], 'params updated');
+            h.wfJobs = [];
+            before = res2;
+            delete before.job_uuid;
+
+            return t2.end();
+        });
+    });
+
+    t.test('second update', function (t2) {
+        // Now update again to make sure we can go from existing value
+        // to a different value
+        updateParams = {
+            description: 'description 2',
+            gateway: fmt('10.1.%d.2', num),
+            owner_uuids: [ mod_uuid.v4(), mod_uuid.v4() ].sort(),
+            provision_start_ip: fmt('10.1.%d.9', num),
+            provision_end_ip: fmt('10.1.%d.251', num),
+            resolvers: ['8.8.8.8', fmt('10.1.%d.1', num)],
+            routes: {
+                '10.2.0.0/16': fmt('10.1.%d.2', num),
+                '10.3.0.0/16': fmt('10.1.%d.2', num)
+            },
+            mtu: constants.MTU_DEFAULT - 100
+        };
+
+        for (p in updateParams) {
+            expected[p] = updateParams[p];
+        }
+
+        NAPI.updateNetwork(before.uuid, updateParams,
+            function (err3, res3) {
+            if (h.ifErr(t2, err3, 'second update')) {
+                return t2.end();
+            }
+
+            t2.ok(res3.job_uuid, 'job_uuid present');
+            expected.job_uuid = res3.job_uuid;
+
+            t2.deepEqual(res3, expected, 'params updated');
+            delete expected.job_uuid;
+
+            var jobs = h.wfJobs;
+            jobs[0].params.networks.sort(h.uuidSort);
+            t2.deepEqual(jobs, [ {
+                name: 'net-update',
+                params: {
+                    original_network: before,
+                    target: 'net-update-' + before.uuid,
+                    task: 'update',
+                    networks:
+                        [ expected ].concat(nets).sort(h.uuidSort),
+                    update_params: {
+                        gateway: updateParams.gateway,
+                        resolvers: updateParams.resolvers,
+                        routes: updateParams.routes
+                    }
+                },
+                uuid: res3.job_uuid
+            } ], 'params updated');
+            h.wfJobs = [];
+
+            return t2.end();
+        });
+    });
+
+    t.test('get after second update', function (t2) {
+        NAPI.getNetwork(before.uuid, function (err4, res4) {
+            if (h.ifErr(t2, err4, 'second update')) {
+                return t2.end();
+            }
+
+            t2.deepEqual(res4, expected, 'params saved');
+            return t2.end();
+        });
     });
 });
 

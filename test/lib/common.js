@@ -13,7 +13,9 @@
  */
 
 var assert = require('assert-plus');
+var fmt = require('util').format;
 var clone = require('clone');
+var constants = require('../../lib/util/constants');
 var mod_err = require('../../lib/util/errors');
 var mod_uuid = require('node-uuid');
 var NAPI = require('sdc-clients').NAPI;
@@ -93,9 +95,23 @@ function afterAPIcall(t, opts, callback, err, obj, _, res) {
     t.equal(res.statusCode, 200, 'status code' + desc);
 
     if (opts.exp) {
+        // For creates, the server will generate an ID (usually a UUID) if
+        // it's not set in the request.  Copy this over to the expected
+        // object so that we don't have to set it manually:
         if (opts.hasOwnProperty('idKey') &&
             !opts.exp.hasOwnProperty(opts.idKey)) {
             opts.exp[opts.idKey] = obj[opts.idKey];
+        }
+
+        // Allow filling in values that might be generated before doing the
+        // deepEqual below:
+        if (opts.hasOwnProperty('fillIn')) {
+            opts.fillIn.forEach(function (prop) {
+                if (!opts.exp.hasOwnProperty(prop) &&
+                    obj.hasOwnProperty(prop)) {
+                    opts.exp[prop] = obj[prop];
+                }
+            });
         }
 
         t.deepEqual(obj, opts.exp, type + 'full result' + desc);
@@ -225,6 +241,7 @@ function assertArgs(t, opts, callback) {
     assert.ok(opts.exp || opts.partialExp || opts.expErr,
         'one of exp, expErr, partialExp required');
     assert.object(opts.params, 'opts.params');
+    assert.optionalObject(opts.state, 'opts.state');
     assert.optionalFunc(callback, 'callback');
 }
 
@@ -312,7 +329,7 @@ function invalidParamErr(extra) {
 
     var newErr = {
         code: 'InvalidParameters',
-        message: mod_err.msg.invalidParam
+        message: constants.msg.INVALID_PARAMS
     };
 
     for (var e in extra) {
@@ -373,6 +390,15 @@ function randomMAC() {
 }
 
 
+/**
+ * Generate request opts
+ */
+function requestOpts(t, desc) {
+    var reqId = mod_uuid.v4();
+    t.ok(reqId, fmt('req ID: %s%s', reqId, (desc ? ': ' + desc : '')));
+
+    return { headers: { 'x-request-id': reqId } };
+}
 
 
 
@@ -390,5 +416,6 @@ module.exports = {
     invalidParamErr: invalidParamErr,
     lastCreated: lastCreated,
     missingParamErr: missingParamErr,
-    randomMAC: randomMAC
+    randomMAC: randomMAC,
+    reqOpts: requestOpts
 };

@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright (c) 2015, Joyent, Inc.
  */
 
 /*
@@ -34,7 +34,7 @@ var IPS = {
 var napi = h.createNAPIclient();
 var state = {};
 var uuids = {
-    admin: h.ufdsAdminUuid,
+    admin: '',  // set in setup below
     a: '564d69b1-a178-07fe-b36f-dfe5fa3602e2'
 };
 
@@ -44,16 +44,29 @@ var uuids = {
 
 
 
-test('create test nic tag', function (t) {
-    h.createNicTag(t, napi, state);
-});
+test('setup', function (t) {
+    t.test('load UFDS admin UUID', function (t2) {
+        h.loadUFDSadminUUID(t2, function (adminUUID) {
+            if (adminUUID) {
+                uuids.admin = adminUUID;
+            }
+
+            return t2.end();
+        });
+    });
 
 
-test('create test network', function (t) {
-    h.createNetwork(t, napi, state, {
-        subnet: '10.1.1.0/24',
-        provision_start_ip: IPS.start,
-        provision_end_ip: IPS.end
+    t.test('create test nic tag', function (t2) {
+        h.createNicTag(t2, napi, state);
+    });
+
+
+    t.test('create test network', function (t2) {
+        h.createNetwork(t2, napi, state, {
+            subnet: '10.1.1.0/24',
+            provision_start_ip: IPS.start,
+            provision_end_ip: IPS.end
+        });
     });
 });
 

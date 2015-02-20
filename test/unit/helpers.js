@@ -272,6 +272,7 @@ module.exports = {
         return NET_NUM;
     },
     randomMAC: common.randomMAC,
+    reqOpts: common.reqOpts,
     get server() {
         return SERVER;
     },

@@ -29,12 +29,23 @@ var vasync = require('vasync');
 
 var napi = h.createNAPIclient();
 var state = { };
-var ufdsAdminUuid = h.ufdsAdminUuid;
+var ufdsAdminUuid;  // Loaded in setup below
 
 
 
 // --- Setup
 
+
+
+test('load UFDS admin UUID', function (t) {
+    h.loadUFDSadminUUID(t, function (adminUUID) {
+        if (adminUUID) {
+            ufdsAdminUuid = adminUUID;
+        }
+
+        return t.end();
+    });
+});
 
 
 test('create test nic tag', function (t) {
@@ -362,6 +373,7 @@ test('POST /networks (comma-separated resolvers)', function (t) {
 test('Create network - overlapping subnet ranges', function (t) {
     var created = [];
     var net = h.validNetworkParams({
+        name: 'overlap-testing',
         subnet: '10.2.1.64/26',
         provision_start_ip: '10.2.1.74',
         provision_end_ip: '10.2.1.120'

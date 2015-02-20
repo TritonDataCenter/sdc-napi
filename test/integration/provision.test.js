@@ -42,7 +42,7 @@ var state = {
     nics: []
 };
 var uuids = {
-    admin: h.ufdsAdminUuid,
+    admin: '',  // Loaded in setup below
     a: '564d69b1-a178-07fe-b36f-dfe5fa3602e2',
     b: '91abd897-566a-4ae5-80d2-1ba103221bbc',
     c: 'e8e2deb9-2d68-4e4e-9aa6-4962c879d9b1',
@@ -130,113 +130,9 @@ function expProvisionFail(t, opts) {
 }
 
 
-
-// --- Setup
-
-
-
-test('setup', function (t) {
-    t.test('nic tag', function (t2) {
-        mod_tag.create(t2, { name: '<generate>', state: state });
-    });
-
-    t.test('net0', function (t2) {
-        mod_net.create(t2, {
-            params: {
-                name: '<generate>',
-                provision_end_ip: '10.0.1.10',
-                provision_start_ip: '10.0.1.1',
-                subnet: '10.0.1.0/28',
-                nic_tag: mod_tag.lastCreated().name,
-                vlan_id: 0
-            },
-            partialExp: {
-                provision_end_ip: '10.0.1.10',
-                provision_start_ip: '10.0.1.1',
-                subnet: '10.0.1.0/28'
-            },
-            state: state
-        });
-    });
-
-    t.test('net1', function (t2) {
-        mod_net.create(t2, {
-            params: {
-                name: '<generate>',
-                provision_start_ip: '10.0.2.20',
-                provision_end_ip: '10.0.2.50',
-                subnet: '10.0.2.0/26',
-                nic_tag: mod_tag.lastCreated().name,
-                vlan_id: 0
-            },
-            partialExp: {
-                provision_start_ip: '10.0.2.20',
-                provision_end_ip: '10.0.2.50',
-                subnet: '10.0.2.0/26'
-            },
-            state: state
-        });
-    });
-
-    t.test('net2', function (t2) {
-        mod_net.create(t2, {
-            params: {
-                name: '<generate>',
-                provision_end_ip: '10.0.3.10',
-                provision_start_ip: '10.0.3.1',
-                subnet: '10.0.3.0/28',
-                nic_tag: mod_tag.lastCreated().name,
-                vlan_id: 0
-            },
-            partialExp: {
-                provision_end_ip: '10.0.3.10',
-                provision_start_ip: '10.0.3.1',
-                subnet: '10.0.3.0/28'
-            },
-            state: state
-        });
-    });
-
-    t.test('net3', function (t2) {
-        mod_net.create(t2, {
-            params: {
-                name: '<generate>',
-                provision_end_ip: '10.0.4.10',
-                provision_start_ip: '10.0.4.1',
-                subnet: '10.0.4.0/28',
-                nic_tag: mod_tag.lastCreated().name,
-                vlan_id: 0
-            },
-            partialExp: {
-                provision_end_ip: '10.0.4.10',
-                provision_start_ip: '10.0.4.1',
-                subnet: '10.0.4.0/28'
-            },
-            state: state
-        });
-    });
-
-    t.test('pool', function (t2) {
-        mod_pool.create(t2, {
-            name: '<generate>',
-            params: {
-                networks: [ state.networks[2].uuid ]
-            },
-            partialExp: {
-                networks: [ state.networks[2].uuid ],
-                nic_tag: mod_tag.lastCreated().name
-            },
-            state: state
-        });
-    });
-});
-
-
-
-// --- Tests
-
-
-
+/**
+ * Provision a network until there are no more free IPs left
+ */
 function fillNetworkByCreate(t, opts) {
     assert.object(opts, 'opts');
     assert.string(opts.network_uuid, 'opts.network_uuid');
@@ -305,6 +201,10 @@ function fillNetworkByCreate(t, opts) {
     });
 }
 
+
+/**
+ * Fill the subnet by provisioning 10 nics
+ */
 function createNics(t) {
     t.equal(state.nics.length, 0, 'no nics in state.nics');
 
@@ -515,11 +415,9 @@ function fillNetwork(t) {
 }
 
 
-
-test('fill network', fillNetwork);
-
-// XXX: do the same test as above, but with updateNic()
-
+/*
+ * Delete the last two nics provisioned, and ensure their IPs are freed
+ */
 function deleteTwoNics(t) {
     state.deleted.push(state.nics.pop());
     state.deleted.push(state.nics.pop());
@@ -555,12 +453,9 @@ function deleteTwoNics(t) {
 }
 
 
-/*
- * Delete two of the nics, and make sure their IPs are freed
+/**
+ * Reprovision the deleted nics in state.deleted
  */
-test('delete two nics', deleteTwoNics);
-
-
 function reprovisionDeleted(t, opts) {
     assert.object(opts, 'opts');
     assert.object(opts.network, 'opts.network');
@@ -611,93 +506,9 @@ function reprovisionDeleted(t, opts) {
     });
 }
 
-
-/*
- * Now that we've deleted several IPs, try to reprovision them at the same
- * time
+/**
+ * Delete all nics in state.nics
  */
-test('reprovision deleted', function (t) {
-    reprovisionDeleted(t, {
-        network: state.networks[0]
-    });
-});
-
-
-
-test('delete: in order', function (t) {
-    var toDel = [
-        state.nics.pop(),
-        state.nics.pop()
-    ];
-
-    function delNext(_, cb) {
-        var nic = toDel.pop();
-        napi.deleteNic(nic.mac, function (err) {
-            t.ifError(err);
-            if (err) {
-                t.deepEqual(err.body, {}, 'error body');
-            }
-
-            state.delayed.push(nic);
-            return cb(err);
-        });
-    }
-
-    // Wait between deleting nics - the next test reprovisions the deleted
-    // IPs and confirms that they're provisioned oldest first.
-    function waitABit(_, cb) {
-        setTimeout(cb, 100);
-    }
-
-    vasync.pipeline({
-        funcs: [
-            delNext,
-            waitABit,
-            delNext
-        ]
-    }, function (err) {
-        return t.end();
-    });
-});
-
-
-test('reprovision: by modification time', function (t) {
-    var provisioned = [];
-
-    function provisionNext(_, cb) {
-        var params = clone(NIC_PARAMS);
-        params.network_uuid = state.networks[0].uuid;
-
-        napi.createNic(h.randomMAC(), params, function (err, res) {
-            t.ifError(err, 'error returned');
-            if (err) {
-                return cb(err);
-            }
-
-            provisioned.push(res.ip);
-            state.nics.push(res);
-            return cb();
-        });
-    }
-
-    vasync.pipeline({
-        funcs: [
-            provisionNext,
-            provisionNext
-        ]
-    }, function (err) {
-        t.deepEqual(state.delayed.map(function (n) {
-            return n.ip;
-        }), provisioned, 'IPs reprovisioned in modification order');
-
-        // Subnet should be full again
-        expProvisionFail(t, {
-            network_uuid: state.networks[0].uuid
-        });
-    });
-});
-
-
 function deleteAll(t) {
     t.test('delete', function (t2) {
         t2.equal(state.nics.length, 10, 'all nics accounted for');
@@ -752,6 +563,234 @@ function deleteAll(t) {
 }
 
 
+
+// --- Setup
+
+
+
+test('setup', function (t) {
+    t.test('load UFDS admin UUID', function (t2) {
+        h.loadUFDSadminUUID(t2, function (adminUUID) {
+            if (adminUUID) {
+                uuids.admin = adminUUID;
+            }
+
+            return t2.end();
+        });
+    });
+
+    t.test('nic tag', function (t2) {
+        mod_tag.create(t2, { name: '<generate>', state: state });
+    });
+
+    t.test('net0', function (t2) {
+        mod_net.create(t2, {
+            params: {
+                name: '<generate>',
+                provision_end_ip: '10.0.1.10',
+                provision_start_ip: '10.0.1.1',
+                subnet: '10.0.1.0/28',
+                nic_tag: mod_tag.lastCreated().name,
+                vlan_id: 0
+            },
+            partialExp: {
+                provision_end_ip: '10.0.1.10',
+                provision_start_ip: '10.0.1.1',
+                subnet: '10.0.1.0/28'
+            },
+            state: state
+        });
+    });
+
+    t.test('net1', function (t2) {
+        mod_net.create(t2, {
+            params: {
+                name: '<generate>',
+                provision_start_ip: '10.0.2.20',
+                provision_end_ip: '10.0.2.50',
+                subnet: '10.0.2.0/26',
+                nic_tag: mod_tag.lastCreated().name,
+                vlan_id: 0
+            },
+            partialExp: {
+                provision_start_ip: '10.0.2.20',
+                provision_end_ip: '10.0.2.50',
+                subnet: '10.0.2.0/26'
+            },
+            state: state
+        });
+    });
+
+    t.test('net2', function (t2) {
+        mod_net.create(t2, {
+            params: {
+                name: '<generate>',
+                provision_end_ip: '10.0.3.10',
+                provision_start_ip: '10.0.3.1',
+                subnet: '10.0.3.0/28',
+                nic_tag: mod_tag.lastCreated().name,
+                vlan_id: 0
+            },
+            partialExp: {
+                provision_end_ip: '10.0.3.10',
+                provision_start_ip: '10.0.3.1',
+                subnet: '10.0.3.0/28'
+            },
+            state: state
+        });
+    });
+
+    t.test('net3', function (t2) {
+        mod_net.create(t2, {
+            params: {
+                name: '<generate>',
+                provision_end_ip: '10.0.4.10',
+                provision_start_ip: '10.0.4.1',
+                subnet: '10.0.4.0/28',
+                nic_tag: mod_tag.lastCreated().name,
+                vlan_id: 0
+            },
+            partialExp: {
+                provision_end_ip: '10.0.4.10',
+                provision_start_ip: '10.0.4.1',
+                subnet: '10.0.4.0/28'
+            },
+            state: state
+        });
+    });
+
+    t.test('pool', function (t2) {
+        mod_pool.create(t2, {
+            name: '<generate>',
+            params: {
+                networks: [ state.networks[2].uuid ]
+            },
+            partialExp: {
+                networks: [ state.networks[2].uuid ],
+                nic_tag: mod_tag.lastCreated().name
+            },
+            state: state
+        });
+    });
+});
+
+
+
+// --- Tests
+
+
+/*
+ * Create nics on the network until it's fully provisioned
+ */
+test('fill network', fillNetwork);
+
+// XXX: do the same test as above, but with updateNic(): IOW, use updateNic()
+// to fill a fresh network completely.
+
+
+/*
+ * Delete two of the nics, and make sure their IPs are freed
+ */
+test('delete two nics', deleteTwoNics);
+
+
+/*
+ * Now that we've deleted several IPs, try to reprovision them at the same
+ * time
+ */
+test('reprovision deleted', function (t) {
+    reprovisionDeleted(t, {
+        network: state.networks[0]
+    });
+});
+
+
+/*
+ * Delete two nics, ensuring that there's a bit of time between each
+ * delete - this ensures that when we reprovision them in the next test,
+ * we get the oldest nic first.
+ */
+test('delete: in order', function (t) {
+    var toDel = [
+        state.nics.pop(),
+        state.nics.pop()
+    ];
+
+    function delNext(_, cb) {
+        var nic = toDel.pop();
+        napi.deleteNic(nic.mac, function (err) {
+            t.ifError(err);
+            if (err) {
+                t.deepEqual(err.body, {}, 'error body');
+            }
+
+            state.delayed.push(nic);
+            return cb(err);
+        });
+    }
+
+    // Wait between deleting nics - the next test reprovisions the deleted
+    // IPs and confirms that they're provisioned oldest first.
+    function waitABit(_, cb) {
+        setTimeout(cb, 100);
+    }
+
+    vasync.pipeline({
+        funcs: [
+            delNext,
+            waitABit,
+            delNext
+        ]
+    }, function (err) {
+        return t.end();
+    });
+});
+
+
+/**
+ * Reprovision the deleted nics, ensuring that we get IPs in the order they
+ * were freed above.
+ */
+test('reprovision: by modification time', function (t) {
+    var provisioned = [];
+
+    function provisionNext(_, cb) {
+        var params = clone(NIC_PARAMS);
+        params.network_uuid = state.networks[0].uuid;
+
+        napi.createNic(h.randomMAC(), params, function (err, res) {
+            t.ifError(err, 'error returned');
+            if (err) {
+                return cb(err);
+            }
+
+            provisioned.push(res.ip);
+            state.nics.push(res);
+            return cb();
+        });
+    }
+
+    vasync.pipeline({
+        funcs: [
+            provisionNext,
+            provisionNext
+        ]
+    }, function (err) {
+        t.deepEqual(state.delayed.map(function (n) {
+            return n.ip;
+        }), provisioned, 'IPs reprovisioned in modification order');
+
+        // Subnet should be full again
+        expProvisionFail(t, {
+            network_uuid: state.networks[0].uuid
+        });
+    });
+});
+
+
+/*
+ * Now delete all of the nics on the network, causing their IPs to be freed.
+ */
 test('delete all: 1', deleteAll);
 
 
