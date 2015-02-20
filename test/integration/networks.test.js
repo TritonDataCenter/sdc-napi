@@ -12,6 +12,7 @@
  * Integration tests for /networks endpoints
  */
 
+var constants = require('../../lib/util/constants');
 var fmt = require('util').format;
 var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
@@ -121,8 +122,9 @@ test('POST /networks', function (t) {
             return t.end();
         }
 
-        params.uuid = res.uuid;
+        params.mtu = constants.MTU_DEFAULT;
         params.netmask = '255.255.255.0';
+        params.uuid = res.uuid;
         state.network = res;
         t.deepEqual(res, params, 'parameters returned for network ' + res.uuid);
 
@@ -302,10 +304,12 @@ test('POST /networks (empty gateway)', function (t) {
             return t.end();
         }
 
-        params.uuid = res.uuid;
+        params.mtu = constants.MTU_DEFAULT;
         params.netmask = '255.255.255.0';
-        delete params.gateway;
+        params.uuid = res.uuid;
         params.resolvers = [];
+        delete params.gateway;
+
         t.deepEqual(res, params, 'parameters returned for network ' + res.uuid);
         state.network3 = res;
 
@@ -323,9 +327,11 @@ test('POST /networks (single resolver)', function (t) {
             return t.end();
         }
 
-        params.uuid = res.uuid;
+        params.mtu = constants.MTU_DEFAULT;
         params.netmask = '255.255.255.0';
+        params.uuid = res.uuid;
         state.singleResolver = res;
+
         t.deepEqual(res, params, 'parameters returned for network ' + res.uuid);
 
         napi.getNetwork(res.uuid, function (err2, res2) {
@@ -351,9 +357,11 @@ test('POST /networks (comma-separated resolvers)', function (t) {
             return t.end();
         }
 
-        params.uuid = res.uuid;
+        params.mtu = constants.MTU_DEFAULT;
         params.netmask = '255.255.255.0';
         params.resolvers = params.resolvers.split(',');
+        params.uuid = res.uuid;
+
         state.commaResolvers = res;
         t.deepEqual(res, params, 'parameters returned for network ' + res.uuid);
 

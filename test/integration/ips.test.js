@@ -13,6 +13,7 @@
  */
 
 var h = require('./helpers');
+var mod_net = require('../lib/net');
 var test = require('tape');
 var util = require('util');
 var vasync = require('vasync');
@@ -62,10 +63,17 @@ test('setup', function (t) {
 
 
     t.test('create test network', function (t2) {
-        h.createNetwork(t2, napi, state, {
+        var net = h.validNetworkParams({
             subnet: '10.1.1.0/24',
             provision_start_ip: IPS.start,
             provision_end_ip: IPS.end
+        });
+
+        mod_net.create(t2, {
+            fillInMissing: true,
+            params: net,
+            exp: net,
+            state: state
         });
     });
 });
@@ -77,14 +85,14 @@ test('setup', function (t) {
 
 
 test('get test network', function (t) {
-    napi.getNetwork(state.network.uuid, function (err, res) {
-        if (h.ifErr(t, err, 'get network ' + state.network.uuid)) {
+    napi.getNetwork(state.networks[0].uuid, function (err, res) {
+        if (h.ifErr(t, err, 'get network ' + state.networks[0].uuid)) {
             return t.end();
         }
 
         t.equal(res.provision_start_ip, IPS.start, 'start IP');
         t.equal(res.provision_end_ip, IPS.end, 'end IP');
-        t.equal(res.subnet, state.network.subnet, 'subnet');
+        t.equal(res.subnet, state.networks[0].subnet, 'subnet');
 
         return t.end();
     });
@@ -92,13 +100,13 @@ test('get test network', function (t) {
 
 
 test('GET /networks/:uuid/ips/:ip (free IP)', function (t) {
-    napi.getIP(state.network.uuid, IPS.free, function (err, res) {
-        var desc = util.format(' %s/%s', state.network.uuid, IPS.free);
+    napi.getIP(state.networks[0].uuid, IPS.free, function (err, res) {
+        var desc = util.format(' %s/%s', state.networks[0].uuid, IPS.free);
         t.ifError(err, 'getting IP' + desc);
         var exp = {
             free: true,
             ip: IPS.free,
-            network_uuid: state.network.uuid,
+            network_uuid: state.networks[0].uuid,
             reserved: false
         };
         t.deepEqual(res, exp, 'GET free IP' + desc);
@@ -124,7 +132,7 @@ test('PUT /networks/:uuid/ips/:ip', function (t) {
         belongs_to_uuid: uuids.a
     };
 
-    napi.updateIP(state.network.uuid, IPS.zone, params,
+    napi.updateIP(state.networks[0].uuid, IPS.zone, params,
         function (err, res) {
         if (err) {
             return h.doneWithError(err, 'updating IP: ' + IPS.zone);
@@ -132,11 +140,12 @@ test('PUT /networks/:uuid/ips/:ip', function (t) {
 
         params.ip = IPS.zone;
         params.free = false;
-        params.network_uuid = state.network.uuid;
+        params.network_uuid = state.networks[0].uuid;
         state.ip = params;
         t.deepEqual(res, params, 'reserving an IP');
 
-        return napi.getIP(state.network.uuid, params.ip, function (err2, res2) {
+        return napi.getIP(state.networks[0].uuid, params.ip,
+                function (err2, res2) {
             if (err2) {
                 return t.end();
             }
@@ -150,7 +159,7 @@ test('PUT /networks/:uuid/ips/:ip', function (t) {
 
 
 test('GET /networks/:uuid/ips', function (t) {
-    napi.listIPs(state.network.uuid, function (err, res) {
+    napi.listIPs(state.networks[0].uuid, function (err, res) {
         if (err) {
             return h.doneWithError(err, 'listing IPs');
         }
@@ -160,7 +169,7 @@ test('GET /networks/:uuid/ips', function (t) {
             belongs_to_uuid: uuids.admin,
             free: false,
             ip: IPS.broadcast,
-            network_uuid: state.network.uuid,
+            network_uuid: state.networks[0].uuid,
             owner_uuid: uuids.admin,
             reserved: true
         };
@@ -177,7 +186,7 @@ test('PUT /networks/:uuid/ips/:ip (free an IP)', function (t) {
             free: true
         };
 
-        napi.updateIP(state.network.uuid, IPS.zone, params,
+        napi.updateIP(state.networks[0].uuid, IPS.zone, params,
             function (err, res) {
             if (err) {
                 return h.doneWithError(t, err, 'freeing IP: ' + IPS.zone);
@@ -186,10 +195,10 @@ test('PUT /networks/:uuid/ips/:ip (free an IP)', function (t) {
             params.ip = IPS.zone;
             params.free = true;
             params.reserved = false;
-            params.network_uuid = state.network.uuid;
+            params.network_uuid = state.networks[0].uuid;
             t.deepEqual(res, params, 'freeing an IP');
 
-            return napi.getIP(state.network.uuid, params.ip,
+            return napi.getIP(state.networks[0].uuid, params.ip,
                 function (err2, res2) {
                 t.ifError(err2, 'getting free IP: ' + IPS.zone);
                 if (err2) {
@@ -219,7 +228,7 @@ test('GET /networks/:uuid/ips: reserved IP', function (t) {
         reserved: true
     };
 
-    napi.updateIP(state.network.uuid, IPS.reserved, params,
+    napi.updateIP(state.networks[0].uuid, IPS.reserved, params,
         function (err, res) {
         if (err) {
             return h.doneWithError(err, 'updating IP: ' + IPS.reserved);
@@ -227,10 +236,10 @@ test('GET /networks/:uuid/ips: reserved IP', function (t) {
 
         params.ip = IPS.reserved;
         params.free = false;
-        params.network_uuid = state.network.uuid;
+        params.network_uuid = state.networks[0].uuid;
         t.deepEqual(res, params, 'reserving IP: ' + IPS.reserved);
 
-        return napi.listIPs(state.network.uuid, function (err2, ips) {
+        return napi.listIPs(state.networks[0].uuid, function (err2, ips) {
             if (h.ifErr(t, err2, 'listing IPs')) {
                 return t.end();
             }
@@ -267,11 +276,10 @@ test('GET /networks/:uuid/ips: reserved IP', function (t) {
 
 
 
-test('remove test network', function (t) {
-    h.deleteNetwork(t, napi, state);
-});
+test('teardown', function (t) {
+    t.test('delete network', mod_net.delAllCreated);
 
-
-test('remove test nic tag', function (t) {
-    h.deleteNicTag(t, napi, state);
+    t.test('remove test nic tag', function (t2) {
+        h.deleteNicTag(t2, napi, state);
+    });
 });

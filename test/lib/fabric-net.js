@@ -66,9 +66,11 @@ function createFabricNet(t, opts, callback) {
     if (params.name == '<generate>') {
         params.name = generateNetworkName();
     }
+
+    opts.fillIn = [ 'mtu' ];
+    opts.idKey = 'uuid';
     opts.reqType = 'create';
     opts.type = TYPE;
-    opts.idKey = 'uuid';
 
     delete params.owner_uuid;
     delete params.vlan_uuid;
@@ -81,19 +83,7 @@ function createFabricNet(t, opts, callback) {
     }
 
     client.createFabricNetwork(owner, vlan, params, common.reqOpts(t),
-        common.afterAPIcall.bind(null, t, opts,
-            function _afterCreate(err, net) {
-
-        if (err) {
-            return doneErr(err, t, callback);
-        }
-
-        if (opts.fillInMissing && opts.exp) {
-            opts.exp.uuid = net.uuid;
-        }
-
-        return doneRes(net, t, callback);
-    }));
+        common.afterAPIcall.bind(null, t, opts, callback));
 }
 
 

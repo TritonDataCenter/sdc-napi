@@ -255,11 +255,17 @@ function createNetwork(t, napi, state, extraParams, targetName, callback) {
 
         t.ok(res.uuid, 'test network uuid: ' + res.uuid);
 
-        params.uuid = res.uuid;
+        if (!params.mtu) {
+            params.mtu = res.mtu;
+        }
+
         if (!params.resolvers) {
             params.resolvers = [];
         }
+
         params.netmask = util_ip.bitsToNetmask(params.subnet.split('/')[1]);
+        params.uuid = res.uuid;
+
         t.deepEqual(res, params, 'parameters returned for network ' + res.uuid);
         if (targetName) {
             state[targetName] = res;

@@ -17,7 +17,9 @@ var clone = require('clone');
 var common = require('./common');
 var log = require('./log');
 var mod_client = require('./client');
+var mod_vasync = require('vasync');
 var util = require('util');
+var util_ip = require('../../lib/util/ip');
 
 var doneRes = common.doneRes;
 var doneErr = common.doneErr;
@@ -65,8 +67,18 @@ function createNet(t, opts, callback) {
     if (params.name == '<generate>') {
         params.name = util.format('test-net%d-%d', NUM++, process.pid);
     }
+
+    opts.idKey = 'uuid';
+    opts.fillIn = [ 'mtu' ];
     opts.reqType = 'create';
     opts.type = TYPE;
+
+    if (opts.fillInMissing && opts.exp) {
+        opts.exp.netmask = util_ip.bitsToNetmask(opts.exp.subnet.split('/')[1]);
+        if (!opts.params.resolvers && !opts.exp.resolvers) {
+            opts.exp.resolvers = [];
+        }
+    }
 
     client.createNetwork(params, common.reqOpts(t, opts.desc),
         common.afterAPIcall.bind(null, t, opts, callback));
@@ -84,7 +96,11 @@ function createAndGet(t, opts, callback) {
             return doneErr(err, t, callback);
         }
 
-        opts.uuid = res.uuid;
+        if (!opts.params) {
+            opts.params = res.uuid;
+        }
+
+        opts.params.uuid = res.uuid;
         return getNet(t, opts, callback);
     });
 }
@@ -93,7 +109,7 @@ function createAndGet(t, opts, callback) {
 /**
  * Delete a network
  */
-function del(t, opts, callback) {
+function delNet(t, opts, callback) {
     assert.object(t, 't');
     assert.string(opts.uuid, 'opts.uuid');
     assert.optionalObject(opts.expErr, 'opts.expErr');
@@ -110,6 +126,36 @@ function del(t, opts, callback) {
 
 
 /**
+ * Delete all the networks created by this test
+ */
+function delAllCreatedNets(t) {
+    assert.object(t, 't');
+
+    var created = common.allCreated('networks');
+    if (created.length === 0) {
+        t.ok(true, 'No networks created');
+        return t.end();
+    }
+
+    mod_vasync.forEachParallel({
+        inputs: created,
+        func: function _delOne(net, cb) {
+            var delOpts = {
+                continueOnErr: true,
+                exp: {},
+                params: net,
+                uuid: net.uuid
+            };
+
+            delNet(t, delOpts, cb);
+        }
+    }, function () {
+        return t.end();
+    });
+}
+
+
+/**
  * Get a network and compare the output
  */
 function getNet(t, opts, callback) {
@@ -121,7 +167,7 @@ function getNet(t, opts, callback) {
     opts.reqType = 'get';
     opts.type = TYPE;
 
-    client.getNetwork(opts.uuid, params,
+    client.getNetwork(opts.params.uuid, params,
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 
@@ -171,7 +217,7 @@ function updateNet(t, opts, callback) {
     opts.type = TYPE;
     opts.reqType = 'update';
 
-    client.updateNetwork(opts.uuid, opts.params,
+    client.updateNetwork(opts.params.uuid, opts.params,
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 
@@ -196,7 +242,8 @@ module.exports = {
     addNetParams: addNetParams,
     create: createNet,
     createAndGet: createAndGet,
-    del: del,
+    del: delNet,
+    delAllCreated: delAllCreatedNets,
     get: getNet,
     lastCreated: lastCreated,
     list: listNets,

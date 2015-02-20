@@ -74,20 +74,28 @@ function expCreateErr(t, mac, params, expErr) {
 
 
 test('setup', function (t) {
-    h.createNicTags(t, napi, state,
-        ['nicTag', 'nicTag2', 'nicTag3', 'nicTag4', 'nicTag5'], function (err) {
-        if (err) {
-            return t.end();
-        }
+    t.test('create nic tags', function (t2) {
+        h.createNicTags(t2, napi, state, [
+            'nicTag', 'nicTag2', 'nicTag3', 'nicTag4', 'nicTag5'
+        ]);
+    });
 
+    t.test('create network', function (t2) {
         // "TEST-NET-2" in RFC 5737:
-        h.createNetwork(t, napi, state, {
+        var net = h.validNetworkParams({
             gateway: '198.51.100.4',
             nic_tag: state.nicTag.name,
             provision_end_ip: '198.51.100.250',
             provision_start_ip: '198.51.100.5',
             resolvers: [ '8.8.8.8' ],
             subnet: '198.51.100.0/24'
+        });
+
+        mod_net.create(t2, {
+            fillInMissing: true,
+            params: net,
+            exp: net,
+            state: state
         });
     });
 });
@@ -147,7 +155,7 @@ test('POST /nics (with IP, network and state)', function (t) {
             belongs_to_uuid: uuids.a,
             belongs_to_type: 'server',
             ip: '198.51.100.77',
-            network_uuid: state.network.uuid,
+            network_uuid: state.networks[0].uuid,
             state: 'provisioning'
         };
         d.mac = h.randomMAC();
@@ -161,7 +169,7 @@ test('POST /nics (with IP, network and state)', function (t) {
 
             params.primary = false;
             params.mac = d.mac;
-            h.addNetParamsToNic(state, params);
+            mod_net.addNetParams(state.networks[0], params);
             t2.deepEqual(res, params, 'nic params returned' + desc);
             state.nic.b = params;
             state.desc.b = desc;
@@ -191,8 +199,8 @@ test('POST /nics (with IP but no network)', function (t) {
         belongs_to_uuid: uuids.a,
         belongs_to_type: 'server',
         ip: '198.51.100.79',
-        nic_tag: state.network.nic_tag,
-        vlan_id: state.network.vlan_id,
+        nic_tag: state.networks[0].nic_tag,
+        vlan_id: state.networks[0].vlan_id,
         nic_tags_provided: [ 'external' ]
     };
     var mac = h.randomMAC();
@@ -207,7 +215,7 @@ test('POST /nics (with IP but no network)', function (t) {
         params.primary = false;
         params.mac = mac;
         params.state = 'running';
-        h.addNetParamsToNic(state, params);
+        mod_net.addNetParams(state.networks[0], params);
         t.deepEqual(res, params, 'nic params returned' + desc);
         state.nic.c = params;
         state.desc.c = desc;
@@ -226,9 +234,9 @@ test('POST /nics (with IP already reserved)', function (t) {
             owner_uuid: uuids.b,
             belongs_to_uuid: uuids.a,
             belongs_to_type: 'server',
-            ip: state.network.gateway,
-            nic_tag: state.network.nic_tag,
-            vlan_id: state.network.vlan_id
+            ip: state.networks[0].gateway,
+            nic_tag: state.networks[0].nic_tag,
+            vlan_id: state.networks[0].vlan_id
         };
 
         mod_nic.create(t2, {
@@ -241,7 +249,7 @@ test('POST /nics (with IP already reserved)', function (t) {
 
     t.test('reserve IP', function (t2) {
         d.params.ip = '198.51.100.252';
-        napi.updateIP(state.network.uuid, d.params.ip, { reserved: true },
+        napi.updateIP(state.networks[0].uuid, d.params.ip, { reserved: true },
             function (err, res) {
             if (h.ifErr(t2, err, 'update IP ' + d.params.ip)) {
                 return t2.end();
@@ -253,7 +261,7 @@ test('POST /nics (with IP already reserved)', function (t) {
     });
 
     t.test('get IP after reservation', function (t2) {
-        napi.getIP(state.network.uuid, d.params.ip, function (err, res) {
+        napi.getIP(state.networks[0].uuid, d.params.ip, function (err, res) {
             if (h.ifErr(t2, err, 'update IP ' + d.params.ip)) {
                 return t2.end();
             }
@@ -276,7 +284,7 @@ test('POST /nics (with IP already reserved)', function (t) {
             d.params.primary = false;
             d.params.mac = mac;
             d.params.state = 'running';
-            h.addNetParamsToNic(state, d.params);
+            mod_net.addNetParams(state.networks[0], d.params);
             t2.deepEqual(res, d.params, 'nic params returned' + d.desc);
             state.resNic1 = d.params;
             state.desc.resNic1 = d.desc;
@@ -286,7 +294,7 @@ test('POST /nics (with IP already reserved)', function (t) {
     });
 
     t.test('get', function (t2) {
-        napi.getIP(state.network.uuid, d.params.ip, function (err2, res2) {
+        napi.getIP(state.networks[0].uuid, d.params.ip, function (err2, res2) {
             if (h.ifErr(t2, err2, 'get IP ' + d.params.ip + d.desc)) {
                 return t2.end();
             }
@@ -295,7 +303,7 @@ test('POST /nics (with IP already reserved)', function (t) {
                 belongs_to_type: d.params.belongs_to_type,
                 belongs_to_uuid: d.params.belongs_to_uuid,
                 ip: d.params.ip,
-                network_uuid: state.network.uuid,
+                network_uuid: state.networks[0].uuid,
                 owner_uuid: d.params.owner_uuid,
                 reserved: true,
                 free: false
@@ -313,8 +321,8 @@ test('POST /nics (with IP already reserved)', function (t) {
             belongs_to_uuid: '144b27d7-578d-4326-b7df-98065071e0ab',
             belongs_to_type: 'server',
             ip: d.params.ip,
-            nic_tag: state.network.nic_tag,
-            vlan_id: state.network.vlan_id
+            nic_tag: state.networks[0].nic_tag,
+            vlan_id: state.networks[0].vlan_id
         };
         var mac = h.randomMAC();
 
@@ -347,11 +355,11 @@ test('POST /nics (with IP already reserved)', function (t) {
             mac: d.mac,
             params: {
                 ip: d.params.ip,
-                network_uuid: state.network.uuid
+                network_uuid: state.networks[0].uuid
             },
             expErr: h.invalidParamErr({ errors: [
                 mod_err.duplicateParam('ip', util.format(
-                    constants.fmt.IP_EXISTS, state.network.uuid))
+                    constants.fmt.IP_EXISTS, state.networks[0].uuid))
             ] })
         });
     });
@@ -364,7 +372,7 @@ test('POST /networks/:uuid/nics (basic)', function (t) {
         belongs_to_uuid: uuids.a,
         belongs_to_type: 'server'
     };
-    napi.provisionNic(state.network.uuid, params, function (err, res) {
+    napi.provisionNic(state.networks[0].uuid, params, function (err, res) {
         if (err) {
             return h.doneWithError(t, err,
                 'provision nic [network nic - no IP]');
@@ -375,7 +383,7 @@ test('POST /networks/:uuid/nics (basic)', function (t) {
         params.mac = res.mac;
         params.ip = res.ip;
         params.state = 'running';
-        h.addNetParamsToNic(state, params);
+        mod_net.addNetParams(state.networks[0], params);
 
         t.deepEqual(res, params, 'nic params returned' + desc);
         state.nic.d = params;
@@ -395,7 +403,7 @@ test('POST /networks/:uuid/nics (with IP)', function (t) {
         ip: '198.51.100.201'
     };
 
-    napi.provisionNic(state.network.uuid, params, h.reqOpts(t, desc),
+    napi.provisionNic(state.networks[0].uuid, params, h.reqOpts(t, desc),
             function (err, res) {
         t.ifError(err, 'provision nic [network nic - with IP]');
         if (err) {
@@ -406,7 +414,7 @@ test('POST /networks/:uuid/nics (with IP)', function (t) {
         params.primary = false;
         params.mac = res.mac;
         params.state = 'running';
-        h.addNetParamsToNic(state, params);
+        mod_net.addNetParams(state.networks[0], params);
 
         t.deepEqual(res, params, 'nic params returned' + desc);
         state.nic.e = params;
@@ -422,9 +430,9 @@ test('Check IPs are created along with nics', function (t) {
 
     function checkIP(ipNum, cb) {
         var ip = state.ip[ipNum];
-        napi.getIP(state.network.uuid, ip, function (err, res) {
+        napi.getIP(state.networks[0].uuid, ip, function (err, res) {
             var desc = util.format(' %s/%s%s',
-                state.network.uuid, ip, state.desc[ipNum]);
+                state.networks[0].uuid, ip, state.desc[ipNum]);
             t.ifError(err, 'get IP' + desc);
             if (err) {
                 return cb();
@@ -434,7 +442,7 @@ test('Check IPs are created along with nics', function (t) {
                 belongs_to_type: 'server',
                 belongs_to_uuid: uuids.a,
                 ip: ip,
-                network_uuid: state.network.uuid,
+                network_uuid: state.networks[0].uuid,
                 owner_uuid: uuids.b,
                 reserved: false,
                 free: false
@@ -458,7 +466,7 @@ test('POST /nics (with reserved IP)', function (t) {
         owner_uuid: uuids.b,
         belongs_to_uuid: uuids.a,
         belongs_to_type: 'server',
-        network_uuid: state.network.uuid,
+        network_uuid: state.networks[0].uuid,
         reserved: true
     };
     var mac = h.randomMAC();
@@ -475,13 +483,14 @@ test('POST /nics (with reserved IP)', function (t) {
         params.mac = mac;
         params.ip = res.ip;
         params.state = 'running';
-        h.addNetParamsToNic(state, params);
+        mod_net.addNetParams(state.networks[0], params);
         t.deepEqual(res, params, 'nic params returned' + desc);
         state.resNic2 = res;
         state.desc.resNic2 = desc;
 
         // IP should be reserved
-        return napi.getIP(state.network.uuid, params.ip, function (err2, res2) {
+        return napi.getIP(state.networks[0].uuid, params.ip,
+                function (err2, res2) {
             t.ifError(err2, 'get IP ' + params.ip + desc);
             if (err2) {
                 return t.end();
@@ -491,7 +500,7 @@ test('POST /nics (with reserved IP)', function (t) {
                 belongs_to_type: params.belongs_to_type,
                 belongs_to_uuid: params.belongs_to_uuid,
                 ip: params.ip,
-                network_uuid: state.network.uuid,
+                network_uuid: state.networks[0].uuid,
                 owner_uuid: params.owner_uuid,
                 reserved: true,
                 free: false
@@ -619,7 +628,7 @@ test('DELETE /nics/:mac (with reserved IP)', function (t) {
                 return cb(err);
             }
 
-            napi.getIP(state.network.uuid, nic.ip, function (err2, res2) {
+            napi.getIP(state.networks[0].uuid, nic.ip, function (err2, res2) {
                 if (h.ifErr(t, err2, 'get IP' + nic.ip + desc)) {
                     return cb();
                 }
@@ -628,7 +637,7 @@ test('DELETE /nics/:mac (with reserved IP)', function (t) {
                 var exp = {
                     free: false,
                     ip: nic.ip,
-                    network_uuid: state.network.uuid,
+                    network_uuid: state.networks[0].uuid,
                     owner_uuid: nic.owner_uuid,
                     reserved: true
                 };
@@ -720,8 +729,8 @@ test('Check IPs are updated along with nics', function (t) {
     var checkIP = function (ipNum, cb) {
         var ip = state.ip[ipNum];
         var desc = util.format(' %s/%s%s',
-            state.network.uuid, ip, state.desc[ipNum]);
-        napi.getIP(state.network.uuid, ip, function (err, res) {
+            state.networks[0].uuid, ip, state.desc[ipNum]);
+        napi.getIP(state.networks[0].uuid, ip, function (err, res) {
             t.ifError(err, 'get updated IP' + desc);
             if (err) {
                 return cb();
@@ -731,7 +740,7 @@ test('Check IPs are updated along with nics', function (t) {
                 belongs_to_uuid: uuids.d,
                 belongs_to_type: 'other',
                 ip: ip,
-                network_uuid: state.network.uuid,
+                network_uuid: state.networks[0].uuid,
                 owner_uuid: uuids.c,
                 reserved: false,
                 free: false
@@ -769,7 +778,7 @@ test('PUT /nics (with network_uuid and state)', function (t) {
         state.desc.putIPnetUUID = desc;
 
         var updateParams = {
-            network_uuid: state.network.uuid,
+            network_uuid: state.networks[0].uuid,
             state: 'stopped'
         };
         napi.updateNic(mac, updateParams, function (err2, res2) {
@@ -782,20 +791,20 @@ test('PUT /nics (with network_uuid and state)', function (t) {
             params.mac = mac;
             params.ip = res2.ip;
             params.state = 'stopped';
-            h.addNetParamsToNic(state, params);
+            mod_net.addNetParams(state.networks[0], params);
             t.ok(res2.ip, 'nic now has IP address');
             t.deepEqual(res2, params, 'nic params returned' + desc);
             state.nic.putIPnetUUID = params;
             state.ip.putIPnetUUID = res2.ip;
 
-            if (!res2.ip || !state.network.uuid) {
+            if (!res2.ip || !state.networks[0].uuid) {
                 t.ok(false, util.format(
                     'Not all params present: ip=%s, network_uuid=%s', res2.ip,
-                    state.network.uuid));
+                    state.networks[0].uuid));
                 return t.end();
             }
 
-            napi.getIP(state.network.uuid, res2.ip, function (err3, res3) {
+            napi.getIP(state.networks[0].uuid, res2.ip, function (err3, res3) {
                 t.ifError(err3, 'get IP' + desc);
                 if (err) {
                     return t.end();
@@ -805,7 +814,7 @@ test('PUT /nics (with network_uuid and state)', function (t) {
                     belongs_to_type: 'server',
                     belongs_to_uuid: uuids.a,
                     ip: res2.ip,
-                    network_uuid: state.network.uuid,
+                    network_uuid: state.networks[0].uuid,
                     owner_uuid: uuids.b,
                     reserved: false,
                     free: false
@@ -996,7 +1005,7 @@ test('PUT /nics (with network_uuid set to invalid name)', function (t) {
         state.nic.putIPwithInvalidName = params;
         state.desc.putIPwithInvalidName = desc;
 
-        var updateParams = { network_uuid: state.network.name };
+        var updateParams = { network_uuid: state.networks[0].name };
         napi.updateNic(mac, updateParams, function (err2, res2) {
             t.ok(err2, 'expected error');
             if (!err2) {
@@ -1006,7 +1015,7 @@ test('PUT /nics (with network_uuid set to invalid name)', function (t) {
             // XXX: we end up with a stringified JSON object here, which is
             // definitely a bug somewhere.
             t.notEqual(err2.message,
-                util.format('Unknown network "%s"', state.network.name),
+                util.format('Unknown network "%s"', state.networks[0].name),
                 'Error message correct');
             return t.end();
         });
@@ -1252,7 +1261,7 @@ test('Check IPs are freed along with nics', function (t) {
 
     var checkIP = function (ipDesc, cb) {
         var ip = state.ip[ipDesc];
-        var net = state.network;
+        var net = state.networks[0];
 
         if (ipDesc == 'putIPwithName') {
             net = state.adminNet;
@@ -1299,7 +1308,9 @@ test('Check IPs are freed along with nics', function (t) {
 
 
 test('teardown', function (t) {
-    h.deleteNetwork(t, napi, state, function () {
-        h.deleteNicTags(t, napi, state);
+    t.test('delete network', mod_net.delAllCreated);
+
+    t.test('delete nic tags', function (t2) {
+        h.deleteNicTags(t2, napi, state);
     });
 });

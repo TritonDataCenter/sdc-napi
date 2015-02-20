@@ -1057,9 +1057,9 @@ test('Update network - unset owner_uuids', function (t) {
 
     t.test('get after create', function (t2) {
         mod_net.get(t2, {
-            uuid: exp.uuid,
             params: {
-                provisionable_by: owners[1]
+                provisionable_by: owners[1],
+                uuid: exp.uuid
             },
             exp: exp
         });
@@ -1069,9 +1069,9 @@ test('Update network - unset owner_uuids', function (t) {
         delete exp.owner_uuids;
 
         mod_net.updateAndGet(t2, {
-            uuid: exp.uuid,
             params: {
-                owner_uuids: []
+                owner_uuids: [],
+                uuid: exp.uuid
             },
             exp: exp
         });
@@ -1104,9 +1104,9 @@ test('Update network - unset owner_uuids', function (t) {
 
     t.test('get after update', function (t2) {
         mod_net.get(t2, {
-            uuid: exp.uuid,
             params: {
-                provisionable_by: owners[1]
+                provisionable_by: owners[1],
+                uuid: exp.uuid
             },
             exp: exp
         });
@@ -1142,9 +1142,9 @@ test('Update network - unset owner_uuids', function (t) {
 
     t.test('list after empty create', function (t2) {
         mod_net.get(t2, {
-            uuid: exp.uuid,
             params: {
-                provisionable_by: owners[1]
+                provisionable_by: owners[1],
+                uuid: exp.uuid
             },
             exp: exp
         });
@@ -1152,9 +1152,9 @@ test('Update network - unset owner_uuids', function (t) {
 
     t.test('get after empty create', function (t2) {
         mod_net.get(t2, {
-            uuid: exp.uuid,
             params: {
-                provisionable_by: owners[1]
+                provisionable_by: owners[1],
+                uuid: exp.uuid
             },
             exp: exp
         });
@@ -1165,9 +1165,9 @@ test('Update network - unset owner_uuids', function (t) {
         obj.owner_uuids = ',,';
 
         mod_net.get(t2, {
-            uuid: exp.uuid,
             params: {
-                provisionable_by: owners[1]
+                provisionable_by: owners[1],
+                uuid: exp.uuid
             },
             exp: exp
         });
