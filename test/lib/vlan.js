@@ -21,6 +21,7 @@ var mod_client = require('./client');
 var mod_vasync = require('vasync');
 var util = require('util');
 
+var doneErr = common.doneErr;
 
 
 // --- Globals
@@ -57,6 +58,23 @@ function createVLAN(t, opts, callback) {
 
 
 /**
+ * Create a fabric VLAN, compare the output, then do the same for a get of
+ * that fabric VLAN.
+ */
+function createAndGetVLAN(t, opts, callback) {
+    opts.reqType = 'create';
+    createVLAN(t, opts, function (err, res) {
+        if (err) {
+            return doneErr(err, t, callback);
+        }
+
+        opts.reqType = 'get';
+        return getVLAN(t, opts, callback);
+    });
+}
+
+
+/**
  * Delete a VLAN
  */
 function delVLAN(t, opts, callback) {
@@ -72,7 +90,7 @@ function delVLAN(t, opts, callback) {
     delete params.owner_uuid;
     delete params.vlan_uuid;
 
-    log.debug({ opts: opts, owner: owner, vlan: vlan, params: params  },
+    log.debug({ opts: opts, owner: owner, vlan: vlan, params: params },
         'deleting VLAN');
 
     client.deleteFabricVLAN(owner, vlan, params,
@@ -115,14 +133,19 @@ function delAllCreatedVLANs(t) {
 function getVLAN(t, opts, callback) {
     common.assertArgs(t, opts, callback);
     var client = opts.client || mod_client.get();
+    var owner = opts.params.owner_uuid;
+    var params = clone(opts.params);
+    var vlan = opts.params.vlan_id;
 
     log.debug({ params: opts.params }, 'getting vlan');
     opts.type = TYPE;
     opts.reqType = 'get';
 
-    // XXX: pass in the rest of params here?
-    client.getFabricVLAN(opts.params.owner_uuid, opts.params.vlan_id,
-        {}, common.afterAPIcall.bind(null, t, opts, callback));
+    delete params.owner_uuid;
+    delete params.vlan_id;
+
+    client.getFabricVLAN(owner, vlan, params,
+        common.afterAPIcall.bind(null, t, opts, callback));
 }
 
 
@@ -188,6 +211,7 @@ function updateVLAN(t, opts, callback) {
 
 module.exports = {
     create: createVLAN,
+    createAndGet: createAndGetVLAN,
     del: delVLAN,
     delAllCreated: delAllCreatedVLANs,
     get: getVLAN,

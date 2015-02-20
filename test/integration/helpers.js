@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright (c) 2015, Joyent, Inc.
  */
 
 /*
@@ -18,6 +18,7 @@ var common = require('../lib/common');
 var fmt = require('util').format;
 var fs = require('fs');
 var mod_client = require('../lib/client');
+var mod_net = require('../lib/net');
 var path = require('path');
 var util = require('util');
 var util_ip = require('../../lib/util/ip');
@@ -34,8 +35,6 @@ var ADMIN_UUID;
 // according to RFC 2544, and therefore shouldn't be used for anything:
 var TEST_NET_FMT = '198.18.%d.%d';
 var TEST_NET_PFX = '198.18.%d.';
-var NIC_NET_PARAMS = ['gateway', 'netmask', 'vlan_id', 'nic_tag', 'resolvers',
-    'routes'];
 var DEFAULT_NIC_TAG = 'int_test_' + process.pid;
 var NET_NUM = 0;
 
@@ -49,13 +48,7 @@ var NET_NUM = 0;
  * Add network parameters from state.network to a nic
  */
 function addNetParamsToNic(state, params) {
-    NIC_NET_PARAMS.forEach(function (n) {
-        if (state.network.hasOwnProperty(n)) {
-            params[n] = state.network[n];
-        }
-    });
-
-    params.network_uuid = state.network.uuid;
+    mod_net.addNetParams(state.network, params);
 }
 
 
@@ -262,11 +255,17 @@ function createNetwork(t, napi, state, extraParams, targetName, callback) {
 
         t.ok(res.uuid, 'test network uuid: ' + res.uuid);
 
-        params.uuid = res.uuid;
+        if (!params.mtu) {
+            params.mtu = res.mtu;
+        }
+
         if (!params.resolvers) {
             params.resolvers = [];
         }
+
         params.netmask = util_ip.bitsToNetmask(params.subnet.split('/')[1]);
+        params.uuid = res.uuid;
+
         t.deepEqual(res, params, 'parameters returned for network ' + res.uuid);
         if (targetName) {
             state[targetName] = res;
@@ -324,7 +323,7 @@ function doneWithError(t, err, desc) {
  * Load the UFDS admin UUID - cheat by grabbing the first owner_uuid of the
  * admin network.
  */
-function loadUFDSadminUUID(t) {
+function loadUFDSadminUUID(t, callback) {
     var client = createNAPIclient(t);
 
     client.getNetwork('admin', function (err, res) {
@@ -334,6 +333,10 @@ function loadUFDSadminUUID(t) {
 
         ADMIN_UUID = res.owner_uuids[0];
         t.ok(ADMIN_UUID, 'admin UUID: ' + ADMIN_UUID);
+
+        if (callback) {
+            return callback(ADMIN_UUID);
+        }
 
         return t.end();
     });
@@ -389,8 +392,9 @@ module.exports = {
     get lastNetPrefix() {
         return fmt(TEST_NET_PFX, NET_NUM - 1);
     },
-    nicNetParams: NIC_NET_PARAMS,
+    loadUFDSadminUUID: loadUFDSadminUUID,
     randomMAC: common.randomMAC,
+    reqOpts: common.reqOpts,
     similar: similar,
     get ufdsAdminUuid() {
         if (!ADMIN_UUID) {

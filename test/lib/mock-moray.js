@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright (c) 2015, Joyent, Inc.
  */
 
 /*
@@ -419,6 +419,18 @@ FakeMoray.prototype.putObject =
 
 FakeMoray.prototype.sql = function sql(str) {
     // Mock out PG's gap detection and subnet filtering
+
+    if (/inet\(/.test(str)) {
+        // This is from the network overlap detection code: just return an
+        // EventEmitter that immediately ends (as if there were no overlapping
+        // networks found):
+        var evt = new EventEmitter();
+        setImmediate(function () {
+            evt.emit('end');
+        });
+
+        return evt;
+    }
 
     /* BEGIN JSSTYLED */
     var bucket = str.match(/from ([a-z0-9_]+)/);
