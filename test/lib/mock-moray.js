@@ -162,6 +162,7 @@ function FakeMoray(opts) {
     assert.object(opts.log, 'opts.log');
 
     this.log = opts.log.child({ component: 'mock-moray' });
+    this._version = opts.version || 1;
     BUCKET_VALUES = {};
     EventEmitter.call(this);
 }
@@ -447,7 +448,7 @@ FakeMoray.prototype.sql = function sql(str) {
     var maxIP = str.match(/<= '([a-f0-9.:]+)'/);
     var min = str.match(/>= (\d+)/);
     var max  = str.match(/<= (\d+)/);
-    var subnet = str.match(/ip >> '([a-f0-9.:/]+)'/);
+    var subnet = str.match(/<< '([a-f0-9.:/]+)'/);
     var subnet_start_ip = str.match(/>> '([a-f0-9.:]+)'/);
     /* END JSSTYLED */
 
@@ -639,7 +640,7 @@ FakeMoray.prototype._gapIP = function _gapIP(opts) {
                         // XXX ipaddr minus ipaddr not implemented,
                         // so just return something for gap length
                         gap_length: 100,
-                        gap_start: plus(last, 1) // last + 1
+                        gap_start: plus(last, 1).toString() // last + 1
                     });
                 }
                 found++;
@@ -674,6 +675,15 @@ FakeMoray.prototype.updateObjects =
 
     this._updateObjects(bucket, fields, filter);
     return callback();
+};
+
+
+
+FakeMoray.prototype.version = function version(callback) {
+    var self = this;
+    setImmediate(function () {
+        return callback(null, self._version);
+    });
 };
 
 
