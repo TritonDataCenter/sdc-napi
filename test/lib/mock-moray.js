@@ -448,8 +448,8 @@ FakeMoray.prototype.sql = function sql(str) {
     var maxIP = str.match(/<= '([a-f0-9.:]+)'/);
     var min = str.match(/>= (\d+)/);
     var max  = str.match(/<= (\d+)/);
-    var subnet = str.match(/<< '([a-f0-9.:/]+)'/);
-    var subnet_start_ip = str.match(/>> '([a-f0-9.:]+)'/);
+    var subnet = str.match(/<< inet('([a-f0-9.:/]+)')/);
+    var subnet_start_ip = str.match(/>> inet('([a-f0-9.:]+)')/);
     /* END JSSTYLED */
 
     if (limit) {
@@ -679,10 +679,13 @@ FakeMoray.prototype.updateObjects =
 
 
 
-FakeMoray.prototype.version = function version(callback) {
+FakeMoray.prototype.version = function version(opts, callback) {
     var self = this;
+    if (typeof (opts) === 'function') {
+        callback = opts;
+    }
     setImmediate(function () {
-        return callback(null, self._version);
+        return callback(self._version);
     });
 };
 
