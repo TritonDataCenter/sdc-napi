@@ -187,14 +187,6 @@ function stopServer(callback) {
 
 
 /**
- * Sort by uuid property
- */
-function uuidSort(a, b) {
-    return (a.uuid > b.uuid) ? 1 : -1;
-}
-
-
-/**
  * Returns the parameters for a valid IP, potentially overriding with any
  * values in override
  */
@@ -277,7 +269,7 @@ module.exports = {
         return SERVER;
     },
     stopServer: stopServer,
-    uuidSort: uuidSort,
+    uuidSort: common.uuidSort,
     validIPparams: validIPparams,
     validNicparams: validNicparams,
     validNetworkParams: validNetworkParams,

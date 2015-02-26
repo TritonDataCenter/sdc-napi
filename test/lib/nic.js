@@ -17,10 +17,19 @@ var clone = require('clone');
 var common = require('./common');
 var log = require('./log');
 var mod_client = require('./client');
+var mod_vasync = require('vasync');
 var verror = require('verror');
 
 var doneRes = common.doneRes;
 var doneErr = common.doneErr;
+
+
+
+// --- Globals
+
+
+
+var TYPE = 'nic';
 
 
 
@@ -46,7 +55,7 @@ function createNic(t, opts, callback) {
     if (mac == 'generate') {
         mac = common.randomMAC();
     }
-    opts.type = 'nic';
+    opts.type = TYPE;
     opts.reqType = 'create';
 
     client.createNic(mac, clone(opts.params),
@@ -64,7 +73,7 @@ function createAndGetNic(t, opts, callback) {
             return doneErr(err, t, callback);
         }
 
-        return get(t, opts, callback);
+        return getNic(t, opts, callback);
     });
 }
 
@@ -72,7 +81,7 @@ function createAndGetNic(t, opts, callback) {
 /**
  * Create num nics, and end the test when done
  */
-function createN(t, opts, callback) {
+function createNumNics(t, opts, callback) {
     assert.object(t, 't');
     assert.object(opts, 'opts');
     assert.number(opts.num, 'opts.num');
@@ -114,30 +123,60 @@ function createN(t, opts, callback) {
 
 
 /**
- * Delete a nic
+ * Delete all the nics created by this test
  */
-function del(t, mac, callback) {
-    var client = mod_client.get();
+function delAllCreatedNics(t) {
+    assert.object(t, 't');
 
-    if (typeof (mac) === 'object') {
-        mac = mac.mac;
+    var created = common.allCreated('nics');
+    if (created.length === 0) {
+        t.ok(true, 'No nics created');
+        return t.end();
     }
 
-    log.debug({ mac: mac }, 'delete nic');
+    mod_vasync.forEachParallel({
+        inputs: created,
+        func: function _delOne(nic, cb) {
+            var delOpts = {
+                mightNotExist: true,
+                continueOnErr: true,
+                exp: {},
+                params: nic,
+                mac: nic.mac
+            };
 
-    client.deleteNic(mac, function (err, obj, _, res) {
-        common.ifErr(t, err, 'delete nic: ' + mac);
-        t.equal(res.statusCode, 204, 'delete status code: ' + mac);
-
-        return callback(err, obj);
+            delNic(t, delOpts, cb);
+        }
+    }, function () {
+        return t.end();
     });
+}
+
+
+/**
+ * Delete a nic
+ */
+function delNic(t, opts, callback) {
+    assert.object(t, 't');
+    assert.object(opts, 'opts');
+    assert.string(opts.mac, 'opts.mac');
+
+    var client = mod_client.get();
+    var params = opts.params || {};
+
+    log.debug({ mac: opts.mac }, 'delete nic');
+    opts.type = TYPE;
+    opts.id = opts.mac;
+
+    client.deleteNic(opts.mac, params, common.reqOpts(t),
+        common.afterAPIdelete.bind(null, t, opts, callback));
 }
 
 
 /**
  * Get a nic and compare the output
  */
-function get(t, opts, callback) {
+function getNic(t, opts, callback) {
     var client = opts.client || mod_client.get();
 
     assert.object(t, 't');
@@ -148,9 +187,17 @@ function get(t, opts, callback) {
     assert.ok(opts.exp || opts.partialExp || opts.expErr,
             'one of exp, expErr, partialExp required');
 
-    opts.type = 'nic';
+    opts.type = TYPE;
     opts.reqType = 'get';
     client.getNic(opts.mac, common.afterAPIcall.bind(null, t, opts, callback));
+}
+
+
+/**
+ * Returns the most recently created nic
+ */
+function lastCreatedNic() {
+    return common.lastCreated('nics');
 }
 
 
@@ -162,7 +209,7 @@ function provisionNic(t, opts, callback) {
 
     var client = opts.client || mod_client.get();
     log.debug({ params: opts.params }, 'provisioning nic');
-    opts.type = 'nic';
+    opts.type = TYPE;
     opts.reqType = 'create';
 
     if (opts.exp && opts.fillInMissing) {
@@ -177,22 +224,15 @@ function provisionNic(t, opts, callback) {
 /**
  * Update a nic and compare the output
  */
-function update(t, opts, callback) {
-    var client = opts.client || mod_client.get();
-
-    assert.object(t, 't');
+function updateNic(t, opts, callback) {
+    common.assertArgs(t, opts, callback);
     assert.string(opts.mac, 'opts.mac');
-    assert.optionalObject(opts.exp, 'opts.exp');
-    assert.optionalObject(opts.expErr, 'opts.expErr');
-    assert.optionalObject(opts.partialExp, 'opts.partialExp');
-    assert.ok(opts.exp || opts.partialExp || opts.expErr,
-            'one of exp, expErr, partialExp required');
-    assert.object(opts.params, 'opts.params');
 
-    opts.type = 'nic';
+    var client = opts.client || mod_client.get();
+    opts.type = TYPE;
     opts.reqType = 'update';
 
-    client.updateNic(opts.mac, opts.params,
+    client.updateNic(opts.mac, opts.params, common.reqOpts(t),
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 
@@ -202,23 +242,26 @@ function update(t, opts, callback) {
  * that nic.
  */
 function updateAndGet(t, opts, callback) {
-    update(t, opts, function (err, res) {
+    updateNic(t, opts, function (err, res) {
         if (err) {
             return doneErr(err, t, callback);
         }
 
-        return get(t, opts, callback);
+        return getNic(t, opts, callback);
     });
 }
+
 
 
 module.exports = {
     create: createNic,
     createAndGet: createAndGetNic,
-    createN: createN,
-    del: del,
-    get: get,
+    createN: createNumNics,
+    delAllCreated: delAllCreatedNics,
+    del: delNic,
+    get: getNic,
+    lastCreated: lastCreatedNic,
     provision: provisionNic,
-    update: update,
+    update: updateNic,
     updateAndGet: updateAndGet
 };

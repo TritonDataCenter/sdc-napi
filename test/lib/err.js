@@ -25,6 +25,15 @@ var util = require('util');
 /**
  * Return an error for an overlapping subnet
  */
+function invalidParamErr(param, msg) {
+    return new errors.InvalidParamsError(constants.msg.INVALID_PARAMS,
+        [ errors.invalidParam(param, msg) ]).body;
+}
+
+
+/**
+ * Return an error for an overlapping subnet
+ */
 function subnetOverlapErr(nets) {
     if (!util.isArray(nets)) {
         nets = [ nets ];
@@ -47,6 +56,7 @@ function vlanInUseErr() {
 
 
 module.exports = {
+    invalidParam: invalidParamErr,
     subnetOverlap: subnetOverlapErr,
     vlanInUse: vlanInUseErr
 };

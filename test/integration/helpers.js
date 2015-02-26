@@ -15,6 +15,7 @@
 var assert = require('assert');
 var bunyan = require('bunyan');
 var common = require('../lib/common');
+var config = require('../lib/config');
 var fmt = require('util').format;
 var fs = require('fs');
 var mod_client = require('../lib/client');
@@ -59,11 +60,7 @@ function addNetParamsToNic(state, params) {
  * specified by them.  Otherwise, use the local zone's NAPI.
  */
 function createNAPIclient(t) {
-    var host = process.env.NAPI_HOST || 'localhost';
-    var port = process.env.NAPI_PORT || 80;
-
-    var client = common.createClient(fmt('http://%s:%d', host, port), t);
-
+    var client = common.createClient(config.napi.host, t);
     if (!mod_client.initialized()) {
         mod_client.set(client);
     }

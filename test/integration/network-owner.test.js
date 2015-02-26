@@ -5,17 +5,19 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright (c) 2015, Joyent, Inc.
  */
 
 /*
  * Integration tests for /networks endpoints with owner_uuids specified
  */
 
+var common = require('../lib/common');
 var constants = require('../../lib/util/constants');
 var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
 var mod_uuid = require('node-uuid');
+var mod_net = require('../lib/net');
 var mod_pool = require('../lib/pool');
 var test = require('tape');
 var util = require('util');
@@ -33,6 +35,7 @@ var nextIP;
 var owner = mod_uuid.v4();
 var owner2 = mod_uuid.v4();
 var provisionable = [];
+var provisionableNets = [];
 var state = {
     noOwnerPools: [],
     testName: 'network-owner'
@@ -118,18 +121,23 @@ function deleteNetworkPool(t, name, callback) {
 
 
 
-test('create test nic tag', function (t) {
-    h.createNicTag(t, napi, state);
-});
+test('setup', function (t) {
+    t.ok(owner, 'owner=' + owner);
+    t.ok(owner2, 'owner2=' + owner2);
 
+    t.test('create test nic tag', function (t2) {
+        h.createNicTag(t2, napi, state);
+    });
 
-test('load UFDS admin UUID', function (t) {
-    h.loadUFDSadminUUID(t, function (adminUUID) {
-        if (adminUUID) {
-            ufdsAdminUuid = adminUUID;
-        }
+    t.test('load UFDS admin UUID', function (t2) {
+        h.loadUFDSadminUUID(t2, function (adminUUID) {
+            if (adminUUID) {
+                ufdsAdminUuid = adminUUID;
+            }
 
-        return t.end();
+            t2.ok(ufdsAdminUuid, 'ufdsAdminUuid=' + ufdsAdminUuid);
+            return t2.end();
+        });
     });
 });
 
@@ -258,10 +266,12 @@ test('get provisionable networks', function (t) {
         res.forEach(function (net) {
             if (!net.owner_uuids || net.owner_uuids.indexOf(owner) !== -1) {
                 provisionable.push(net.uuid);
+                provisionableNets.push(net);
             }
         });
 
         provisionable.sort();
+        provisionableNets.sort(common.uuidSort);
         return t.end();
     });
 });
@@ -306,9 +316,16 @@ test('provisionable_by network: other owner', function (t) {
 });
 
 
-test('provisionable_by networks', function (t) {
-    napi.listNetworks({ provisionable_by: owner }, function (err, res) {
-        if (h.ifErr(t, err, 'list networks')) {
+test('list provisionable_by networks', function (t) {
+    var listOpts = {
+        params: {
+            provisionable_by: owner
+        },
+        present: provisionableNets
+    };
+
+    mod_net.list(t, listOpts, function (err, res) {
+        if (err) {
             return t.end();
         }
 
@@ -337,7 +354,7 @@ test('provisionable_by networks', function (t) {
 });
 
 
-test('provisionable_by network pools: owner', function (t) {
+test('list provisionable_by network pools: owner', function (t) {
     t.test('list', function (t2) {
         napi.listNetworkPools({ provisionable_by: owner }, function (err, res) {
             if (h.ifErr(t2, err, 'list network pools')) {

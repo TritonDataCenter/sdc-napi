@@ -29,8 +29,15 @@ var doneErr = common.doneErr;
 
 
 
-var NIC_NET_PARAMS = ['gateway', 'netmask', 'vlan_id', 'nic_tag', 'resolvers',
-    'routes'];
+var NIC_NET_PARAMS = [
+    'gateway',
+    'mtu',
+    'netmask',
+    'nic_tag',
+    'resolvers',
+    'routes',
+    'vlan_id'
+];
 var NUM = 0;
 var TYPE = 'network';
 
@@ -45,7 +52,7 @@ var TYPE = 'network';
  */
 function addNetParams(net, nic) {
     NIC_NET_PARAMS.forEach(function (n) {
-        if (net.hasOwnProperty(n)) {
+        if (net.hasOwnProperty(n) && !nic.hasOwnProperty(n)) {
             nic[n] = net[n];
         }
     });
@@ -201,7 +208,7 @@ function listNets(t, opts, callback) {
 
     log.debug({ params: params }, 'list networks');
 
-    client.listNetworks(params,
+    client.listNetworks(params, common.reqOpts(t, opts.desc),
         common.afterAPIlist.bind(null, t, opts, callback));
 }
 
