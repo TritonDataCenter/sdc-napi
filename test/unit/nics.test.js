@@ -207,6 +207,7 @@ test('Create nic - all invalid params', function (t) {
         allow_unfiltered_promisc: 'asdf',
         belongs_to_type: '',
         belongs_to_uuid: 'asdf',
+        cn_uuid: 'asdf',
         ip: 'foo',
         mac: 'asdf',
         model: '',
@@ -241,6 +242,7 @@ test('Create nic - all invalid params', function (t) {
                     'must be a boolean value'),
                 mod_err.invalidParam('belongs_to_type', 'must not be empty'),
                 mod_err.invalidParam('belongs_to_uuid', 'invalid UUID'),
+                mod_err.invalidParam('cn_uuid', 'invalid UUID'),
                 mod_err.invalidParam('ip', 'invalid IP address'),
                 mod_err.invalidParam('mac', 'invalid MAC address'),
                 mod_err.invalidParam('model', 'must not be empty'),
@@ -283,6 +285,7 @@ test('Create nic - network_uuid=admin', function (t) {
             belongs_to_uuid: params.belongs_to_uuid,
             ip: res.ip,
             mac: res.mac,
+            mtu: ADMIN_NET.mtu,
             netmask: ADMIN_NET.netmask,
             network_uuid: ADMIN_NET.uuid,
             nic_tag: ADMIN_NET.nic_tag,
@@ -347,6 +350,8 @@ test('Create nic - invalid params', function (t) {
             { ip: '10.0.2.3', belongs_to_type: type, belongs_to_uuid: uuid,
                 owner_uuid: owner, network_uuid: NET.uuid, state: true },
                 [ mod_err.invalidParam('state', 'must be a string') ] ]
+
+        // XXX: belongs_to_type must be zone, server, other
     ];
 
     vasync.forEachParallel({
@@ -539,6 +544,7 @@ test('Provision nic', function (t) {
             belongs_to_uuid: params.belongs_to_uuid,
             ip: h.nextProvisionableIP(NET2),
             mac: res.mac,
+            mtu: NET2.mtu,
             netmask: '255.255.255.0',
             network_uuid: NET2.uuid,
             nic_tag: NET2.nic_tag,
@@ -911,6 +917,7 @@ test('Provision nic - with IP', function (t) {
                 belongs_to_uuid: params.belongs_to_uuid,
                 ip: fmt('10.0.%d.200', NET2.num),
                 mac: res.mac,
+                mtu: NET2.mtu,
                 netmask: '255.255.255.0',
                 network_uuid: NET2.uuid,
                 nic_tag: NET2.nic_tag,
@@ -1056,6 +1063,7 @@ test('Provision nic - with different state', function (t) {
             belongs_to_uuid: params.belongs_to_uuid,
             ip: h.nextProvisionableIP(NET2),
             mac: res.mac,
+            mtu: NET2.mtu,
             netmask: '255.255.255.0',
             network_uuid: NET2.uuid,
             nic_tag: NET2.nic_tag,
@@ -1107,6 +1115,7 @@ test('Update nic - provision IP', function (t) {
             belongs_to_uuid: d.params.belongs_to_uuid,
             ip: NET3.provision_start_ip,
             mac: d.mac,
+            mtu: NET3.mtu,
             netmask: '255.255.255.0',
             network_uuid: NET3.uuid,
             nic_tag: NET3.nic_tag,
@@ -1169,6 +1178,7 @@ test('Update nic - IP parameters updated', function (t) {
             belongs_to_uuid: d.params.belongs_to_uuid,
             ip: d.params.ip,
             mac: d.mac,
+            mtu: NET.mtu,
             netmask: '255.255.255.0',
             network_uuid: NET.uuid,
             nic_tag: NET.nic_tag,
@@ -1268,6 +1278,7 @@ test('Update nic - change IP', function (t) {
             belongs_to_uuid: params.belongs_to_uuid,
             ip: params.ip,
             mac: d.mac,
+            mtu: NET.mtu,
             netmask: '255.255.255.0',
             network_uuid: NET.uuid,
             nic_tag: NET.nic_tag,

@@ -67,7 +67,7 @@ function createFabricNet(t, opts, callback) {
         params.name = generateNetworkName();
     }
 
-    opts.fillIn = [ 'mtu' ];
+    opts.fillIn = [ 'mtu', 'vnet_id' ];
     opts.idKey = 'uuid';
     opts.reqType = 'create';
     opts.type = TYPE;
@@ -79,6 +79,14 @@ function createFabricNet(t, opts, callback) {
         opts.exp.netmask = util_ip.bitsToNetmask(opts.exp.subnet.split('/')[1]);
         if (!opts.params.resolvers && !opts.exp.resolvers) {
             opts.exp.resolvers = [];
+        }
+
+        if (!opts.exp.nic_tag) {
+            opts.exp.nic_tag = 'sdc_overlay';
+        }
+
+        if (!opts.exp.hasOwnProperty('fabric')) {
+            opts.exp.fabric = true;
         }
     }
 
@@ -155,6 +163,17 @@ function delFabricNet(t, opts, callback) {
 
     client.deleteFabricNetwork(owner, vlan, net, params,
         common.afterAPIdelete.bind(null, t, opts, callback));
+}
+
+
+/**
+ * Return a nic tag suitable for a nic provisioned on a fabric network
+ */
+function fabricNetworkNicTag(t, net) {
+    t.ok(net.nic_tag, fmt('network %s: nic tag present', net.uuid));
+    t.ok(net.vnet_id, fmt('network %s: vnet_id present', net.uuid));
+
+    return fmt('%s/%d', net.nic_tag, net.vnet_id);
 }
 
 
@@ -272,6 +291,7 @@ module.exports = {
     get: getFabricNet,
     lastCreated: lastCreatedFabricNet,
     list: list,
+    nicTag: fabricNetworkNicTag,
     update: updateFabricNetwork,
     updateAndGet: updateAndGet
 };

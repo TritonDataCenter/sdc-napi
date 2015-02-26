@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright (c) 2015, Joyent, Inc.
  */
 
 /*
@@ -594,6 +594,7 @@ test('Provision nic - on network pool', function (t) {
                     belongs_to_uuid: params.belongs_to_uuid,
                     ip: nextIP,
                     mac: res.mac,
+                    mtu: constants.MTU_DEFAULT,
                     netmask: '255.255.255.240',
                     network_uuid: net.uuid,
                     nic_tag: net.nic_tag,

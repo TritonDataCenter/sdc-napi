@@ -20,6 +20,7 @@ var mod_uuid = require('node-uuid');
 var mod_fabric_net = require('../lib/fabric-net');
 var mod_nic = require('../lib/nic');
 var mod_net = require('../lib/net');
+var mod_portolan = require('../lib/portolan');
 var mod_vlan = require('../lib/vlan');
 var test = require('tape');
 
@@ -29,6 +30,8 @@ var test = require('tape');
 
 
 
+// XXX: make this the actual owner?
+var ADMIN_OWNER = mod_uuid.v4();
 var CREATED = {};
 // XXX: shouldn't have to do this!
 var NAPI = h.createNAPIclient();
@@ -36,6 +39,8 @@ var OWNERS = [
     mod_uuid.v4(),
     mod_uuid.v4()
 ];
+// XXX: Don't hardcode this!
+var UNDERLAY_NIC_TAG = 'sdc_underlay';
 var VLANS = [
     {
         name: mod_vlan.randomName(),
@@ -55,6 +60,11 @@ var VLANS = [
         vlan_id: 43
     }
 ];
+// Real (non-fabric networks):
+var REAL_NETS = [
+    h.validNetworkParams({ nic_tag: UNDERLAY_NIC_TAG })
+];
+// Fabric networks:
 var NETS = [
 
     // -- On VLANS[0] (OWNERS[0])
@@ -98,7 +108,7 @@ var NETS = [
 
     // -- On VLANS[2] (OWNERS[1])
 
-    // 3
+    // 3: same subnet range as 2, but different owner
     {
         vlan_id: VLANS[2].vlan_id,
         subnet: '192.168.0.0/24',
@@ -111,8 +121,14 @@ var NETS = [
 ];
 var VMS = [
     mod_uuid.v4(),
+    mod_uuid.v4(),
     mod_uuid.v4()
 ];
+var SERVERS = [
+    mod_uuid.v4(),
+    mod_uuid.v4()
+];
+var SERVER_NICS = [];
 
 
 
@@ -161,6 +177,7 @@ test('create VLANs', function (t) {
 
 
 test('update VLANs', function (t) {
+
     t.test('update: 1', function (t2) {
         VLANS[1].name = VLANS[1].name + '-new';
         mod_vlan.update(t2, {
@@ -179,10 +196,12 @@ test('update VLANs', function (t) {
             exp: VLANS[1]
         });
     });
+
 });
 
 
 test('list VLANs', function (t) {
+
     t.test('OWNERS[0]', function (t2) {
         mod_vlan.list(t2, {
             params: {
@@ -201,10 +220,12 @@ test('list VLANs', function (t) {
             present: [ VLANS[2] ]
         });
     });
+
 });
 
 
 test('create network', function (t) {
+
     t.test('create network: 0', function (t2) {
         mod_fabric_net.createAndGet(t2, {
             fillInMissing: true,
@@ -248,6 +269,29 @@ test('create network', function (t) {
             exp: NETS[3]
         });
     });
+
+
+    t.test('vnet_ids match', function (t2) {
+        // VLANs with the same owner_uuid share the same vnet_id
+        t.ok(VLANS[0].vnet_id, 'VLANS[0] has vnet_id');
+        t.ok(VLANS[1].vnet_id, 'VLANS[0] has vnet_id');
+        t.equal(VLANS[0].vnet_id, VLANS[1].vnet_id,
+            'OWNERS[0] vlans: vnet_ids match');
+        t.ok(VLANS[0].vnet_id !== VLANS[2].vnet_id,
+            'different owner vlans: vnet_ids do not match');
+
+        // The vnet_ids for the networks must match the ids of their
+        // parent VLANs
+
+        t.equal(NETS[0].vnet_id, VLANS[0].vnet_id, 'NETS[0] vnet_id');
+        t.equal(NETS[1].vnet_id, VLANS[0].vnet_id, 'NETS[1] vnet_id');
+
+        t.equal(NETS[2].vnet_id, VLANS[1].vnet_id, 'NETS[2] vnet_id');
+        t.equal(NETS[3].vnet_id, VLANS[2].vnet_id, 'NETS[3] vnet_id');
+
+        return t2.end();
+    });
+
 });
 
 
@@ -272,6 +316,7 @@ test('create network', function (t) {
 
 
 test('list networks', function (t) {
+
     t.test('VLANS[0]', function (t2) {
         mod_fabric_net.list(t2, {
             params: {
@@ -291,10 +336,91 @@ test('list networks', function (t) {
             present: [ NETS[2] ]
         });
     });
+
 });
 
 
-test('provision nics', function (t) {
+/*
+ * Provision underlay vnics for servers
+ */
+test('provision server nics', function (t) {
+
+    t.test('create real network', function (t2) {
+        mod_net.create(t2, {
+            fillInMissing: true,
+            params: REAL_NETS[0],
+            exp: REAL_NETS[0]
+        });
+    });
+
+
+    t.test('REAL_NETS[0]: provision', function (t2) {
+        mod_nic.provision(t2, {
+            fillInMissing: true,
+            net: REAL_NETS[0].uuid,
+            params: {
+                belongs_to_type: 'server',
+                belongs_to_uuid: SERVERS[0],
+                owner_uuid: ADMIN_OWNER
+            },
+            exp: mod_net.addNetParams(REAL_NETS[0], {
+                belongs_to_type: 'server',
+                belongs_to_uuid: SERVERS[0],
+                owner_uuid: ADMIN_OWNER
+            }),
+            state: CREATED    // store this nic in CREATED.nics
+        });
+    });
+
+
+    t.test('REAL_NETS[0]: provision', function (t2) {
+        mod_nic.provision(t2, {
+            fillInMissing: true,
+            net: REAL_NETS[0].uuid,
+            params: {
+                belongs_to_type: 'server',
+                belongs_to_uuid: SERVERS[0],
+                owner_uuid: ADMIN_OWNER
+            },
+            exp: mod_net.addNetParams(REAL_NETS[0], {
+                belongs_to_type: 'server',
+                belongs_to_uuid: SERVERS[0],
+                owner_uuid: ADMIN_OWNER
+            }),
+            state: CREATED    // store this nic in CREATED.nics
+        });
+    });
+
+
+    t.test('underlay mapping created', function (t2) {
+        SERVER_NICS.push(mod_nic.lastCreated());
+        t.ok(SERVER_NICS[0], 'have last created nic');
+
+        mod_portolan.underlayMapping(t2, {
+            params: {
+                cn_uuid: SERVERS[0]
+            },
+            exp: {
+                cn_uuid: SERVERS[0],
+                ip: SERVER_NICS[0].ip,
+                port: constants.VXLAN_PORT
+            }
+        });
+    });
+
+    // XXX: disallow provisioning fabric networks on the underlay nic tag!
+
+});
+
+
+test('provision zone nics', function (t) {
+
+    var nicTags = [
+        mod_fabric_net.nicTag(t, NETS[0]),
+        mod_fabric_net.nicTag(t, NETS[3])
+    ];
+    var updateNic;
+
     t.test('NETS[0]: provision', function (t2) {
         mod_nic.provision(t2, {
             fillInMissing: true,
@@ -308,9 +434,25 @@ test('provision nics', function (t) {
             exp: mod_net.addNetParams(NETS[0], {
                 belongs_to_type: 'zone',
                 belongs_to_uuid: VMS[0],
+                nic_tag: nicTags[0],
                 owner_uuid: OWNERS[0]
             }),
             state: CREATED    // store this nic in CREATED.nics
+        });
+    });
+
+
+    // We didn't specify cn_uuid when provisioning the last nic, so it should
+    // not have an overlay mapping
+    t.test('nic 0: overlay mapping not added', function (t2) {
+        updateNic = mod_nic.lastCreated();
+        t.ok(updateNic, 'last created nic');
+
+        mod_portolan.overlayMapping(t2, {
+            params: {
+                nic: updateNic
+            },
+            expErr: mod_portolan.notFoundErr()
         });
     });
 
@@ -329,18 +471,221 @@ test('provision nics', function (t) {
                 belongs_to_type: 'zone',
                 belongs_to_uuid: VMS[0],
                 ip: '10.2.1.40',
+                nic_tag: nicTags[0],
                 owner_uuid: OWNERS[0]
             }),
             state: CREATED    // store this nic in CREATED.nics
         });
     });
 
-    // Pick IP not in subnet
+
+    t.test('NETS[1]: provision', function (t2) {
+        mod_nic.provision(t2, {
+            fillInMissing: true,
+            net: NETS[1].uuid,
+            params: {
+                belongs_to_type: 'zone',
+                belongs_to_uuid: VMS[1],
+                cn_uuid: SERVERS[0],
+                owner_uuid: OWNERS[0]
+            },
+            exp: mod_net.addNetParams(NETS[1], {
+                belongs_to_type: 'zone',
+                belongs_to_uuid: VMS[1],
+                cn_uuid: SERVERS[0],
+                nic_tag: nicTags[0],
+                owner_uuid: OWNERS[0]
+            }),
+            state: CREATED    // store this nic in CREATED.nics
+        });
+    });
+
+
+    // We specified cn_uuid when provisioning the last nic, so it should
+    // have an overlay mapping
+    t.test('nic 2: overlay mapping added', function (t2) {
+        CREATED.updateNic = mod_nic.lastCreated();
+        t.ok(CREATED.updateNic, 'last created nic');
+
+        mod_portolan.overlayMapping(t2, {
+            params: {
+                nic: CREATED.updateNic
+            },
+            exp: {
+                cn_uuid: SERVERS[0],
+                deleted: false,
+                ip: CREATED.updateNic.ip,
+                mac: CREATED.updateNic.mac,
+                vnet_id: mod_portolan.nicVnetID(t, CREATED.updateNic)
+            }
+        });
+    });
+
+
+    t.test('NETS[3]: provision', function (t2) {
+        mod_nic.provision(t2, {
+            fillInMissing: true,
+            net: NETS[3].uuid,
+            params: {
+                belongs_to_type: 'zone',
+                belongs_to_uuid: VMS[2],
+                owner_uuid: OWNERS[1]
+            },
+            exp: mod_net.addNetParams(NETS[3], {
+                belongs_to_type: 'zone',
+                belongs_to_uuid: VMS[2],
+                nic_tag: nicTags[1],
+                owner_uuid: OWNERS[1]
+            }),
+            state: CREATED    // store this nic in CREATED.nics
+        });
+    });
+
+
+    t.test('update nic to add cn_uuid', function (t2) {
+        mod_nic.updateAndGet(t2, {
+            mac: updateNic.mac,
+            params: {
+                cn_uuid: SERVERS[1]
+            },
+            partialExp: {
+                cn_uuid: SERVERS[1]
+            }
+        });
+    });
+
+
+    t.test('updated nic: overlay mapping added', function (t2) {
+        mod_portolan.overlayMapping(t2, {
+            params: {
+                nic: updateNic
+            },
+            exp: {
+                cn_uuid: SERVERS[1],
+                deleted: false,
+                ip: updateNic.ip,
+                mac: updateNic.mac,
+                vnet_id: mod_portolan.nicVnetID(t, updateNic)
+            }
+        });
+    });
+
+
+    t.test('update nic to change cn_uuid', function (t2) {
+        mod_nic.updateAndGet(t2, {
+            mac: updateNic.mac,
+            params: {
+                cn_uuid: SERVERS[0]
+            },
+            partialExp: {
+                cn_uuid: SERVERS[0]
+            }
+        });
+    });
+
+
+    t.test('updated nic: overlay mapping changed', function (t2) {
+        mod_portolan.overlayMapping(t2, {
+            params: {
+                nic: updateNic
+            },
+            exp: {
+                cn_uuid: SERVERS[0],
+                deleted: false,
+                ip: updateNic.ip,
+                mac: updateNic.mac,
+                vnet_id: mod_portolan.nicVnetID(t, updateNic)
+            }
+        });
+    });
+
+
+    t.test('delete nic', function (t2) {
+        mod_nic.del(t2, {
+            mac: updateNic.mac,
+            exp: {}
+        });
+    });
+
+
+    t.test('deleted nic: overlay mapping updated', function (t2) {
+        mod_portolan.overlayMapping(t2, {
+            params: {
+                nic: updateNic
+            },
+            expErr: mod_portolan.notFoundErr()
+        });
+    });
+});
+
+
+test('update nics', function (t) {
+
+    // We should be able to PUT the same params back to a nic and get the
+    // same object back
+    t.test('update nic with same params', function (t2) {
+        mod_nic.updateAndGet(t2, {
+            mac: CREATED.updateNic.mac,
+            params: CREATED.updateNic,
+            exp: CREATED.updateNic
+        });
+    });
+
+
+    t.test('update nic: invalid vnet ID', function (t2) {
+        var params = clone(CREATED.updateNic);
+        params.nic_tag = params.nic_tag.replace(/\/\d+$/, '/asdf');
+
+        mod_nic.update(t2, {
+            mac: CREATED.updateNic.mac,
+            params: params,
+            expErr: mod_err.invalidParam('nic_tag', constants.msg.VNET)
+        });
+    });
+
+
+    t.test('update nic: invalid vnet ID', function (t2) {
+        var params = clone(CREATED.updateNic);
+        /* JSSTYLED */
+        params.nic_tag = params.nic_tag.replace(/^[^/]+\//, 'doesnotexist/');
+
+        mod_nic.update(t2, {
+            mac: CREATED.updateNic.mac,
+            params: params,
+            expErr: mod_err.invalidParam('nic_tag', 'nic tag does not exist')
+        });
+    });
 
 });
 
 
-// Create networks
+test('delete server nic', function (t) {
+
+    t.test('delete server nic', function (t2) {
+        mod_nic.del(t2, {
+            mac: SERVER_NICS[0].mac,
+            exp: {}
+        });
+    });
+
+
+    t.test('underlay mapping removed', function (t2) {
+        SERVER_NICS.push(mod_nic.lastCreated());
+        t.ok(SERVER_NICS[0], 'have last created nic');
+
+        mod_portolan.underlayMapping(t2, {
+            params: {
+                cn_uuid: SERVERS[0]
+            },
+            expErr: mod_portolan.notFoundErr()
+        });
+    });
+
+});
+
+
+// Create network tests:
+//
 // - Can't create public (non-RFC1918) nets
 // - Can create same subnet with multiple owners
 // - Can't create overlapping subnet with same owner
@@ -349,34 +694,48 @@ test('provision nics', function (t) {
 //   - or resize around them
 // - check that the first 4 addresses are reserved
 // - and the last one
-
+// - mtu: < nic tag's mtu
 // - Make sure we can't use body params to override vlan_id or owner
+
 
 // Update tests:
 // - Can't update owner_uuids or vlan_id
-
-
 // - Can't set another owner UUID on a fabric network
 
+
+// Provision tests:
+// - Pick IP not in subnet
+
+
 // List networks
+//
 // - Check that you can see them in /networks
 // - Only owner_uuid
 
+
 // Delete tests:
+//
 // - Don't allow deleting a network if it has nics on it
 // - Don't allow deleting a VLAN if it has networks on it
 
 
 // Ownership tests:
+//
 // - Don't allow deleting someone else's network
 // - Listing
 // - Updating
 // - Getting
 
+
+// Limit tests:
+//
 // Try to create over 1k (the limit) for:
 // - vlans
 // - networks
 
+// Other tests:
+//
+// - Don't allow deleting the overlay tag
 
 //
 // XXX
@@ -394,6 +753,14 @@ test('provision nics', function (t) {
 //
 
 
-test('delete created networks', mod_fabric_net.delAllCreated);
+test('teardown', function (t) {
+    t.test('delete created nics', mod_nic.delAllCreated);
 
-test('delete created VLANs', mod_vlan.delAllCreated);
+    t.test('delete created networks', mod_net.delAllCreated);
+
+    t.test('delete created fabric networks', mod_fabric_net.delAllCreated);
+
+    t.test('delete created VLANs', mod_vlan.delAllCreated);
+
+    t.test('close portolan client', mod_portolan.closeClient);
+});

@@ -385,21 +385,5 @@ test('teardown', function (t) {
         });
     });
 
-
-    t.test('nics', function (t2) {
-        if (state.nics.length === 0) {
-            return t2.end();
-        }
-
-        vasync.forEachParallel({
-            inputs: state.nics,
-            func: function _delNic(nic, cb) {
-                mod_nic.del(t2, nic, function (err) {
-                    return cb();
-                });
-            }
-        }, function (err) {
-            return t2.end();
-        });
-    });
+    t.test('nics', mod_nic.delAllCreated);
 });

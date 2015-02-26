@@ -1037,7 +1037,9 @@ test('Update network - unset owner_uuids', function (t) {
         t2.ok(obj, 'Have moray obj');
 
         if (obj) {
-            t2.equal(obj.owner_uuids, ',' + owners.join(',') + ',');
+            t2.equal(obj.owner_uuids, ',' + owners.join(',') + ',',
+                'owner_uuids');
+            t2.deepEqual(obj.owner_uuids_arr, owners, 'owner_uuids_arr');
         }
 
         return t2.end();
@@ -1084,6 +1086,8 @@ test('Update network - unset owner_uuids', function (t) {
 
         if (obj) {
             t2.ok(!obj.hasOwnProperty('owner_uuids'),
+                'no owner_uuids property');
+            t2.ok(!obj.hasOwnProperty('owner_uuids_arr'),
                 'no owner_uuids property');
         }
 
@@ -1135,6 +1139,8 @@ test('Update network - unset owner_uuids', function (t) {
         if (obj) {
             t2.ok(!obj.hasOwnProperty('owner_uuids'),
                 'no owner_uuids property');
+            t2.ok(!obj.hasOwnProperty('owner_uuids_arr'),
+                'no owner_uuids_arr property');
         }
 
         return t2.end();

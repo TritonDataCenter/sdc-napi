@@ -1,6 +1,10 @@
 {
   "//": "minimal NAPI config needed for unit tests",
 
+  "overlay": {
+      "overlayNicTag": "sdc_overlay",
+      "underlayNicTag": "sdc_underlay_tag"
+  },
   "port": 0,
   "ufdsAdminUuid": "aaaaaaaa-aaaa-aaaa-aaaa-000000000000"
 }

@@ -155,6 +155,12 @@ function afterAPIdelete(t, opts, callback, err, obj, req, res) {
         return done(err, null, opts, t, callback);
     }
 
+    // mightNotExist allows for calling mod_whatever.dellAllCreated() when
+    // some of the created objects were actually deleted during the test:
+    if (opts.mightNotExist && err && err.restCode === 'ResourceNotFound') {
+        return done(null, obj, opts, t, callback);
+    }
+
     if (ifErr(t, err, type + desc)) {
         return done(err, null, opts, t, callback);
     }
@@ -192,10 +198,12 @@ function afterAPIlist(t, opts, callback, err, obj, _, res) {
     }
 
     t.equal(res.statusCode, 200, 'status code' + desc);
+    t.ok(true, obj.length + ' results returned' + desc);
 
     if (opts.present) {
         var left = clone(opts.present);
         var ids = left.map(function (o) { return o[id]; });
+        var present = clone(ids);
 
         for (var n in obj) {
             var resObj = obj[n];
@@ -215,7 +223,12 @@ function afterAPIlist(t, opts, callback, err, obj, _, res) {
             }
         }
 
-        t.deepEqual(ids, [], 'found all ' + type + 's ' + desc);
+        t.deepEqual(ids, [],
+            'found ' + type + 's not specified in opts.present ' + desc);
+
+        if (ids.length !== 0) {
+            t.deepEqual(present, [], 'IDs in present list');
+        }
     }
 
     return done(null, obj, opts, t, callback);
@@ -235,6 +248,7 @@ function allCreated(type) {
  */
 function assertArgs(t, opts, callback) {
     assert.object(t, 't');
+    assert.object(opts, 'opts');
     assert.optionalObject(opts.exp, 'opts.exp');
     assert.optionalObject(opts.expErr, 'opts.expErr');
     assert.optionalObject(opts.partialExp, 'opts.partialExp');
@@ -401,6 +415,14 @@ function requestOpts(t, desc) {
 }
 
 
+/**
+ * Sort by uuid property
+ */
+function uuidSort(a, b) {
+    return (a.uuid > b.uuid) ? 1 : -1;
+}
+
+
 
 module.exports = {
     addToState: addToState,
@@ -417,5 +439,6 @@ module.exports = {
     lastCreated: lastCreated,
     missingParamErr: missingParamErr,
     randomMAC: randomMAC,
-    reqOpts: requestOpts
+    reqOpts: requestOpts,
+    uuidSort: uuidSort
 };

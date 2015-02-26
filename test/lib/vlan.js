@@ -45,6 +45,7 @@ function createVLAN(t, opts, callback) {
     var client = opts.client || mod_client.get();
 
     log.debug({ params: opts.params }, 'creating vlan');
+    opts.fillIn = [ 'vnet_id' ];
     opts.type = TYPE;
     opts.reqType = 'create';
 
@@ -52,7 +53,7 @@ function createVLAN(t, opts, callback) {
     var params = clone(opts.params);
     delete params.owner_uuid;
 
-    client.createFabricVLAN(owner, params,
+    client.createFabricVLAN(owner, params, common.reqOpts(t, opts.desc),
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 

@@ -119,6 +119,29 @@ function etagConflictErr(msg, otherOpts) {
 }
 
 
+function matchObj(filter, origObj) {
+    // The LDAP matching function .matches() assumes that the
+    // values are strings, so stringify properties so that matches
+    // work correctly.  The exception is arrays - it's able to walk
+    // an array and match each element individually.
+    var obj = {};
+    for (var k in origObj.value) {
+        var val = origObj.value[k];
+        if (util.isArray(val)) {
+            obj[k] = clone(origObj.value[k]);
+        } else {
+            obj[k] = origObj.value[k].toString();
+        }
+    }
+
+    if (filter.matches(obj)) {
+        return true;
+    }
+
+    return false;
+}
+
+
 /**
  * Returns an object not found error
  */
@@ -185,15 +208,7 @@ FakeMoray.prototype._updateObjects =
 
     var filterObj = ldapjs.parseFilter(filter);
     for (var r in BUCKET_VALUES[bucket]) {
-        // The LDAP matching function .matches() assumes that the
-        // values are strings, so stringify properties so that matches
-        // work correctly
-        var obj = {};
-        for (var k in BUCKET_VALUES[bucket][r].value) {
-            obj[k] = BUCKET_VALUES[bucket][r].value[k].toString();
-        }
-
-        if (filterObj.matches(obj)) {
+        if (matchObj(filterObj, BUCKET_VALUES[bucket][r])) {
             for (var nk in fields) {
                 BUCKET_VALUES[bucket][r].value[nk] = fields[nk];
             }
@@ -336,16 +351,9 @@ FakeMoray.prototype.findObjects = function findObjects(bucket, filter, opts) {
         // so just sort them ASC every time
         var keys = Object.keys(BUCKET_VALUES[bucket]).sort(compareTo);
         keys.forEach(function (r) {
-            // The LDAP matching function .matches() assumes that the
-            // values are strings, so stringify properties so that matches
-            // work correctly
-            var obj = {};
-            for (var k in BUCKET_VALUES[bucket][r].value) {
-                obj[k] = BUCKET_VALUES[bucket][r].value[k].toString();
-            }
-
-            if (filterObj.matches(obj)) {
-                res.emit('record', clone(BUCKET_VALUES[bucket][r]));
+            var val = BUCKET_VALUES[bucket][r];
+            if (matchObj(filterObj, val)) {
+                res.emit('record', clone(val));
             }
         });
 

@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright (c) 2015, Joyent, Inc.
  */
 
 /*
@@ -15,6 +15,7 @@
 var IP = require('../../lib/util/ip');
 var test = require('tape');
 var util = require('util');
+
 
 
 test('addressToNumber / numberToAddress - valid', function (t) {
@@ -33,8 +34,9 @@ test('addressToNumber / numberToAddress - valid', function (t) {
             util.format('IP number "%d" converts correctly', ips[i]));
     }
 
-    t.end();
+    return t.end();
 });
+
 
 
 test('addressToNumber - invalid', function (t) {
@@ -44,8 +46,9 @@ test('addressToNumber - invalid', function (t) {
             util.format('IP "%s" is invalid', ips[i]));
     }
 
-    t.end();
+    return t.end();
 });
+
 
 
 test('bitsToNetmask / netmaskToBits', function (t) {
@@ -63,8 +66,9 @@ test('bitsToNetmask / netmaskToBits', function (t) {
             util.format('netmask %s is valid', bits[b]));
     }
 
-    t.end();
+    return t.end();
 });
+
 
 
 test('toIPAddr - valid', function (t) {
@@ -100,8 +104,9 @@ test('toIPAddr - valid', function (t) {
         t.equal(ipobj, IP.toIPAddr(ipobj), 'idempotent');
     });
 
-    t.end();
+    return t.end();
 });
+
 
 
 test('toIPAddr - invalid', function (t) {
@@ -127,8 +132,9 @@ test('toIPAddr - invalid', function (t) {
             util.format('IP "%s" is invalid', ip));
     });
 
-    t.end();
+    return t.end();
 });
+
 
 
 test('ipAddrPlus / ipAddrMinus', function (t) {
@@ -157,8 +163,10 @@ test('ipAddrPlus / ipAddrMinus', function (t) {
         t.equal(difference.toString(), a.toString(),
             util.format('%s - %d = %s', b.toString(), scalar, a.toString()));
     });
-    t.end();
+
+    return t.end();
 });
+
 
 
 test('ipAddrPlus / ipAddrMinus - overflow, underflow', function (t) {
@@ -190,7 +198,7 @@ test('ipAddrPlus / ipAddrMinus - overflow, underflow', function (t) {
         }, /underflow!/, util.format('%s - %d underflows', ip, scalar));
     });
 
-    t.end();
+    return t.end();
 });
 
 
@@ -241,5 +249,49 @@ test('compareTo', function (t) {
         eq(pair[1], pair[0]);
     });
 
-    t.end();
+    return t.end();
+});
+
+
+test('isRFC1918', function (t) {
+    var valid = [
+        '10.0.0.0',
+        '10.3.2.1',
+        '10.255.255.255',
+        '172.16.0.0',
+        '172.17.17.17',
+        '172.31.255.255',
+        '192.168.0.0',
+        '192.168.20.20',
+        '192.168.255.255'
+    ];
+
+    t.test('valid', function (t2) {
+        for (var v in valid) {
+            var val = valid[v];
+            t2.ok(IP.isRFC1918(val), val + ' valid');
+        }
+
+        return t2.end();
+    });
+
+
+    var invalid = [
+        '9.255.255.255',
+        '11.0.0.0',
+        '172.15.255.255',
+        '172.32.0.0',
+        '192.167.255.255',
+        '192.169.0.0',
+        '8.8.8.8'
+    ];
+
+    t.test('invalid', function (t2) {
+        for (var v in invalid) {
+            var val = invalid[v];
+            t2.ok(!IP.isRFC1918(val), val + ' invalid');
+        }
+
+        return t2.end();
+    });
 });
