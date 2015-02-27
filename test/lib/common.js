@@ -94,12 +94,16 @@ function afterAPIcall(t, opts, callback, err, obj, _, res) {
 
     t.equal(res.statusCode, 200, 'status code' + desc);
 
+    if (opts.hasOwnProperty('idKey')) {
+        t.ok(true, fmt('created %s "%s"', opts.type, obj[opts.idKey]));
+    }
+
     if (opts.exp) {
         // For creates, the server will generate an ID (usually a UUID) if
         // it's not set in the request.  Copy this over to the expected
         // object so that we don't have to set it manually:
         if (opts.hasOwnProperty('idKey') &&
-            !opts.exp.hasOwnProperty(opts.idKey)) {
+                !opts.exp.hasOwnProperty(opts.idKey)) {
             opts.exp[opts.idKey] = obj[opts.idKey];
         }
 

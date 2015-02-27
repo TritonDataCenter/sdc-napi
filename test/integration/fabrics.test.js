@@ -354,7 +354,7 @@ test('provision server nics', function (t) {
     });
 
 
-    t.test('REAL_NETS[0]: provision', function (t2) {
+    t.test('REAL_NETS[0]: provision non-underlay nic', function (t2) {
         mod_nic.provision(t2, {
             fillInMissing: true,
             net: REAL_NETS[0].uuid,
@@ -373,19 +373,34 @@ test('provision server nics', function (t) {
     });
 
 
-    t.test('REAL_NETS[0]: provision', function (t2) {
+    t.test('non-underlay nic: underlay mapping not created', function (t2) {
+        SERVER_NICS.push(mod_nic.lastCreated());
+        t.ok(SERVER_NICS[0], 'have last created nic');
+
+        mod_portolan.underlayMapping(t2, {
+            params: {
+                cn_uuid: SERVERS[0]
+            },
+            expErr: mod_portolan.notFoundErr()
+        });
+    });
+
+
+    t.test('REAL_NETS[0]: provision underlay nic', function (t2) {
         mod_nic.provision(t2, {
             fillInMissing: true,
             net: REAL_NETS[0].uuid,
             params: {
                 belongs_to_type: 'server',
                 belongs_to_uuid: SERVERS[0],
-                owner_uuid: ADMIN_OWNER
+                owner_uuid: ADMIN_OWNER,
+                underlay: true
             },
             exp: mod_net.addNetParams(REAL_NETS[0], {
                 belongs_to_type: 'server',
                 belongs_to_uuid: SERVERS[0],
-                owner_uuid: ADMIN_OWNER
+                owner_uuid: ADMIN_OWNER,
+                underlay: true
             }),
             state: CREATED    // store this nic in CREATED.nics
         });
@@ -394,7 +409,8 @@ test('provision server nics', function (t) {
 
     t.test('underlay mapping created', function (t2) {
         SERVER_NICS.push(mod_nic.lastCreated());
-        t.ok(SERVER_NICS[0], 'have last created nic');
+        t.ok(SERVER_NICS[1], 'have last created nic');
+        t.ok(SERVER_NICS[1].underlay, 'nic has underlay property');
 
         mod_portolan.underlayMapping(t2, {
             params: {
@@ -402,7 +418,7 @@ test('provision server nics', function (t) {
             },
             exp: {
                 cn_uuid: SERVERS[0],
-                ip: SERVER_NICS[0].ip,
+                ip: SERVER_NICS[1].ip,
                 port: constants.VXLAN_PORT
             }
         });
@@ -662,17 +678,17 @@ test('update nics', function (t) {
 test('delete server nic', function (t) {
 
     t.test('delete server nic', function (t2) {
+        t.ok(SERVER_NICS[1], 'have underlay nic');
+        t.ok(SERVER_NICS[1].underlay, 'nic has underlay property');
+
         mod_nic.del(t2, {
-            mac: SERVER_NICS[0].mac,
+            mac: SERVER_NICS[1].mac,
             exp: {}
         });
     });
 
 
     t.test('underlay mapping removed', function (t2) {
-        SERVER_NICS.push(mod_nic.lastCreated());
-        t.ok(SERVER_NICS[0], 'have last created nic');
-
         mod_portolan.underlayMapping(t2, {
             params: {
                 cn_uuid: SERVERS[0]
@@ -736,6 +752,11 @@ test('delete server nic', function (t) {
 // Other tests:
 //
 // - Don't allow deleting the overlay tag
+// - Don't allow setting the underlay tag:
+//   - on more than one server nic
+//   - if belongs_to_type !== 'server'
+// - Validation of underlay param
+// - Update a server's nic to add the underlay param
 
 //
 // XXX

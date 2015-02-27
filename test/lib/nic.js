@@ -55,8 +55,10 @@ function createNic(t, opts, callback) {
     if (mac == 'generate') {
         mac = common.randomMAC();
     }
+    opts.idKey = 'mac';
     opts.type = TYPE;
     opts.reqType = 'create';
+
 
     client.createNic(mac, clone(opts.params),
         common.afterAPIcall.bind(null, t, opts, callback));
@@ -165,8 +167,8 @@ function delNic(t, opts, callback) {
     var params = opts.params || {};
 
     log.debug({ mac: opts.mac }, 'delete nic');
-    opts.type = TYPE;
     opts.id = opts.mac;
+    opts.type = TYPE;
 
     client.deleteNic(opts.mac, params, common.reqOpts(t),
         common.afterAPIdelete.bind(null, t, opts, callback));
@@ -209,6 +211,7 @@ function provisionNic(t, opts, callback) {
 
     var client = opts.client || mod_client.get();
     log.debug({ params: opts.params }, 'provisioning nic');
+    opts.idKey = 'mac';
     opts.type = TYPE;
     opts.reqType = 'create';
 
