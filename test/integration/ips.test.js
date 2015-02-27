@@ -174,7 +174,21 @@ test('GET /networks/:uuid/ips', function (t) {
             reserved: true
         };
 
-        t.deepEqual(res, [ state.ip, broadcastIP ], 'IP list');
+        var before = {
+            free: true,
+            ip: '10.1.1.4',
+            network_uuid: state.networks[0].uuid,
+            reserved: false
+        };
+
+        var after = {
+            free: true,
+            ip: '10.1.1.251',
+            network_uuid: state.networks[0].uuid,
+            reserved: false
+        };
+
+        t.deepEqual(res, [ before, state.ip, after, broadcastIP ], 'IP list');
         return t.end();
     });
 });

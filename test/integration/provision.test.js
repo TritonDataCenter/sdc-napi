@@ -312,22 +312,29 @@ function listIPs(t, opts) {
             return t.end();
         }
 
-        t.equal(res.length, 11, 'number of IPs correct');
+        t.equal(res.length, 13, 'number of IPs correct');
         var bcAddr = util_ip.ntoa(
             util_ip.aton(opts.network.provision_end_ip) + 5);
+        var before = util_ip.ntoa(
+            util_ip.aton(opts.network.provision_start_ip) - 1);
+        var after = util_ip.ntoa(
+            util_ip.aton(opts.network.provision_end_ip) + 1);
 
         // The broadcast address will also be in the list as a
         // reserved IP:
         t.deepEqual(res.map(function (i) {
             return i.ip;
-        }).sort(ipSort), d.expIPs.concat(bcAddr).sort(ipSort),
+        }).sort(ipSort), d.expIPs.concat([bcAddr, before, after]).sort(ipSort),
             'All IPs returned');
 
         // The UFDS admin UUID will be included in the belongs_to_uuid
         // list, courtesy of the broadcast address:
+        // The undefined owners are the unreserved placeholder IPs for the
+        // provision range.
         t.deepEqual(res.map(function (i) {
             return i.belongs_to_uuid;
-        }).sort(), d.belongsToExp.concat(h.ufdsAdminUuid).sort(),
+        }).sort(), d.belongsToExp.concat(
+            [h.ufdsAdminUuid, undefined, undefined]).sort(),
             'All belongs_to_uuids returned');
 
         return t.end();
