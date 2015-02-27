@@ -12,14 +12,15 @@
  * Integration tests for /networks endpoints
  */
 
+var constants = require('../../lib/util/constants');
 var fmt = require('util').format;
 var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
 var mod_net = require('../lib/net');
+var mod_vasync = require('vasync');
 var test = require('tape');
 var util = require('util');
 var UUID = require('node-uuid');
-var vasync = require('vasync');
 
 
 
@@ -29,12 +30,23 @@ var vasync = require('vasync');
 
 var napi = h.createNAPIclient();
 var state = { };
-var ufdsAdminUuid = h.ufdsAdminUuid;
+var ufdsAdminUuid;  // Loaded in setup below
 
 
 
 // --- Setup
 
+
+
+test('load UFDS admin UUID', function (t) {
+    h.loadUFDSadminUUID(t, function (adminUUID) {
+        if (adminUUID) {
+            ufdsAdminUuid = adminUUID;
+        }
+
+        return t.end();
+    });
+});
 
 
 test('create test nic tag', function (t) {
@@ -110,8 +122,9 @@ test('POST /networks', function (t) {
             return t.end();
         }
 
-        params.uuid = res.uuid;
+        params.mtu = constants.MTU_DEFAULT;
         params.netmask = '255.255.255.0';
+        params.uuid = res.uuid;
         state.network = res;
         t.deepEqual(res, params, 'parameters returned for network ' + res.uuid);
 
@@ -153,7 +166,7 @@ test('validate IPs created with network', function (t) {
         });
     }
 
-    vasync.forEachParallel({
+    mod_vasync.forEachParallel({
         func: checkIP,
         inputs: ips
     }, function (err) {
@@ -272,7 +285,7 @@ test('GET /networks (filter: multiple nic tags)', function (t) {
         });
     }
 
-    vasync.forEachParallel({
+    mod_vasync.forEachParallel({
         func: filterList,
         inputs: filters
     }, function (err) {
@@ -291,10 +304,12 @@ test('POST /networks (empty gateway)', function (t) {
             return t.end();
         }
 
-        params.uuid = res.uuid;
+        params.mtu = constants.MTU_DEFAULT;
         params.netmask = '255.255.255.0';
-        delete params.gateway;
+        params.uuid = res.uuid;
         params.resolvers = [];
+        delete params.gateway;
+
         t.deepEqual(res, params, 'parameters returned for network ' + res.uuid);
         state.network3 = res;
 
@@ -312,9 +327,11 @@ test('POST /networks (single resolver)', function (t) {
             return t.end();
         }
 
-        params.uuid = res.uuid;
+        params.mtu = constants.MTU_DEFAULT;
         params.netmask = '255.255.255.0';
+        params.uuid = res.uuid;
         state.singleResolver = res;
+
         t.deepEqual(res, params, 'parameters returned for network ' + res.uuid);
 
         napi.getNetwork(res.uuid, function (err2, res2) {
@@ -340,9 +357,11 @@ test('POST /networks (comma-separated resolvers)', function (t) {
             return t.end();
         }
 
-        params.uuid = res.uuid;
+        params.mtu = constants.MTU_DEFAULT;
         params.netmask = '255.255.255.0';
         params.resolvers = params.resolvers.split(',');
+        params.uuid = res.uuid;
+
         state.commaResolvers = res;
         t.deepEqual(res, params, 'parameters returned for network ' + res.uuid);
 
@@ -354,156 +373,6 @@ test('POST /networks (comma-separated resolvers)', function (t) {
 
             t.deepEqual(res2, params, 'get parameters for network ' + res.uuid);
             return t.end();
-        });
-    });
-});
-
-
-test('Create network - overlapping subnet ranges', function (t) {
-    var created = [];
-    var net = h.validNetworkParams({
-        subnet: '10.2.1.64/26',
-        provision_start_ip: '10.2.1.74',
-        provision_end_ip: '10.2.1.120'
-    });
-
-    var overlappingNets = [
-        // encloses it
-        h.validNetworkParams({
-            name: 'overlapping: encloses',
-            subnet: '10.2.0.0/23',
-            provision_start_ip: '10.2.0.10',
-            provision_end_ip: '10.2.0.20'
-        }),
-
-        // overlaps at the bottom
-        h.validNetworkParams({
-            name: 'overlapping: bottom',
-            subnet: '10.2.1.64/27',
-            provision_start_ip: '10.2.1.66',
-            provision_end_ip: '10.2.1.90'
-        }),
-
-        // in the middle
-        h.validNetworkParams({
-            name: 'overlapping: middle',
-            subnet: '10.2.1.80/28',
-            provision_start_ip: '10.2.1.82',
-            provision_end_ip: '10.2.1.93'
-        }),
-
-        // overlaps at the top
-        h.validNetworkParams({
-            name: 'overlapping: middle',
-            subnet: '10.2.1.112/28',
-            provision_start_ip: '10.2.1.113',
-            provision_end_ip: '10.2.1.124'
-        })
-    ];
-
-    t.test('create network', function (t2) {
-        mod_net.create(t2, {
-            params: net,
-            partialExp: net
-        });
-    });
-
-    t.test('create overlapping networks', function (t2) {
-        net.uuid = mod_net.lastCreated().uuid;
-        created.push(net);
-        t.ok(net.uuid, 'original network UUID: ' + net.uuid);
-
-        vasync.forEachPipeline({
-            inputs: overlappingNets,
-            func: function _createOverlapNet(oNet, cb) {
-                mod_net.create(t2, {
-                    continueOnErr: true,
-                    desc: oNet.subnet,
-                    params: oNet,
-                    expErr: h.invalidParamErr({
-                        errors: mod_err.networkOverlapParams([ net ])
-                    })
-                }, cb);
-            }
-        }, function () {
-            return t2.end();
-        });
-    });
-
-    // These "nearby" networks should all work:
-    var nonOverlappingNets = [
-        // just below
-        h.validNetworkParams({
-            name: 'just below ' + process.pid,
-            subnet: '10.2.1.0/26',
-            provision_start_ip: '10.2.1.10',
-            provision_end_ip: '10.2.1.20'
-        }),
-
-        // just above
-        h.validNetworkParams({
-            name: 'just above ' + process.pid,
-            subnet: '10.2.1.128/26',
-            provision_start_ip: '10.2.1.130',
-            provision_end_ip: '10.2.1.140'
-        })
-    ];
-
-    t.test('create non-overlapping networks', function (t2) {
-        vasync.forEachPipeline({
-            inputs: nonOverlappingNets,
-            func: function _createOverlapNet(oNet, cb) {
-                mod_net.create(t2, {
-                    desc: fmt('%s (%s)', oNet.subnet, oNet.name),
-                    params: oNet,
-                    partialExp: oNet
-                }, function (err, res) {
-                    if (res) {
-                        oNet.uuid = res.uuid;
-                        created.push(oNet);
-                    }
-
-                    return cb();
-                });
-            }
-        }, function () {
-            return t2.end();
-        });
-    });
-
-    // This network should now overlap with both the original network and
-    // the one created just below it in the test above.
-    t.test('create double-overlapping network', function (t2) {
-        var params = h.validNetworkParams({
-            name: 'double overlap ' + process.pid,
-            subnet: '10.2.1.0/25',
-            provision_start_ip: '10.2.1.10',
-            provision_end_ip: '10.2.1.120'
-        });
-
-        mod_net.create(t2, {
-            desc: params.subnet,
-            params: params,
-            expErr: h.invalidParamErr({
-                errors: mod_err.networkOverlapParams(
-                    [ net, nonOverlappingNets[0] ])
-            })
-        });
-    });
-
-    t.test('delete created networks', function (t2) {
-        vasync.forEachPipeline({
-            inputs: created,
-            func: function _delCreatedNet(dNet, cb) {
-                mod_net.del(t2, {
-                    uuid: dNet.uuid,
-                    desc: dNet.name
-                }, function () {
-                    return cb();
-                });
-            }
-        }, function () {
-            return t2.end();
         });
     });
 });
@@ -528,7 +397,7 @@ test('DELETE /networks/:uuid', function (t) {
         });
     }
 
-    vasync.forEachParallel({
+    mod_vasync.forEachParallel({
         func: deleteNet,
         inputs: names
     }, function (err) {

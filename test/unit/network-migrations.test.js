@@ -111,13 +111,14 @@ test('0 -> 2', function (t) {
     // subnet_end_ip removed
     t.test('get: 1', function (t2) {
         mod_net.get(t2, {
-            uuid: networks[0].uuid,
+            params: { uuid: networks[0].uuid },
             exp: networks[0]
         });
     });
 
     t.test('get: 2', function (t2) {
         mod_net.get(t2, {
+            params: { uuid: networks[0].uuid },
             uuid: networks[1].uuid,
             exp: networks[1]
         });

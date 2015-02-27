@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright (c) 2015, Joyent, Inc.
  */
 
 /*
@@ -17,8 +17,9 @@ var clone = require('clone');
 var common = require('./common');
 var log = require('./log');
 var mod_client = require('./client');
+var mod_vasync = require('vasync');
 var util = require('util');
-var verror = require('verror');
+var util_ip = require('../../lib/util/ip');
 
 var doneRes = common.doneRes;
 var doneErr = common.doneErr;
@@ -28,7 +29,17 @@ var doneErr = common.doneErr;
 
 
 
+var NIC_NET_PARAMS = [
+    'gateway',
+    'mtu',
+    'netmask',
+    'nic_tag',
+    'resolvers',
+    'routes',
+    'vlan_id'
+];
 var NUM = 0;
+var TYPE = 'network';
 
 
 
@@ -37,45 +48,67 @@ var NUM = 0;
 
 
 /**
+ * Add network parameters to a nic
+ */
+function addNetParams(net, nic) {
+    NIC_NET_PARAMS.forEach(function (n) {
+        if (net.hasOwnProperty(n) && !nic.hasOwnProperty(n)) {
+            nic[n] = net[n];
+        }
+    });
+
+    nic.network_uuid = net.uuid;
+    return nic;
+}
+
+
+/**
  * Create a network and compare the output
  */
-function create(t, opts, callback) {
+function createNet(t, opts, callback) {
+    common.assertArgs(t, opts, callback);
+
     var client = opts.client || mod_client.get();
-
-    assert.object(t, 't');
-    assert.optionalObject(opts.exp, 'opts.exp');
-    assert.optionalObject(opts.expErr, 'opts.expErr');
-    assert.optionalObject(opts.partialExp, 'opts.partialExp');
-    assert.ok(opts.exp || opts.partialExp || opts.expErr,
-            'one of exp, expErr, partialExp required');
-    assert.object(opts.params, 'opts.params');
-
     var params = clone(opts.params);
+
     if (params.name == '<generate>') {
         params.name = util.format('test-net%d-%d', NUM++, process.pid);
     }
-    opts.reqType = 'create';
-    opts.type = 'network';
 
-    client.createNetwork(params,
+    opts.idKey = 'uuid';
+    opts.fillIn = [ 'mtu' ];
+    opts.reqType = 'create';
+    opts.type = TYPE;
+
+    if (opts.fillInMissing && opts.exp) {
+        opts.exp.netmask = util_ip.bitsToNetmask(opts.exp.subnet.split('/')[1]);
+        if (!opts.params.resolvers && !opts.exp.resolvers) {
+            opts.exp.resolvers = [];
+        }
+    }
+
+    client.createNetwork(params, common.reqOpts(t, opts.desc),
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 
 
 /**
- * Create a nic, compare the output, then do the same for a get of
- * that nic.
+ * Create a network, compare the output, then do the same for a get of
+ * that network.
  */
 function createAndGet(t, opts, callback) {
     opts.reqType = 'create';
-    create(t, opts, function (err, res) {
+    createNet(t, opts, function (err, res) {
         if (err) {
             return doneErr(err, t, callback);
         }
 
-        opts.uuid = res.uuid;
-        opts.reqType = 'get';
-        return get(t, opts, callback);
+        if (!opts.params) {
+            opts.params = res.uuid;
+        }
+
+        opts.params.uuid = res.uuid;
+        return getNet(t, opts, callback);
     });
 }
 
@@ -83,16 +116,16 @@ function createAndGet(t, opts, callback) {
 /**
  * Delete a network
  */
-function del(t, opts, callback) {
-    var client = opts.client || mod_client.get();
-
+function delNet(t, opts, callback) {
     assert.object(t, 't');
     assert.string(opts.uuid, 'opts.uuid');
     assert.optionalObject(opts.expErr, 'opts.expErr');
 
-    opts.type = 'network';
-    opts.id = opts.uuid;
+    var client = opts.client || mod_client.get();
     var params = opts.params || {};
+
+    opts.type = TYPE;
+    opts.id = opts.uuid;
 
     client.deleteNetwork(opts.uuid, params,
         common.afterAPIdelete.bind(null, t, opts, callback));
@@ -100,25 +133,48 @@ function del(t, opts, callback) {
 
 
 /**
+ * Delete all the networks created by this test
+ */
+function delAllCreatedNets(t) {
+    assert.object(t, 't');
+
+    var created = common.allCreated('networks');
+    if (created.length === 0) {
+        t.ok(true, 'No networks created');
+        return t.end();
+    }
+
+    mod_vasync.forEachParallel({
+        inputs: created,
+        func: function _delOne(net, cb) {
+            var delOpts = {
+                continueOnErr: true,
+                exp: {},
+                params: net,
+                uuid: net.uuid
+            };
+
+            delNet(t, delOpts, cb);
+        }
+    }, function () {
+        return t.end();
+    });
+}
+
+
+/**
  * Get a network and compare the output
  */
-function get(t, opts, callback) {
+function getNet(t, opts, callback) {
+    common.assertArgs(t, opts, callback);
+
     var client = opts.client || mod_client.get();
-
-    assert.object(t, 't');
-    assert.string(opts.uuid, 'opts.uuid');
-    assert.optionalObject(opts.exp, 'opts.exp');
-    assert.optionalObject(opts.expErr, 'opts.expErr');
-    assert.optionalObject(opts.params, 'opts.params');
-    assert.optionalObject(opts.partialExp, 'opts.partialExp');
-    assert.ok(opts.exp || opts.partialExp || opts.expErr,
-            'one of exp, expErr, partialExp required');
-
-    opts.reqType = 'get';
-    opts.type = 'network';
     var params = opts.params || {};
 
-    client.getNetwork(opts.uuid, params,
+    opts.reqType = 'get';
+    opts.type = TYPE;
+
+    client.getNetwork(opts.params.uuid, params,
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 
@@ -134,7 +190,7 @@ function lastCreated() {
 /**
  * List networks
  */
-function list(t, opts, callback) {
+function listNets(t, opts, callback) {
     assert.object(t, 't');
     assert.object(opts, 'opts');
     assert.optionalArrayOfObject(opts.present, 'opts.present');
@@ -144,89 +200,61 @@ function list(t, opts, callback) {
     var desc = ' ' + JSON.stringify(params)
         + (opts.desc ? (' ' + opts.desc) : '');
 
+    if (!opts.desc) {
+        opts.desc = desc;
+    }
+    opts.id = 'uuid';
+    opts.type = TYPE;
+
     log.debug({ params: params }, 'list networks');
 
-    client.listNetworks(params, function (err, obj, _, res) {
-        common.ifErr(t, err, 'list networks: ' + desc);
-        if (err) {
-            return doneErr(err, t, callback);
-        }
-
-        t.equal(res.statusCode, 200, 'status code' + desc);
-
-        if (opts.present) {
-            var left = clone(opts.present);
-            var uuids = left.map(function (o) { return o.uuid; });
-
-            for (var n in obj) {
-                var resObj = obj[n];
-                var idx = uuids.indexOf(resObj.uuid);
-                if (idx !== -1) {
-                    var expObj = left[idx];
-                    var partialRes = {};
-                    for (var p in expObj) {
-                        partialRes[p] = resObj[p];
-                    }
-
-                    t.deepEqual(partialRes, expObj,
-                        'partial result for ' + resObj.uuid + desc);
-
-                    uuids.splice(idx, 1);
-                    left.splice(idx, 1);
-                }
-            }
-
-            t.deepEqual(uuids, [], 'all network UUIDs found' + desc);
-        }
-
-        return doneRes(obj, t, callback);
-    });
+    client.listNetworks(params, common.reqOpts(t, opts.desc),
+        common.afterAPIlist.bind(null, t, opts, callback));
 }
 
+
 /**
- * Update a nic and compare the output
+ * Update a network and compare the output
  */
-function update(t, opts, callback) {
+function updateNet(t, opts, callback) {
+    common.assertArgs(t, opts, callback);
+
     var client = opts.client || mod_client.get();
 
-    assert.object(t, 't');
-    assert.string(opts.uuid, 'opts.uuid');
-    assert.optionalObject(opts.exp, 'opts.exp');
-    assert.optionalObject(opts.expErr, 'opts.expErr');
-    assert.optionalObject(opts.partialExp, 'opts.partialExp');
-    assert.ok(opts.exp || opts.partialExp || opts.expErr,
-            'one of exp, expErr, partialExp required');
-    assert.object(opts.params, 'opts.params');
-
-    opts.type = 'network';
+    opts.type = TYPE;
     opts.reqType = 'update';
-    client.updateNetwork(opts.uuid, opts.params,
+
+    client.updateNetwork(opts.params.uuid, opts.params,
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 
 
 /**
- * Update a nic, compare the output, then do the same for a get of
- * that nic.
+ * Update a network, compare the output, then do the same for a get of
+ * that network.
  */
 function updateAndGet(t, opts, callback) {
-    update(t, opts, function (err, res) {
+    updateNet(t, opts, function (err, res) {
         if (err) {
             return doneErr(err, t, callback);
         }
 
-        return get(t, opts, callback);
+        return getNet(t, opts, callback);
     });
 }
 
 
+
 module.exports = {
-    create: create,
+    addNetParams: addNetParams,
+    create: createNet,
     createAndGet: createAndGet,
-    del: del,
-    get: get,
+    del: delNet,
+    delAllCreated: delAllCreatedNets,
+    get: getNet,
     lastCreated: lastCreated,
-    list: list,
-    update: update,
+    list: listNets,
+    netParams: NIC_NET_PARAMS,
+    update: updateNet,
     updateAndGet: updateAndGet
 };

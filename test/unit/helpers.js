@@ -16,6 +16,7 @@ var assert = require('assert-plus');
 var bunyan = require('bunyan');
 var clone = require('clone');
 var common = require('../lib/common');
+var constants = require('../../lib/util/constants');
 var fs = require('fs');
 var EventEmitter = require('events').EventEmitter;
 var ldapjs = require('ldapjs');
@@ -104,7 +105,8 @@ function createClientAndServer(callback) {
                 level: process.env.LOG_LEVEL || 'fatal',
                 stream: process.stderr
             }
-        ]
+        ],
+        src: true
     });
 
     var server = new NAPI({
@@ -185,14 +187,6 @@ function stopServer(callback) {
 
 
 /**
- * Sort by uuid property
- */
-function uuidSort(a, b) {
-    return (a.uuid > b.uuid) ? 1 : -1;
-}
-
-
-/**
  * Returns the parameters for a valid IP, potentially overriding with any
  * values in override
  */
@@ -242,7 +236,8 @@ function validNetworkParams(override) {
         provision_start_ip: util.format('10.0.%d.1', NET_NUM),
         resolvers: ['8.8.8.8', '8.8.4.4'],
         subnet: util.format('10.0.%d.0/24', NET_NUM),
-        vlan_id: 0
+        vlan_id: 0,
+        mtu: constants.MTU_DEFAULT
     };
 
     for (var o in override) {
@@ -269,11 +264,12 @@ module.exports = {
         return NET_NUM;
     },
     randomMAC: common.randomMAC,
+    reqOpts: common.reqOpts,
     get server() {
         return SERVER;
     },
     stopServer: stopServer,
-    uuidSort: uuidSort,
+    uuidSort: common.uuidSort,
     validIPparams: validIPparams,
     validNicparams: validNicparams,
     validNetworkParams: validNetworkParams,

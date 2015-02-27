@@ -41,7 +41,9 @@ var MSG = {
     end_outside: constants.msg.PROV_END_IP_OUTSIDE,
     end_broadcast: constants.msg.PROV_END_IP_BCAST,
     start_outside: constants.msg.PROV_START_IP_OUTSIDE,
-    start_broadcast: constants.msg.PROV_START_IP_BCAST
+    start_broadcast: constants.msg.PROV_START_IP_BCAST,
+    mtu_invalid: constants.MTU_NETWORK_INVALID_MSG,
+    mtu_over_nictag: constants.MTU_NETWORK_GT_NICTAG
 };
 
 
@@ -126,7 +128,6 @@ test('Create network', function (t) {
     });
 });
 
-
 test('Create network - missing parameters', function (t) {
     NAPI.createNetwork({}, function (err, res) {
         t.ok(err, 'error returned');
@@ -188,10 +189,11 @@ test('Create network - all invalid parameters', function (t) {
         nic_tag: 'nictag0',
         provision_end_ip: '10.0.1.256',
         provision_start_ip: '10.256.1.255',
-        resolvers: ['10.5.0.256', 'asdf', '2'],
+        resolvers: ['10.5.0.256', 'asdf'],
         routes: 'blah',
         subnet: 'asdf',
-        vlan_id: 'a'
+        vlan_id: 'a',
+        mtu: 'bullwinkle'
     };
 
     NAPI.createNetwork(params, function (err, res) {
@@ -204,6 +206,7 @@ test('Create network - all invalid parameters', function (t) {
         t.deepEqual(err.body, h.invalidParamErr({
             errors: [
                 mod_err.invalidParam('gateway', 'invalid IP address'),
+                mod_err.invalidParam('mtu', MSG.mtu_invalid),
                 mod_err.invalidParam('name', 'must not be empty'),
                 mod_err.invalidParam('nic_tag', 'nic tag does not exist'),
                 mod_err.invalidParam('provision_end_ip', 'invalid IP address'),
@@ -227,7 +230,6 @@ test('Create network - all invalid parameters', function (t) {
 });
 
 
-
 test('Create network - invalid parameters', function (t) {
     // NET_NUM will be the next network number used by h.validNetworkParams():
     var num = h.NET_NUM;
@@ -241,7 +243,7 @@ test('Create network - invalid parameters', function (t) {
         ['subnet', '1.2.3.4/7', 'Subnet bits invalid'],
         ['subnet', '1.2.3.4/33', 'Subnet bits invalid'],
         ['subnet', 'c/32', 'Subnet IP invalid'],
-        ['subnet', 'a/d', 'Subnet IP and bits invalid'],
+        ['subnet', 'a/d', 'Subnet IP invalid'],
 
         ['vlan_id', 'a', constants.VLAN_MSG],
         ['vlan_id', '-1', constants.VLAN_MSG],
@@ -270,10 +272,15 @@ test('Create network - invalid parameters', function (t) {
 
         ['routes', { '10.2.0.0/33': '10.0.1.2' },
             [ '10.2.0.0/33' ],
-            'invalid route']
+            'invalid route'],
+
+        // nic_tag created in test setup should be at default
+        ['mtu', constants.MTU_DEFAULT + 100, MSG.mtu_over_nictag],
+        ['mtu', constants.MTU_NETWORK_MIN - 100, MSG.mtu_invalid],
+        ['mtu', constants.MTU_MAX + 100, MSG.mtu_invalid]
     ];
 
-    vasync.forEachParallel({
+    vasync.forEachPipeline({
         inputs: invalid,
         func: function (data, cb) {
             var toCreate = clone(baseParams);
@@ -287,7 +294,10 @@ test('Create network - invalid parameters', function (t) {
                     return cb();
                 }
 
-                t.equal(err.statusCode, 422, 'status code');
+                t.equal(err.statusCode, 422,
+                    util.format('status code for: %s: %s',
+                    data[0], typeof (data[1]) === 'object' ?
+                    JSON.stringify(data[1]) : data[1]));
                 var invalidErr;
 
                 if (data.length === 3) {
@@ -300,7 +310,9 @@ test('Create network - invalid parameters', function (t) {
                 t.deepEqual(err.body, h.invalidParamErr({
                     errors: [ invalidErr ],
                     message: 'Invalid parameters'
-                }), 'Error body');
+                }), util.format('Error body for: %s: %s',
+                data[0], typeof (data[1]) === 'object' ?
+                JSON.stringify(data[1]) : data[1]));
 
                 return cb();
             });
@@ -338,14 +350,98 @@ test('Create network - provision start IP after end IP', function (t) {
 });
 
 
+test('Create network where mtu nic_tag > network > default', function (t) {
+    var nicTagName = 'ntmax1';
+    var nicTagParams = {
+        name: nicTagName,
+        mtu: constants.MTU_MAX
+    };
+    NAPI.createNicTag(nicTagName, nicTagParams, function (err, nictag) {
+        if (h.ifErr(t, err, 'nic tag creation')) {
+            return t.end();
+        }
+
+        var networkParams = h.validNetworkParams({
+            nic_tag: nicTagName,
+            mtu: constants.MTU_DEFAULT + 1000
+        });
+
+        NAPI.createNetwork(networkParams, function (err2, obj, req, res) {
+            if (h.ifErr(t, err2, 'network creation')) {
+                return t.end();
+            }
+
+            t.equal(res.statusCode, 200, 'status code');
+
+            networkParams.uuid = obj.uuid;
+            networkParams.netmask = '255.255.255.0';
+            networkParams.vlan_id = 0;
+
+            t.deepEqual(obj, networkParams, 'response: network creation'
+                + networkParams.uuid);
+
+            NAPI.getNetwork(obj.uuid, function (err3, res3) {
+                t.ifError(err3);
+
+                t.equal(res3.mtu, networkParams.mtu, 'MTU correct after get');
+                return t.end();
+            });
+        });
+    });
+});
+
+test('Create network where mtu == nic_tag == max', function (t) {
+    var nicTagName = 'nictagmax2';
+    var nicTagParams = {
+        name: nicTagName,
+        mtu: constants.MTU_MAX
+    };
+    NAPI.createNicTag(nicTagName, nicTagParams, function (err, nictag) {
+        if (h.ifErr(t, err, 'nic tag creation')) {
+            return t.end();
+        }
+
+        var networkParams = h.validNetworkParams({
+            nic_tag: nicTagName,
+            mtu: constants.MTU_DEFAULT + 1000
+        });
+
+        NAPI.createNetwork(networkParams, function (err2, obj, req, res) {
+            if (h.ifErr(t, err2, 'network creation')) {
+                return t.end();
+            }
+
+            t.equal(res.statusCode, 200, 'status code');
+
+            networkParams.uuid = obj.uuid;
+            networkParams.netmask = '255.255.255.0';
+            networkParams.vlan_id = 0;
+
+            t.deepEqual(obj, networkParams, 'response: network '
+                + networkParams.uuid);
+
+            NAPI.getNetwork(obj.uuid, function (err3, res3) {
+                t.ifError(err3);
+
+                t.equal(res3.mtu, networkParams.mtu);
+                return t.end();
+            });
+        });
+    });
+});
+
 
 // --- Update tests
 
 
 
 test('Update network', function (t) {
-    var before, expected, nets, p, updateParams;
+    var before;
+    var expected;
+    var nets;
     var num = h.NET_NUM;
+    var p;
+    var updateParams;
     var vals = h.validNetworkParams({
         name: 'updateme',
         provision_start_ip: fmt('10.1.%d.10', num),
@@ -354,151 +450,152 @@ test('Update network', function (t) {
     });
     delete vals.resolvers;
 
-    vasync.pipeline({
-    funcs: [
-        function _getNetworksBefore(_, cb) {
-            // Get the list of networks before creating the new network - these
-            // are added to the workflow parameters so that zone resolvers can
-            // be updated
-            NAPI.listNetworks(function (err, res) {
-                if (h.ifErr(t, err, 'listing networks')) {
-                    return cb(err);
-                }
-
-                nets = res;
-                return cb();
-            });
-
-        }, function _create(_, cb) {
-            NAPI.createNetwork(vals, function (err, res) {
-                if (h.ifErr(t, err, 'creating network')) {
-                    return cb(err);
-                }
-
-                before = res;
-                expected = clone(res);
-                return cb();
-            });
-
-        }, function _firstUpdate(_, cb) {
-            updateParams = {
-                description: 'description here',
-                gateway: fmt('10.1.%d.1', num),
-                owner_uuids: [ mod_uuid.v4() ],
-                resolvers: ['8.8.4.4'],
-                routes: {
-                    '10.2.0.0/16': fmt('10.1.%d.1', num)
-                }
-            };
-
-            for (p in updateParams) {
-                expected[p] = updateParams[p];
+    t.test('store networks from before', function (t2) {
+        // Get the list of networks before creating the new network - these
+        // are added to the workflow parameters so that zone resolvers can
+        // be updated
+        NAPI.listNetworks(function (err, res) {
+            if (h.ifErr(t2, err, 'listing networks')) {
+                return t2.end();
             }
 
-            // First, an update from no value to value
-            NAPI.updateNetwork(before.uuid, updateParams,
-                function (err2, res2) {
-                if (h.ifErr(t, err2, 'updating network')) {
-                    return cb(err2);
-                }
+            nets = res;
+            return t2.end();
+        });
+    });
 
-                t.ok(res2.job_uuid, 'job_uuid present');
-                expected.job_uuid = res2.job_uuid;
-
-                t.deepEqual(res2, expected, 'params updated');
-                delete expected.job_uuid;
-
-                var jobs = h.wfJobs;
-                jobs[0].params.networks.sort(h.uuidSort);
-                t.deepEqual(jobs, [ {
-                    name: 'net-update',
-                    params: {
-                        original_network: before,
-                        target: 'net-update-' + before.uuid,
-                        task: 'update',
-                        networks:
-                            [ expected ].concat(nets).sort(h.uuidSort),
-                        update_params: {
-                            gateway: updateParams.gateway,
-                            resolvers: updateParams.resolvers,
-                            routes: updateParams.routes
-                        }
-                    },
-                    uuid: res2.job_uuid
-                } ], 'params updated');
-                h.wfJobs = [];
-                before = res2;
-                delete before.job_uuid;
-
-                return cb();
-            });
-
-        }, function _secondUpdate(_, cb) {
-            // Now update again to make sure we can go from existing value
-            // to a different value
-            updateParams = {
-                description: 'description 2',
-                gateway: fmt('10.1.%d.2', num),
-                owner_uuids: [ mod_uuid.v4(), mod_uuid.v4() ].sort(),
-                provision_start_ip: fmt('10.1.%d.9', num),
-                provision_end_ip: fmt('10.1.%d.251', num),
-                resolvers: ['8.8.8.8', fmt('10.1.%d.1', num)],
-                routes: {
-                    '10.2.0.0/16': fmt('10.1.%d.2', num),
-                    '10.3.0.0/16': fmt('10.1.%d.2', num)
-                }
-            };
-
-            for (p in updateParams) {
-                expected[p] = updateParams[p];
+    t.test('create', function (t2) {
+        NAPI.createNetwork(vals, function (err, res) {
+            if (h.ifErr(t2, err, 'creating network')) {
+                return t2.end();
             }
 
-            NAPI.updateNetwork(before.uuid, updateParams,
-                function (err3, res3) {
-                if (h.ifErr(t, err3, 'second update')) {
-                    return cb(err3);
-                }
+            before = res;
+            expected = clone(res);
+            return t2.end();
+        });
+    });
 
-                t.ok(res3.job_uuid, 'job_uuid present');
-                expected.job_uuid = res3.job_uuid;
+    t.test('first update', function (t2) {
+        updateParams = {
+            description: 'description here',
+            gateway: fmt('10.1.%d.1', num),
+            owner_uuids: [ mod_uuid.v4() ],
+            resolvers: ['8.8.4.4'],
+            routes: {
+                '10.2.0.0/16': fmt('10.1.%d.1', num)
+            }
+        };
 
-                t.deepEqual(res3, expected, 'params updated');
-                delete expected.job_uuid;
-
-                var jobs = h.wfJobs;
-                jobs[0].params.networks.sort(h.uuidSort);
-                t.deepEqual(jobs, [ {
-                    name: 'net-update',
-                    params: {
-                        original_network: before,
-                        target: 'net-update-' + before.uuid,
-                        task: 'update',
-                        networks:
-                            [ expected ].concat(nets).sort(h.uuidSort),
-                        update_params: {
-                            gateway: updateParams.gateway,
-                            resolvers: updateParams.resolvers,
-                            routes: updateParams.routes
-                        }
-                    },
-                    uuid: res3.job_uuid
-                } ], 'params updated');
-                h.wfJobs = [];
-
-                return cb();
-            });
-        }, function _checkResult(_, cb) {
-            NAPI.getNetwork(before.uuid, function (err4, res4) {
-                if (h.ifErr(t, err4, 'second update')) {
-                    return cb(err4);
-                }
-
-                t.deepEqual(res4, expected, 'params saved');
-                return cb();
-            });
+        for (p in updateParams) {
+            expected[p] = updateParams[p];
         }
-    ] }, function () {
-        return t.end();
+
+        // First, an update from no value to value
+        NAPI.updateNetwork(before.uuid, updateParams,
+            function (err2, res2) {
+            if (h.ifErr(t2, err2, 'updating network')) {
+                return t2.end();
+            }
+
+            t2.ok(res2.job_uuid, 'job_uuid present');
+            expected.job_uuid = res2.job_uuid;
+
+            t2.deepEqual(res2, expected, 'params updated');
+            delete expected.job_uuid;
+
+            var jobs = h.wfJobs;
+            jobs[0].params.networks.sort(h.uuidSort);
+            t2.deepEqual(jobs, [ {
+                name: 'net-update',
+                params: {
+                    original_network: before,
+                    target: 'net-update-' + before.uuid,
+                    task: 'update',
+                    networks:
+                        [ expected ].concat(nets).sort(h.uuidSort),
+                    update_params: {
+                        gateway: updateParams.gateway,
+                        resolvers: updateParams.resolvers,
+                        routes: updateParams.routes
+                    }
+                },
+                uuid: res2.job_uuid
+            } ], 'params updated');
+            h.wfJobs = [];
+            before = res2;
+            delete before.job_uuid;
+
+            return t2.end();
+        });
+    });
+
+    t.test('second update', function (t2) {
+        // Now update again to make sure we can go from existing value
+        // to a different value
+        updateParams = {
+            description: 'description 2',
+            gateway: fmt('10.1.%d.2', num),
+            owner_uuids: [ mod_uuid.v4(), mod_uuid.v4() ].sort(),
+            provision_start_ip: fmt('10.1.%d.9', num),
+            provision_end_ip: fmt('10.1.%d.251', num),
+            resolvers: ['8.8.8.8', fmt('10.1.%d.1', num)],
+            routes: {
+                '10.2.0.0/16': fmt('10.1.%d.2', num),
+                '10.3.0.0/16': fmt('10.1.%d.2', num)
+            },
+            mtu: constants.MTU_DEFAULT - 100
+        };
+
+        for (p in updateParams) {
+            expected[p] = updateParams[p];
+        }
+
+        NAPI.updateNetwork(before.uuid, updateParams,
+            function (err3, res3) {
+            if (h.ifErr(t2, err3, 'second update')) {
+                return t2.end();
+            }
+
+            t2.ok(res3.job_uuid, 'job_uuid present');
+            expected.job_uuid = res3.job_uuid;
+
+            t2.deepEqual(res3, expected, 'params updated');
+            delete expected.job_uuid;
+
+            var jobs = h.wfJobs;
+            jobs[0].params.networks.sort(h.uuidSort);
+            t2.deepEqual(jobs, [ {
+                name: 'net-update',
+                params: {
+                    original_network: before,
+                    target: 'net-update-' + before.uuid,
+                    task: 'update',
+                    networks:
+                        [ expected ].concat(nets).sort(h.uuidSort),
+                    update_params: {
+                        gateway: updateParams.gateway,
+                        resolvers: updateParams.resolvers,
+                        routes: updateParams.routes
+                    }
+                },
+                uuid: res3.job_uuid
+            } ], 'params updated');
+            h.wfJobs = [];
+
+            return t2.end();
+        });
+    });
+
+    t.test('get after second update', function (t2) {
+        NAPI.getNetwork(before.uuid, function (err4, res4) {
+            if (h.ifErr(t2, err4, 'second update')) {
+                return t2.end();
+            }
+
+            t2.deepEqual(res4, expected, 'params saved');
+            return t2.end();
+        });
     });
 });
 
@@ -546,7 +643,7 @@ test('Update provision range', function (t) {
     // moray placeholder record
     function placeholderRec(ip) {
         return {
-            ip: util_ip.aton(ip),
+            ip: ip,
             reserved: false
         };
     }
@@ -554,7 +651,7 @@ test('Update provision range', function (t) {
     // moray placeholder for an admin 'other' IP
     function adminOtherRec(ip) {
         var ser = adminOtherIP(ip);
-        ser.ip = util_ip.aton(ip);
+        ser.ip = ip;
         delete ser.free;
         delete ser.network_uuid;
         return ser;
@@ -563,7 +660,7 @@ test('Update provision range', function (t) {
     // moray placeholder for an admin 'other' IP
     function zoneRec(ip) {
         var ser = zoneIP(ip);
-        ser.ip = util_ip.aton(ip);
+        ser.ip = ip;
         delete ser.free;
         delete ser.network_uuid;
         return ser;
@@ -940,7 +1037,9 @@ test('Update network - unset owner_uuids', function (t) {
         t2.ok(obj, 'Have moray obj');
 
         if (obj) {
-            t2.equal(obj.owner_uuids, ',' + owners.join(',') + ',');
+            t2.equal(obj.owner_uuids, ',' + owners.join(',') + ',',
+                'owner_uuids');
+            t2.deepEqual(obj.owner_uuids_arr, owners, 'owner_uuids_arr');
         }
 
         return t2.end();
@@ -960,9 +1059,9 @@ test('Update network - unset owner_uuids', function (t) {
 
     t.test('get after create', function (t2) {
         mod_net.get(t2, {
-            uuid: exp.uuid,
             params: {
-                provisionable_by: owners[1]
+                provisionable_by: owners[1],
+                uuid: exp.uuid
             },
             exp: exp
         });
@@ -972,9 +1071,9 @@ test('Update network - unset owner_uuids', function (t) {
         delete exp.owner_uuids;
 
         mod_net.updateAndGet(t2, {
-            uuid: exp.uuid,
             params: {
-                owner_uuids: []
+                owner_uuids: [],
+                uuid: exp.uuid
             },
             exp: exp
         });
@@ -987,6 +1086,8 @@ test('Update network - unset owner_uuids', function (t) {
 
         if (obj) {
             t2.ok(!obj.hasOwnProperty('owner_uuids'),
+                'no owner_uuids property');
+            t2.ok(!obj.hasOwnProperty('owner_uuids_arr'),
                 'no owner_uuids property');
         }
 
@@ -1007,9 +1108,9 @@ test('Update network - unset owner_uuids', function (t) {
 
     t.test('get after update', function (t2) {
         mod_net.get(t2, {
-            uuid: exp.uuid,
             params: {
-                provisionable_by: owners[1]
+                provisionable_by: owners[1],
+                uuid: exp.uuid
             },
             exp: exp
         });
@@ -1038,6 +1139,8 @@ test('Update network - unset owner_uuids', function (t) {
         if (obj) {
             t2.ok(!obj.hasOwnProperty('owner_uuids'),
                 'no owner_uuids property');
+            t2.ok(!obj.hasOwnProperty('owner_uuids_arr'),
+                'no owner_uuids_arr property');
         }
 
         return t2.end();
@@ -1045,9 +1148,9 @@ test('Update network - unset owner_uuids', function (t) {
 
     t.test('list after empty create', function (t2) {
         mod_net.get(t2, {
-            uuid: exp.uuid,
             params: {
-                provisionable_by: owners[1]
+                provisionable_by: owners[1],
+                uuid: exp.uuid
             },
             exp: exp
         });
@@ -1055,9 +1158,9 @@ test('Update network - unset owner_uuids', function (t) {
 
     t.test('get after empty create', function (t2) {
         mod_net.get(t2, {
-            uuid: exp.uuid,
             params: {
-                provisionable_by: owners[1]
+                provisionable_by: owners[1],
+                uuid: exp.uuid
             },
             exp: exp
         });
@@ -1068,9 +1171,9 @@ test('Update network - unset owner_uuids', function (t) {
         obj.owner_uuids = ',,';
 
         mod_net.get(t2, {
-            uuid: exp.uuid,
             params: {
-                provisionable_by: owners[1]
+                provisionable_by: owners[1],
+                uuid: exp.uuid
             },
             exp: exp
         });

@@ -6,20 +6,27 @@
 #
 
 #
-# Copyright (c) 2014, Joyent, Inc.
+# Copyright (c) 2015, Joyent, Inc.
 #
 
 TOP=$(unset CDPATH; cd $(dirname $0)/../; pwd)
-NODE_INSTALL=${TOP}/node
+NODE=${TOP}/node/bin/node
+NAPI_CFG=${TOP}/config.json
 BUNYAN=${TOP}/node_modules/.bin/bunyan
 
-if [[ ! -d "${NODE_INSTALL}" && -d "${TOP}/build/node" ]]; then
+if [[ ! -x "${NODE}" && -d "${TOP}/build/node" ]]; then
     # Dev/repo layout.
-    NODE_INSTALL=${TOP}/build/node
+    NODE=${TOP}/build/node/bin/node
+else
+    if [[ ! -e ${NAPI_CFG} ]]; then
+        # We're not in the NAPI zone - just fall back to whatever node's
+        # in PATH:
+        NODE=node
+    fi
 fi
 
 [[ "$1" == "log" ]] && ${BUNYAN} $(svcs -L napi) && exit 0
 [[ "$1" == "lastlog" ]] && tail -n 20 $(svcs -L napi) | ${BUNYAN} && exit 0
 [[ "$1" == "tail" ]] && exec tail -f $(svcs -L napi) | ${BUNYAN}
 
-${NODE_INSTALL}/bin/node ${TOP}/lib/napictl.js "$@"
+${NODE} ${TOP}/lib/napictl.js "$@"

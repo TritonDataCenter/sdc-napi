@@ -13,7 +13,9 @@
  */
 
 var assert = require('assert-plus');
+var fmt = require('util').format;
 var clone = require('clone');
+var constants = require('../../lib/util/constants');
 var mod_err = require('../../lib/util/errors');
 var mod_uuid = require('node-uuid');
 var NAPI = require('sdc-clients').NAPI;
@@ -93,9 +95,23 @@ function afterAPIcall(t, opts, callback, err, obj, _, res) {
     t.equal(res.statusCode, 200, 'status code' + desc);
 
     if (opts.exp) {
+        // For creates, the server will generate an ID (usually a UUID) if
+        // it's not set in the request.  Copy this over to the expected
+        // object so that we don't have to set it manually:
         if (opts.hasOwnProperty('idKey') &&
             !opts.exp.hasOwnProperty(opts.idKey)) {
             opts.exp[opts.idKey] = obj[opts.idKey];
+        }
+
+        // Allow filling in values that might be generated before doing the
+        // deepEqual below:
+        if (opts.hasOwnProperty('fillIn')) {
+            opts.fillIn.forEach(function (prop) {
+                if (!opts.exp.hasOwnProperty(prop) &&
+                    obj.hasOwnProperty(prop)) {
+                    opts.exp[prop] = obj[prop];
+                }
+            });
         }
 
         t.deepEqual(obj, opts.exp, type + 'full result' + desc);
@@ -139,6 +155,12 @@ function afterAPIdelete(t, opts, callback, err, obj, req, res) {
         return done(err, null, opts, t, callback);
     }
 
+    // mightNotExist allows for calling mod_whatever.dellAllCreated() when
+    // some of the created objects were actually deleted during the test:
+    if (opts.mightNotExist && err && err.restCode === 'ResourceNotFound') {
+        return done(null, obj, opts, t, callback);
+    }
+
     if (ifErr(t, err, type + desc)) {
         return done(err, null, opts, t, callback);
     }
@@ -146,6 +168,95 @@ function afterAPIdelete(t, opts, callback, err, obj, req, res) {
     t.equal(res.statusCode, 204, type + 'status code' + desc);
 
     return done(null, obj, opts, t, callback);
+}
+
+
+/**
+ * Shared test code for after API list methods are called
+ */
+function afterAPIlist(t, opts, callback, err, obj, _, res) {
+    assert.string(opts.type, 'opts.type');
+    assert.string(opts.id, 'opts.id');
+
+    var desc = opts.desc ? (' ' + opts.desc) : '';
+    var id = opts.id;
+    var type = opts.type;
+
+    if (opts.expErr) {
+        t.ok(err, type + 'expected error' + desc);
+        if (err) {
+            var code = opts.expCode || 422;
+            t.equal(err.statusCode, code, type + 'status code' + desc);
+            t.deepEqual(err.body, opts.expErr, type + 'error body' + desc);
+        }
+
+        return done(err, null, opts, t, callback);
+    }
+
+    if (ifErr(t, err, type + desc)) {
+        return done(err, null, opts, t, callback);
+    }
+
+    t.equal(res.statusCode, 200, 'status code' + desc);
+    t.ok(true, obj.length + ' results returned' + desc);
+
+    if (opts.present) {
+        var left = clone(opts.present);
+        var ids = left.map(function (o) { return o[id]; });
+        var present = clone(ids);
+
+        for (var n in obj) {
+            var resObj = obj[n];
+            var idx = ids.indexOf(resObj[id]);
+            if (idx !== -1) {
+                var expObj = left[idx];
+                var partialRes = {};
+                for (var p in expObj) {
+                    partialRes[p] = resObj[p];
+                }
+
+                t.deepEqual(partialRes, expObj,
+                    'partial result for ' + resObj[id] + desc);
+
+                ids.splice(idx, 1);
+                left.splice(idx, 1);
+            }
+        }
+
+        t.deepEqual(ids, [],
+            'found ' + type + 's not specified in opts.present ' + desc);
+
+        if (ids.length !== 0) {
+            t.deepEqual(present, [], 'IDs in present list');
+        }
+    }
+
+    return done(null, obj, opts, t, callback);
+}
+
+
+/**
+ * Gets all of the created objects of the given type
+ */
+function allCreated(type) {
+    return CREATED[type] || [];
+}
+
+
+/**
+ * Assert the arguments to one of the helper functions are correct
+ */
+function assertArgs(t, opts, callback) {
+    assert.object(t, 't');
+    assert.object(opts, 'opts');
+    assert.optionalObject(opts.exp, 'opts.exp');
+    assert.optionalObject(opts.expErr, 'opts.expErr');
+    assert.optionalObject(opts.partialExp, 'opts.partialExp');
+    assert.ok(opts.exp || opts.partialExp || opts.expErr,
+        'one of exp, expErr, partialExp required');
+    assert.object(opts.params, 'opts.params');
+    assert.optionalObject(opts.state, 'opts.state');
+    assert.optionalFunc(callback, 'callback');
 }
 
 
@@ -232,7 +343,7 @@ function invalidParamErr(extra) {
 
     var newErr = {
         code: 'InvalidParameters',
-        message: mod_err.msg.invalidParam
+        message: constants.msg.INVALID_PARAMS
     };
 
     for (var e in extra) {
@@ -293,6 +404,23 @@ function randomMAC() {
 }
 
 
+/**
+ * Generate request opts
+ */
+function requestOpts(t, desc) {
+    var reqId = mod_uuid.v4();
+    t.ok(reqId, fmt('req ID: %s%s', reqId, (desc ? ': ' + desc : '')));
+
+    return { headers: { 'x-request-id': reqId } };
+}
+
+
+/**
+ * Sort by uuid property
+ */
+function uuidSort(a, b) {
+    return (a.uuid > b.uuid) ? 1 : -1;
+}
 
 
 
@@ -300,6 +428,9 @@ module.exports = {
     addToState: addToState,
     afterAPIcall: afterAPIcall,
     afterAPIdelete: afterAPIdelete,
+    afterAPIlist: afterAPIlist,
+    allCreated: allCreated,
+    assertArgs: assertArgs,
     createClient: createClient,
     doneErr: doneErr,
     doneRes: doneRes,
@@ -307,5 +438,7 @@ module.exports = {
     invalidParamErr: invalidParamErr,
     lastCreated: lastCreated,
     missingParamErr: missingParamErr,
-    randomMAC: randomMAC
+    randomMAC: randomMAC,
+    reqOpts: requestOpts,
+    uuidSort: uuidSort
 };

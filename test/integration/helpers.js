@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright (c) 2015, Joyent, Inc.
  */
 
 /*
@@ -14,11 +14,12 @@
 
 var assert = require('assert');
 var bunyan = require('bunyan');
-var config = require('../../lib/config');
 var common = require('../lib/common');
+var config = require('../lib/config');
 var fmt = require('util').format;
 var fs = require('fs');
 var mod_client = require('../lib/client');
+var mod_net = require('../lib/net');
 var path = require('path');
 var util = require('util');
 var util_ip = require('../../lib/util/ip');
@@ -30,14 +31,11 @@ var vasync = require('vasync');
 
 
 
+var ADMIN_UUID;
 // 198.18.0.0/15 is supposed to be used for benchmarking network devices,
 // according to RFC 2544, and therefore shouldn't be used for anything:
 var TEST_NET_FMT = '198.18.%d.%d';
 var TEST_NET_PFX = '198.18.%d.';
-var NIC_NET_PARAMS = ['gateway', 'netmask', 'vlan_id', 'nic_tag', 'resolvers',
-    'routes'];
-var CONFIG_FILE = path.normalize(__dirname + '/../../config.json');
-var CONF = config.load(CONFIG_FILE);
 var DEFAULT_NIC_TAG = 'int_test_' + process.pid;
 var NET_NUM = 0;
 
@@ -51,22 +49,18 @@ var NET_NUM = 0;
  * Add network parameters from state.network to a nic
  */
 function addNetParamsToNic(state, params) {
-    NIC_NET_PARAMS.forEach(function (n) {
-        if (state.network.hasOwnProperty(n)) {
-            params[n] = state.network[n];
-        }
-    });
-
-    params.network_uuid = state.network.uuid;
+    mod_net.addNetParams(state.network, params);
 }
 
 
 /**
- * Create a NAPI client pointed at the local zone's NAPI (with a req_id for
- * tracking requests)
+ * Create a NAPI client, with a req_id for tracking requests.
+ *
+ * If the NAPI_HOST and NAPI_PORT environment variables are set, use the host
+ * specified by them.  Otherwise, use the local zone's NAPI.
  */
 function createNAPIclient(t) {
-    var client = common.createClient('http://localhost:' + CONF.port, t);
+    var client = common.createClient(config.napi.host, t);
     if (!mod_client.initialized()) {
         mod_client.set(client);
     }
@@ -258,11 +252,17 @@ function createNetwork(t, napi, state, extraParams, targetName, callback) {
 
         t.ok(res.uuid, 'test network uuid: ' + res.uuid);
 
-        params.uuid = res.uuid;
+        if (!params.mtu) {
+            params.mtu = res.mtu;
+        }
+
         if (!params.resolvers) {
             params.resolvers = [];
         }
+
         params.netmask = util_ip.bitsToNetmask(params.subnet.split('/')[1]);
+        params.uuid = res.uuid;
+
         t.deepEqual(res, params, 'parameters returned for network ' + res.uuid);
         if (targetName) {
             state[targetName] = res;
@@ -311,7 +311,32 @@ function doneWithError(t, err, desc) {
     if (err.body.hasOwnProperty('errors')) {
         t.deepEqual(err.body.errors, {}, 'display body errors');
     }
+
     return t.end();
+}
+
+
+/**
+ * Load the UFDS admin UUID - cheat by grabbing the first owner_uuid of the
+ * admin network.
+ */
+function loadUFDSadminUUID(t, callback) {
+    var client = createNAPIclient(t);
+
+    client.getNetwork('admin', function (err, res) {
+        if (common.ifErr(t, err, 'get admin network')) {
+            return t.end();
+        }
+
+        ADMIN_UUID = res.owner_uuids[0];
+        t.ok(ADMIN_UUID, 'admin UUID: ' + ADMIN_UUID);
+
+        if (callback) {
+            return callback(ADMIN_UUID);
+        }
+
+        return t.end();
+    });
 }
 
 
@@ -364,9 +389,18 @@ module.exports = {
     get lastNetPrefix() {
         return fmt(TEST_NET_PFX, NET_NUM - 1);
     },
-    nicNetParams: NIC_NET_PARAMS,
+    loadUFDSadminUUID: loadUFDSadminUUID,
     randomMAC: common.randomMAC,
+    reqOpts: common.reqOpts,
     similar: similar,
-    ufdsAdminUuid: CONF.ufdsAdminUuid,
+    get ufdsAdminUuid() {
+        if (!ADMIN_UUID) {
+            throw new Error(
+                'UFDS admin UUID undefined! ' +
+                'Have you run helpers.loadUFDSadminUUID()?');
+        }
+
+        return ADMIN_UUID;
+    },
     validNetworkParams: validNetworkParams
 };

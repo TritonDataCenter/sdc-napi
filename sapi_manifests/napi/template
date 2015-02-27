@@ -9,6 +9,10 @@
     "logLevel": "info",
     "port": 2020
   },
+  "overlay": {
+      "overlayNicTag": "sdc_overlay",
+      "underlayNicTag": "{{{sdc_underlay_tag}}}"
+  },
   "ufdsAdminUuid": "{{{ufds_admin_uuid}}}",
   "wfapi": {
     "forceReplace": true,
