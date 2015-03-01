@@ -162,7 +162,7 @@ function FakeMoray(opts) {
     assert.object(opts.log, 'opts.log');
 
     this.log = opts.log.child({ component: 'mock-moray' });
-    this._version = opts.version || 1;
+    this._version = opts.version || 2;
     BUCKET_VALUES = {};
     EventEmitter.call(this);
 }
@@ -426,10 +426,16 @@ FakeMoray.prototype.putObject =
 };
 
 
+FakeMoray.prototype.reindexObjects =
+        function reindexObjects(bucket, count, opts, callback) {
+    return callback(null, { processed: 0 });
+};
+
+
 FakeMoray.prototype.sql = function sql(str) {
     // Mock out PG's gap detection and subnet filtering
 
-    if (/inet\(/.test(str)) {
+    if (/subnet >> inet\(/.test(str)) {
         // This is from the network overlap detection code: just return an
         // EventEmitter that immediately ends (as if there were no overlapping
         // networks found):
@@ -444,8 +450,8 @@ FakeMoray.prototype.sql = function sql(str) {
     /* BEGIN JSSTYLED */
     var bucket = str.match(/from ([a-z0-9_]+)/);
     var limit = str.match(/limit (\d+)/) || undefined;
-    var minIP = str.match(/>= '([a-f0-9.:]+)'/);
-    var maxIP = str.match(/<= '([a-f0-9.:]+)'/);
+    var minIP = str.match(/>= inet\('([a-f0-9.:]+)'/);
+    var maxIP = str.match(/<= inet\('([a-f0-9.:]+)'/);
     var min = str.match(/>= (\d+)/);
     var max  = str.match(/<= (\d+)/);
     var subnet = str.match(/<< inet('([a-f0-9.:/]+)')/);
