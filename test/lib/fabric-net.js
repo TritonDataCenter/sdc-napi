@@ -221,7 +221,7 @@ function lastCreatedFabricNet() {
 /**
  * List fabric networks
  */
-function list(t, opts, callback) {
+function listFabricNets(t, opts, callback) {
     assert.object(t, 't');
     assert.object(opts, 'opts');
     assert.optionalArrayOfObject(opts.present, 'opts.present');
@@ -290,7 +290,7 @@ module.exports = {
     generateName: generateNetworkName,
     get: getFabricNet,
     lastCreated: lastCreatedFabricNet,
-    list: list,
+    list: listFabricNets,
     nicTag: fabricNetworkNicTag,
     update: updateFabricNetwork,
     updateAndGet: updateAndGet

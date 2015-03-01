@@ -20,10 +20,8 @@ var constants = require('../../lib/util/constants');
 var fs = require('fs');
 var EventEmitter = require('events').EventEmitter;
 var ldapjs = require('ldapjs');
-var mock_moray = require('../lib/mock-moray');
 var mod_client = require('../lib/client');
-var mod_uuid = require('node-uuid');
-var NAPI = require('../../lib/napi').NAPI;
+var mod_server = require('../lib/server');
 var restify = require('restify');
 var util = require('util');
 var util_ip = require('../../lib/util/ip');
@@ -35,38 +33,9 @@ var verror = require('verror');
 
 
 
-var JOBS = [];
 var NET_NUM = 2;
 var NET_IPS = {};
 var SERVER;
-var SERVER_URL;
-
-
-
-// --- Fake workflow client object
-
-
-
-function FakeWFclient(opts) {
-    assert.object(opts, 'opts');
-    assert.object(opts.log, 'opts.log');
-
-    this.log = opts.log;
-}
-
-
-FakeWFclient.prototype.createJob = function createJob(name, params, callback) {
-    var uuid = mod_uuid.v4();
-    JOBS.push({
-        uuid: uuid,
-        name: name,
-        params: params
-    });
-
-    process.nextTick(function () {
-        return callback(null, { uuid: uuid });
-    });
-};
 
 
 
@@ -97,42 +66,12 @@ function createClient(t) {
  * Creates a test NAPI server, and returns a client for accessing it
  */
 function createClientAndServer(callback) {
-    var log = require('bunyan').createLogger({
-        name: 'napi-test-server',
-        serializers: bunyan.stdSerializers,
-        streams: [
-            {
-                level: process.env.LOG_LEVEL || 'fatal',
-                stream: process.stderr
-            }
-        ],
-        src: true
+    mod_server._create({
+        unitTest: true
+    }, function (err, res) {
+        SERVER = res.server;
+        return callback(null, res.client);
     });
-
-    var server = new NAPI({
-        config: JSON.parse(fs.readFileSync(__dirname + '/test-config.json')),
-        log: log
-    });
-
-    server.initialDataLoaded = true;
-    server.moray = new mock_moray.FakeMoray({ log: log });
-    server.wfapi = new FakeWFclient({ log: log });
-
-    server.on('initialized', function () {
-        server.start(function (err) {
-            if (err) {
-                return callback(err);
-            }
-
-            SERVER = server;
-            var client = createClient();
-            mod_client.set(client);
-
-            return callback(null, client);
-        });
-    });
-
-    server.init();
 }
 
 
@@ -141,6 +80,14 @@ function createClientAndServer(callback) {
  */
 function fieldSort(a, b) {
     return (a.field > b.field) ? 1 : -1;
+}
+
+
+/**
+ * Sorts a list by IP fields
+ */
+function ipSort(a, b) {
+    return (a.ip > b.ip) ? 1 : -1;
 }
 
 
@@ -257,6 +204,7 @@ module.exports = {
     fieldSort: fieldSort,
     ifErr: common.ifErr,
     invalidParamErr: common.invalidParamErr,
+    ipSort: ipSort,
     missingParamErr: common.missingParamErr,
     missingParam: missingParam,
     nextProvisionableIP: nextProvisionableIP,
@@ -272,11 +220,5 @@ module.exports = {
     uuidSort: common.uuidSort,
     validIPparams: validIPparams,
     validNicparams: validNicparams,
-    validNetworkParams: validNetworkParams,
-    get wfJobs() {
-        return JOBS;
-    },
-    set wfJobs(val) {
-        JOBS = val;
-    }
+    validNetworkParams: validNetworkParams
 };

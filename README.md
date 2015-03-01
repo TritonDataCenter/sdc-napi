@@ -5,7 +5,7 @@
 -->
 
 <!--
-    Copyright (c) 2014, Joyent, Inc.
+    Copyright (c) 2015, Joyent, Inc.
 -->
 
 # sdc-napi
@@ -157,6 +157,10 @@ To run an individual test:
 
     ./test/runtest ./test/unit/testname.test.js
 
+To run an individual test with more verbose logging:
+
+    LOG_LEVEL=debug ./test/runtest ./test/unit/testname.test.js
+
 
 ## Running integration tests
 
@@ -169,6 +173,11 @@ Or to run an individual integration test:
 
     sdc-login napi
     /opt/smartdc/napi/test/runtest /opt/smartdc/napi/test/integration/testname.test.js
+
+To run the integration tests from a different host:
+
+    NAPI_HOST=10.99.99.10 test/runtests
+    NAPI_HOST=10.99.99.10 node test/integration/testname.test.js
 
 
 ## Writing tests

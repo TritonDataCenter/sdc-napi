@@ -12,7 +12,9 @@
  * Integration tests for /networks/:uuid/ips endpoints
  */
 
+var common = require('../lib/common');
 var h = require('./helpers');
+var mod_ip = require('../lib/ip');
 var mod_net = require('../lib/net');
 var test = require('tape');
 var util = require('util');
@@ -159,37 +161,34 @@ test('PUT /networks/:uuid/ips/:ip', function (t) {
 
 
 test('GET /networks/:uuid/ips', function (t) {
-    napi.listIPs(state.networks[0].uuid, function (err, res) {
-        if (err) {
-            return h.doneWithError(err, 'listing IPs');
-        }
+    var broadcastIP = {
+        belongs_to_type: 'other',
+        belongs_to_uuid: uuids.admin,
+        free: false,
+        ip: IPS.broadcast,
+        network_uuid: state.networks[0].uuid,
+        owner_uuid: uuids.admin,
+        reserved: true
+    };
 
-        var broadcastIP = {
-            belongs_to_type: 'other',
-            belongs_to_uuid: uuids.admin,
-            free: false,
-            ip: IPS.broadcast,
-            network_uuid: state.networks[0].uuid,
-            owner_uuid: uuids.admin,
-            reserved: true
-        };
+    var before = {
+        free: true,
+        ip: '10.1.1.4',
+        network_uuid: state.networks[0].uuid,
+        reserved: false
+    };
 
-        var before = {
-            free: true,
-            ip: '10.1.1.4',
-            network_uuid: state.networks[0].uuid,
-            reserved: false
-        };
+    var after = {
+        free: true,
+        ip: '10.1.1.251',
+        network_uuid: state.networks[0].uuid,
+        reserved: false
+    };
 
-        var after = {
-            free: true,
-            ip: '10.1.1.251',
-            network_uuid: state.networks[0].uuid,
-            reserved: false
-        };
-
-        t.deepEqual(res, [ before, state.ip, after, broadcastIP ], 'IP list');
-        return t.end();
+    mod_ip.list(t, {
+        deepEqual: true,
+        net: state.networks[0].uuid,
+        present: [ before, state.ip, after, broadcastIP ]
     });
 });
 
@@ -213,7 +212,7 @@ test('PUT /networks/:uuid/ips/:ip (free an IP)', function (t) {
             t.deepEqual(res, params, 'freeing an IP');
 
             return napi.getIP(state.networks[0].uuid, params.ip,
-                function (err2, res2) {
+                    common.reqOpts(t), function (err2, res2) {
                 t.ifError(err2, 'getting free IP: ' + IPS.zone);
                 if (err2) {
                     return cb(err2);
