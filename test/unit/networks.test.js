@@ -19,6 +19,7 @@ var constants = require('../../lib/util/constants');
 var fmt = require('util').format;
 var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
+var mod_ip = require('../../lib/models/ip');
 var mod_moray = require('../lib/moray');
 var mod_net = require('../lib/net');
 var mod_nic = require('../lib/nic');
@@ -665,6 +666,7 @@ test('Update provision range', function (t) {
         delete ser.network_uuid;
         if (USE_STRINGS) {
             ser.use_strings = true;
+            ser.v = mod_ip.BUCKET.version;
         }
         return ser;
     }
@@ -679,6 +681,7 @@ test('Update provision range', function (t) {
         delete ser.network_uuid;
         if (USE_STRINGS) {
             ser.use_strings = true;
+            ser.v = mod_ip.BUCKET.version;
         }
         return ser;
     }
@@ -693,6 +696,7 @@ test('Update provision range', function (t) {
         delete ser.network_uuid;
         if (USE_STRINGS) {
             ser.use_strings = true;
+            ser.v = mod_ip.BUCKET.version;
         }
         return ser;
     }
