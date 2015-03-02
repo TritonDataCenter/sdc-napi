@@ -12,7 +12,9 @@
  * Test configuration
  */
 
+var clone = require('clone');
 var fmt = require('util').format;
+var fs = require('fs');
 
 
 
@@ -28,17 +30,21 @@ var NAPI_PORT = process.env.NAPI_PORT || 80;
 // --- Exports
 
 
+
 // XXX: Allow overriding these values with config.json!
 var CONFIG = {
     moray: {
         host: process.env.MORAY_HOST || '10.99.99.17',
+        logLevel: process.env.LOG_LEVEL || 'fatal',
         port: process.env.MORAY_PORT || 2020
     },
     napi: {
         host: fmt('http://%s:%d', NAPI_HOST, NAPI_PORT)
-    }
+    },
+    server: JSON.parse(fs.readFileSync(__dirname + '/../unit/test-config.json'))
 };
 
+CONFIG.server.moray = clone(CONFIG.moray);
 
 
 module.exports = CONFIG;

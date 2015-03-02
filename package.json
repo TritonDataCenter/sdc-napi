@@ -1,6 +1,6 @@
 {
   "name": "napi",
-  "description": "Network Provisioning API",
+  "description": "SmartDataCenter Networking API",
   "version": "1.2.0",
   "author": "Joyent (joyent.com)",
   "private": true,
@@ -24,7 +24,8 @@
   "devDependencies": {
     "async": "0.1.22",
     "crc": "0.2.1",
-    "ldapjs": "0.5.7"
+    "ldapjs": "0.5.7",
+    "xtend": "4.0.0"
   },
   "scripts": {
     "start": "./sbin/napid",

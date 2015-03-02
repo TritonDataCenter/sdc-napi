@@ -29,6 +29,7 @@ var doneErr = common.doneErr;
 
 
 var NUM = 0;
+var TYPE = 'nic_tag';
 
 
 
@@ -39,7 +40,7 @@ var NUM = 0;
 /**
  * Create a nic tag
  */
-function create(t, opts, callback) {
+function createTag(t, opts, callback) {
     var client = opts.client || mod_client.get();
 
     assert.object(t, 't');
@@ -54,7 +55,7 @@ function create(t, opts, callback) {
     }
 
     opts.reqType = 'create';
-    opts.type = 'nic_tag';
+    opts.type = TYPE;
     log.debug({ tagName: name }, 'creating nic tag');
 
     client.createNicTag(name,
@@ -65,14 +66,14 @@ function create(t, opts, callback) {
 /**
  * Delete a nic tag
  */
-function del(t, opts, callback) {
+function delTag(t, opts, callback) {
     var client = opts.client || mod_client.get();
 
     assert.object(t, 't');
     assert.string(opts.name, 'opts.name');
     assert.optionalObject(opts.expErr, 'opts.expErr');
 
-    opts.type = 'nic_tag';
+    opts.type = TYPE;
     opts.id = opts.name;
     var params = opts.params || {};
 
@@ -89,9 +90,37 @@ function lastCreated() {
 }
 
 
+/**
+ * List nic tags
+ */
+function listTags(t, opts, callback) {
+    assert.object(t, 't');
+    assert.object(opts, 'opts');
+    assert.optionalBool(opts.deepEqual, 'opts.deepEqual');
+    assert.optionalArrayOfObject(opts.present, 'opts.present');
+
+    var client = opts.client || mod_client.get();
+    var params = opts.params || {};
+    var desc = ' ' + JSON.stringify(params)
+        + (opts.desc ? (' ' + opts.desc) : '');
+
+    if (!opts.desc) {
+        opts.desc = desc;
+    }
+    opts.id = 'name';
+    opts.type = TYPE;
+
+    log.debug({ params: params }, 'list nic tags');
+
+    client.listNicTags(params, common.reqOpts(t, opts.desc),
+        common.afterAPIlist.bind(null, t, opts, callback));
+}
+
+
 
 module.exports = {
-    create: create,
-    del: del,
-    lastCreated: lastCreated
+    create: createTag,
+    del: delTag,
+    lastCreated: lastCreated,
+    list: listTags
 };

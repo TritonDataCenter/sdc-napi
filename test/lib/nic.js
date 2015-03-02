@@ -204,6 +204,33 @@ function lastCreatedNic() {
 
 
 /**
+ * List networks
+ */
+function listNics(t, opts, callback) {
+    assert.object(t, 't');
+    assert.object(opts, 'opts');
+    assert.optionalBool(opts.deepEqual, 'opts.deepEqual');
+    assert.optionalArrayOfObject(opts.present, 'opts.present');
+
+    var client = opts.client || mod_client.get();
+    var params = opts.params || {};
+    var desc = ' ' + JSON.stringify(params)
+        + (opts.desc ? (' ' + opts.desc) : '');
+
+    if (!opts.desc) {
+        opts.desc = desc;
+    }
+    opts.id = 'mac';
+    opts.type = TYPE;
+
+    log.debug({ params: params }, 'list networks');
+
+    client.listNics(params, common.reqOpts(t, opts.desc),
+        common.afterAPIlist.bind(null, t, opts, callback));
+}
+
+
+/**
  * Provision a nic and compare the output
  */
 function provisionNic(t, opts, callback) {
@@ -264,6 +291,7 @@ module.exports = {
     del: delNic,
     get: getNic,
     lastCreated: lastCreatedNic,
+    list: listNics,
     provision: provisionNic,
     update: updateNic,
     updateAndGet: updateAndGet

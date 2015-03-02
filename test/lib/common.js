@@ -208,6 +208,7 @@ function afterAPIlist(t, opts, callback, err, obj, _, res) {
         var left = clone(opts.present);
         var ids = left.map(function (o) { return o[id]; });
         var present = clone(ids);
+        var notInPresent = [];
 
         for (var n in obj) {
             var resObj = obj[n];
@@ -219,11 +220,19 @@ function afterAPIlist(t, opts, callback, err, obj, _, res) {
                     partialRes[p] = resObj[p];
                 }
 
-                t.deepEqual(partialRes, expObj,
-                    'partial result for ' + resObj[id] + desc);
+                if (opts.deepEqual) {
+                    t.deepEqual(resObj, expObj,
+                        'full result for ' + resObj[id] + desc);
+
+                } else {
+                    t.deepEqual(partialRes, expObj,
+                        'partial result for ' + resObj[id] + desc);
+                }
 
                 ids.splice(idx, 1);
                 left.splice(idx, 1);
+            } else {
+                notInPresent.push(resObj);
             }
         }
 
@@ -232,6 +241,10 @@ function afterAPIlist(t, opts, callback, err, obj, _, res) {
 
         if (ids.length !== 0) {
             t.deepEqual(present, [], 'IDs in present list');
+        }
+
+        if (opts.deepEqual) {
+            t.deepEqual(notInPresent, [], 'IDs not in present list');
         }
     }
 

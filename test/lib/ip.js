@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright (c) 2015, Joyent, Inc.
  */
 
 /*
@@ -13,6 +13,7 @@
  */
 
 var assert = require('assert-plus');
+var clone = require('clone');
 var common = require('./common');
 var log = require('./log');
 var mod_client = require('./client');
@@ -22,14 +23,35 @@ var doneErr = common.doneErr;
 
 
 
+// --- Globals
+
+
+
+var TYPE = 'ip';
+
+
+
 // --- Exports
 
 
 
 /**
+ * Return a free IP record
+ */
+function freeIPrecord(net, ip) {
+    return {
+        ip: ip,
+        free: true,
+        network_uuid: net,
+        reserved: false
+    };
+}
+
+
+/**
  * Get an IP and compare the output
  */
-function get(t, opts, callback) {
+function getIP(t, opts, callback) {
     var client = opts.client || mod_client.get();
     var desc = opts.desc ? (' ' + opts.desc) : '';
 
@@ -50,9 +72,38 @@ function get(t, opts, callback) {
 
 
 /**
+ * List fabric networks
+ */
+function listIPs(t, opts, callback) {
+    assert.object(t, 't');
+    assert.object(opts, 'opts');
+    assert.string(opts.net, 'opts.net');
+    assert.optionalBool(opts.deepEqual, 'opts.deepEqual');
+    assert.optionalArrayOfObject(opts.present, 'opts.present');
+
+    var client = opts.client || mod_client.get();
+    var desc = ' ' + JSON.stringify(opts.params)
+        + (opts.desc ? (' ' + opts.desc) : '');
+    var params = clone(opts.params);
+
+    if (!opts.desc) {
+        opts.desc = desc;
+    }
+
+    opts.type = TYPE;
+    opts.id = 'ip';
+
+    log.debug({ params: params, net: opts.net }, 'list IPs');
+
+    client.listIPs(opts.net, params, common.reqOpts(t, opts.desc),
+        common.afterAPIlist.bind(null, t, opts, callback));
+}
+
+
+/**
  * Update an IP and compare the output
  */
-function update(t, opts, callback) {
+function updateIP(t, opts, callback) {
     var client = opts.client || mod_client.get();
     var desc = opts.desc ? (' ' + opts.desc) : '';
 
@@ -75,6 +126,8 @@ function update(t, opts, callback) {
 
 
 module.exports = {
-    get: get,
-    update: update
+    get: getIP,
+    freeIP: freeIPrecord,
+    list: listIPs,
+    update: updateIP
 };

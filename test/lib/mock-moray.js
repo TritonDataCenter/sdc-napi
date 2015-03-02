@@ -285,6 +285,11 @@ FakeMoray.prototype.batch = function _batch(data, callback) {
 };
 
 
+FakeMoray.prototype.close = function morayClose() {
+    return;
+};
+
+
 FakeMoray.prototype.createBucket =
     function createBucket(bucket, schema, callback) {
 

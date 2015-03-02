@@ -23,6 +23,7 @@ var mod_moray = require('../lib/moray');
 var mod_net = require('../lib/net');
 var mod_nic = require('../lib/nic');
 var mod_uuid = require('node-uuid');
+var mod_wf = require('../lib/mock-wf');
 var test = require('tape');
 var util = require('util');
 var util_ip = require('../../lib/util/ip');
@@ -505,7 +506,7 @@ test('Update network', function (t) {
             t2.deepEqual(res2, expected, 'params updated');
             delete expected.job_uuid;
 
-            var jobs = h.wfJobs;
+            var jobs = mod_wf.jobs;
             jobs[0].params.networks.sort(h.uuidSort);
             t2.deepEqual(jobs, [ {
                 name: 'net-update',
@@ -523,7 +524,7 @@ test('Update network', function (t) {
                 },
                 uuid: res2.job_uuid
             } ], 'params updated');
-            h.wfJobs = [];
+            mod_wf.jobs = [];
             before = res2;
             delete before.job_uuid;
 
@@ -564,7 +565,7 @@ test('Update network', function (t) {
             t2.deepEqual(res3, expected, 'params updated');
             delete expected.job_uuid;
 
-            var jobs = h.wfJobs;
+            var jobs = mod_wf.jobs;
             jobs[0].params.networks.sort(h.uuidSort);
             t2.deepEqual(jobs, [ {
                 name: 'net-update',
@@ -582,7 +583,7 @@ test('Update network', function (t) {
                 },
                 uuid: res3.job_uuid
             } ], 'params updated');
-            h.wfJobs = [];
+            mod_wf.jobs = [];
 
             return t2.end();
         });
