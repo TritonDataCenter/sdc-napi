@@ -84,6 +84,14 @@ function fieldSort(a, b) {
 
 
 /**
+ * Sorts a list by IP fields
+ */
+function ipSort(a, b) {
+    return (a.ip > b.ip) ? 1 : -1;
+}
+
+
+/**
  * Returns a missing parameter error array element
  */
 function missingParam(field, message) {
@@ -196,6 +204,7 @@ module.exports = {
     fieldSort: fieldSort,
     ifErr: common.ifErr,
     invalidParamErr: common.invalidParamErr,
+    ipSort: ipSort,
     missingParamErr: common.missingParamErr,
     missingParam: missingParam,
     nextProvisionableIP: nextProvisionableIP,

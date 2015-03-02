@@ -658,6 +658,9 @@ test('Update provision range', function (t) {
     // moray placeholder record
     function placeholderRec(ip) {
         var ser = placeholderIP(ip);
+
+        ser.ipaddr = ser.ip;
+        delete ser.ip;
         delete ser.free;
         delete ser.network_uuid;
         if (USE_STRINGS) {
@@ -669,7 +672,9 @@ test('Update provision range', function (t) {
     // moray placeholder for an admin 'other' IP
     function adminOtherRec(ip) {
         var ser = adminOtherIP(ip);
-        ser.ip = ip;
+
+        ser.ipaddr = ser.ip;
+        delete ser.ip;
         delete ser.free;
         delete ser.network_uuid;
         if (USE_STRINGS) {
@@ -681,7 +686,9 @@ test('Update provision range', function (t) {
     // moray placeholder for an admin 'other' IP
     function zoneRec(ip) {
         var ser = zoneIP(ip);
-        ser.ip = ip;
+
+        ser.ipaddr = ser.ip;
+        delete ser.ip;
         delete ser.free;
         delete ser.network_uuid;
         if (USE_STRINGS) {
@@ -725,7 +732,7 @@ test('Update provision range', function (t) {
                 placeholderRec('10.1.2.9'),
                 placeholderRec('10.1.2.251'),
                 adminOtherRec('10.1.2.255')
-            ]);
+            ], 'moray IPs');
 
             return cb();
 
@@ -783,7 +790,7 @@ test('Update provision range', function (t) {
                     placeholderIP('10.1.2.251'),
                     adminOtherIP('10.1.2.255')
                 ];
-                t.deepEqual(ips, ipList, 'IP list');
+                t.deepEqual(ips, ipList, 'IP list after first update');
                 return cb();
             });
 
@@ -794,7 +801,7 @@ test('Update provision range', function (t) {
                 zoneRec('10.1.2.241'),
                 placeholderRec('10.1.2.251'),
                 adminOtherRec('10.1.2.255')
-            ]);
+            ], 'moray list after first update');
 
             return cb();
 
