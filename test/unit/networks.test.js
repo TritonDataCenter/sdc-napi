@@ -23,6 +23,7 @@ var mod_moray = require('../lib/moray');
 var mod_net = require('../lib/net');
 var mod_nic = require('../lib/nic');
 var mod_uuid = require('node-uuid');
+var mod_wf = require('../lib/mock-wf');
 var test = require('tape');
 var util = require('util');
 var util_ip = require('../../lib/util/ip');
@@ -45,6 +46,7 @@ var MSG = {
     mtu_invalid: constants.MTU_NETWORK_INVALID_MSG,
     mtu_over_nictag: constants.MTU_NETWORK_GT_NICTAG
 };
+var USE_STRINGS = true;
 
 
 
@@ -504,7 +506,7 @@ test('Update network', function (t) {
             t2.deepEqual(res2, expected, 'params updated');
             delete expected.job_uuid;
 
-            var jobs = h.wfJobs;
+            var jobs = mod_wf.jobs;
             jobs[0].params.networks.sort(h.uuidSort);
             t2.deepEqual(jobs, [ {
                 name: 'net-update',
@@ -522,7 +524,7 @@ test('Update network', function (t) {
                 },
                 uuid: res2.job_uuid
             } ], 'params updated');
-            h.wfJobs = [];
+            mod_wf.jobs = [];
             before = res2;
             delete before.job_uuid;
 
@@ -563,7 +565,7 @@ test('Update network', function (t) {
             t2.deepEqual(res3, expected, 'params updated');
             delete expected.job_uuid;
 
-            var jobs = h.wfJobs;
+            var jobs = mod_wf.jobs;
             jobs[0].params.networks.sort(h.uuidSort);
             t2.deepEqual(jobs, [ {
                 name: 'net-update',
@@ -581,7 +583,7 @@ test('Update network', function (t) {
                 },
                 uuid: res3.job_uuid
             } ], 'params updated');
-            h.wfJobs = [];
+            mod_wf.jobs = [];
 
             return t2.end();
         });
@@ -614,9 +616,20 @@ test('Update provision range', function (t) {
     });
     var zone = mod_uuid.v4();
 
+    // Unreserved placeholder IP
+    function placeholderIP(ip) {
+        var rec = {
+            ip: ip,
+            reserved: false,
+            network_uuid: net.uuid,
+            free: true
+        };
+        return rec;
+    }
+
     // IP record owned by the admin, type 'other'
     function adminOtherIP(ip) {
-        return {
+        var rec = {
             belongs_to_type: 'other',
             belongs_to_uuid: CONF.ufdsAdminUuid,
             free: false,
@@ -625,11 +638,12 @@ test('Update provision range', function (t) {
             owner_uuid: CONF.ufdsAdminUuid,
             reserved: true
         };
+        return rec;
     }
 
     // IP record for a zone owned by owner
     function zoneIP(ip) {
-        return {
+        var rec = {
             belongs_to_type: 'zone',
             belongs_to_uuid: zone,
             free: false,
@@ -638,31 +652,48 @@ test('Update provision range', function (t) {
             owner_uuid: owner,
             reserved: false
         };
+        return rec;
     }
 
     // moray placeholder record
     function placeholderRec(ip) {
-        return {
-            ip: ip,
-            reserved: false
-        };
+        var ser = placeholderIP(ip);
+
+        ser.ipaddr = ser.ip;
+        delete ser.ip;
+        delete ser.free;
+        delete ser.network_uuid;
+        if (USE_STRINGS) {
+            ser.use_strings = true;
+        }
+        return ser;
     }
 
     // moray placeholder for an admin 'other' IP
     function adminOtherRec(ip) {
         var ser = adminOtherIP(ip);
-        ser.ip = ip;
+
+        ser.ipaddr = ser.ip;
+        delete ser.ip;
         delete ser.free;
         delete ser.network_uuid;
+        if (USE_STRINGS) {
+            ser.use_strings = true;
+        }
         return ser;
     }
 
     // moray placeholder for an admin 'other' IP
     function zoneRec(ip) {
         var ser = zoneIP(ip);
-        ser.ip = ip;
+
+        ser.ipaddr = ser.ip;
+        delete ser.ip;
         delete ser.free;
         delete ser.network_uuid;
+        if (USE_STRINGS) {
+            ser.use_strings = true;
+        }
         return ser;
     }
 
@@ -689,7 +720,10 @@ test('Update provision range', function (t) {
                     return cb(err);
                 }
 
-                t.deepEqual(ips, [ adminOtherIP('10.1.2.255') ], 'IP list');
+                t.deepEqual(ips, [
+                    placeholderIP('10.1.2.9'),
+                    placeholderIP('10.1.2.251'),
+                    adminOtherIP('10.1.2.255') ], 'IP list');
                 return cb();
             });
 
@@ -698,7 +732,7 @@ test('Update provision range', function (t) {
                 placeholderRec('10.1.2.9'),
                 placeholderRec('10.1.2.251'),
                 adminOtherRec('10.1.2.255')
-            ]);
+            ], 'moray IPs');
 
             return cb();
 
@@ -750,11 +784,13 @@ test('Update provision range', function (t) {
                 }
 
                 ipList = [
+                    placeholderIP('10.1.2.9'),
                     zoneIP('10.1.2.19'),
                     zoneIP('10.1.2.241'),
+                    placeholderIP('10.1.2.251'),
                     adminOtherIP('10.1.2.255')
                 ];
-                t.deepEqual(ips, ipList, 'IP list');
+                t.deepEqual(ips, ipList, 'IP list after first update');
                 return cb();
             });
 
@@ -765,7 +801,7 @@ test('Update provision range', function (t) {
                 zoneRec('10.1.2.241'),
                 placeholderRec('10.1.2.251'),
                 adminOtherRec('10.1.2.255')
-            ]);
+            ], 'moray list after first update');
 
             return cb();
 
@@ -782,6 +818,13 @@ test('Update provision range', function (t) {
                         zoneRec('10.1.2.241'),
                         placeholderRec('10.1.2.250'),
                         adminOtherRec('10.1.2.255')
+                    ],
+                    ipList: [
+                        placeholderIP('10.1.2.8'),
+                        zoneIP('10.1.2.19'),
+                        zoneIP('10.1.2.241'),
+                        placeholderIP('10.1.2.250'),
+                        adminOtherIP('10.1.2.255')
                     ]
                 },
                 {
@@ -794,6 +837,13 @@ test('Update provision range', function (t) {
                         zoneRec('10.1.2.241'),
                         placeholderRec('10.1.2.251'),
                         adminOtherRec('10.1.2.255')
+                    ],
+                    ipList: [
+                        placeholderIP('10.1.2.9'),
+                        zoneIP('10.1.2.19'),
+                        zoneIP('10.1.2.241'),
+                        placeholderIP('10.1.2.251'),
+                        adminOtherIP('10.1.2.255')
                     ]
                 },
                 {
@@ -806,6 +856,13 @@ test('Update provision range', function (t) {
                         zoneRec('10.1.2.241'),
                         placeholderRec('10.1.2.251'),
                         adminOtherRec('10.1.2.255')
+                    ],
+                    ipList: [
+                        placeholderIP('10.1.2.9'),
+                        zoneIP('10.1.2.19'),
+                        zoneIP('10.1.2.241'),
+                        placeholderIP('10.1.2.251'),
+                        adminOtherIP('10.1.2.255')
                     ]
                 },
                 {
@@ -818,6 +875,13 @@ test('Update provision range', function (t) {
                         zoneRec('10.1.2.241'),
                         placeholderRec('10.1.2.252'),
                         adminOtherRec('10.1.2.255')
+                    ],
+                    ipList: [
+                        placeholderIP('10.1.2.10'),
+                        zoneIP('10.1.2.19'),
+                        zoneIP('10.1.2.241'),
+                        placeholderIP('10.1.2.252'),
+                        adminOtherIP('10.1.2.255')
                     ]
                 },
                 {
@@ -830,6 +894,11 @@ test('Update provision range', function (t) {
                         zoneRec('10.1.2.19'),
                         zoneRec('10.1.2.241'),
                         adminOtherRec('10.1.2.255')
+                    ],
+                    ipList: [
+                        zoneIP('10.1.2.19'),
+                        zoneIP('10.1.2.241'),
+                        adminOtherIP('10.1.2.255')
                     ]
                 },
                 {
@@ -842,6 +911,13 @@ test('Update provision range', function (t) {
                         placeholderRec('10.1.2.231'),
                         zoneRec('10.1.2.241'),
                         adminOtherRec('10.1.2.255')
+                    ],
+                    ipList: [
+                        zoneIP('10.1.2.19'),
+                        placeholderIP('10.1.2.29'),
+                        placeholderIP('10.1.2.231'),
+                        zoneIP('10.1.2.241'),
+                        adminOtherIP('10.1.2.255')
                     ]
                 },
                 {
@@ -854,6 +930,13 @@ test('Update provision range', function (t) {
                         zoneRec('10.1.2.241'),
                         placeholderRec('10.1.2.245'),
                         adminOtherRec('10.1.2.255')
+                    ],
+                    ipList: [
+                        placeholderIP('10.1.2.15'),
+                        zoneIP('10.1.2.19'),
+                        zoneIP('10.1.2.241'),
+                        placeholderIP('10.1.2.245'),
+                        adminOtherIP('10.1.2.255')
                     ]
                 }
             ];
@@ -881,7 +964,7 @@ test('Update provision range', function (t) {
                             return cb2(err3);
                         }
 
-                        t.deepEqual(ips, ipList, u.desc + ': IP list');
+                        t.deepEqual(ips, u.ipList, u.desc + ': IP list');
                         return cb2();
                     });
                 });

@@ -29,6 +29,7 @@ var doneErr = common.doneErr;
 
 
 var NUM = 0;
+var TYPE = 'nic_tag';
 
 
 
@@ -39,7 +40,7 @@ var NUM = 0;
 /**
  * Create a nic tag
  */
-function create(t, opts, callback) {
+function createTag(t, opts, callback) {
     var client = opts.client || mod_client.get();
 
     assert.object(t, 't');
@@ -54,7 +55,7 @@ function create(t, opts, callback) {
     }
 
     opts.reqType = 'create';
-    opts.type = 'nic_tag';
+    opts.type = TYPE;
     log.debug({ tagName: name }, 'creating nic tag');
 
     client.createNicTag(name,
@@ -63,21 +64,55 @@ function create(t, opts, callback) {
 
 
 /**
+ * Create a nic tag, compare the output, then do the same for a get of
+ * that tag.
+ */
+function createAndGetTag(t, opts, callback) {
+    createTag(t, opts, function (err, res) {
+        if (err) {
+            return doneErr(err, t, callback);
+        }
+
+        return getTag(t, opts, callback);
+    });
+}
+
+
+/**
  * Delete a nic tag
  */
-function del(t, opts, callback) {
+function delTag(t, opts, callback) {
     var client = opts.client || mod_client.get();
 
     assert.object(t, 't');
     assert.string(opts.name, 'opts.name');
     assert.optionalObject(opts.expErr, 'opts.expErr');
 
-    opts.type = 'nic_tag';
+    opts.type = TYPE;
     opts.id = opts.name;
     var params = opts.params || {};
 
     client.deleteNicTag(opts.name, params,
         common.afterAPIdelete.bind(null, t, opts, callback));
+}
+
+
+/**
+ * Get a nic tag
+ */
+function getTag(t, opts, callback) {
+    common.assertArgs(t, opts, callback);
+
+    var client = opts.client || mod_client.get();
+    var name = opts.name || opts.params.name;
+    assert.string(name, 'opts.name');
+
+    opts.reqType = 'get';
+    opts.type = TYPE;
+    log.debug({ tagName: name }, 'getting nic tag');
+
+    client.getNicTag(name,
+        common.afterAPIcall.bind(null, t, opts, callback));
 }
 
 
@@ -89,9 +124,74 @@ function lastCreated() {
 }
 
 
+/**
+ * List nic tags
+ */
+function listTags(t, opts, callback) {
+    assert.object(t, 't');
+    assert.object(opts, 'opts');
+    assert.optionalBool(opts.deepEqual, 'opts.deepEqual');
+    assert.optionalArrayOfObject(opts.present, 'opts.present');
+
+    var client = opts.client || mod_client.get();
+    var params = opts.params || {};
+    var desc = ' ' + JSON.stringify(params)
+        + (opts.desc ? (' ' + opts.desc) : '');
+
+    if (!opts.desc) {
+        opts.desc = desc;
+    }
+    opts.id = 'name';
+    opts.type = TYPE;
+
+    log.debug({ params: params }, 'list nic tags');
+
+    client.listNicTags(params, common.reqOpts(t, opts.desc),
+        common.afterAPIlist.bind(null, t, opts, callback));
+}
+
+
+/**
+ * Update a nic tag and compare the output
+ */
+function updateTag(t, opts, callback) {
+    common.assertArgs(t, opts, callback);
+    assert.string(opts.name, 'opts.name');
+
+    var client = opts.client || mod_client.get();
+    var name = opts.name;
+
+    opts.type = TYPE;
+    opts.reqType = 'update';
+
+    client.updateNicTag(name, opts.params,
+        common.afterAPIcall.bind(null, t, opts, callback));
+}
+
+
+/**
+ * Update a nic tag, compare the output, then do the same for a get of
+ * that tag.
+ */
+function updateAndGetTag(t, opts, callback) {
+    updateTag(t, opts, function (err, res) {
+        if (err) {
+            return doneErr(err, t, callback);
+        }
+
+        return getTag(t, opts, callback);
+    });
+}
+
+
 
 module.exports = {
-    create: create,
-    del: del,
-    lastCreated: lastCreated
+    create: createTag,
+    createAndGet: createAndGetTag,
+    del: delTag,
+    get: getTag,
+    lastCreated: lastCreated,
+    list: listTags,
+    update: updateTag,
+    updateAndGet: updateAndGetTag
 };

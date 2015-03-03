@@ -13,12 +13,14 @@
  */
 
 var clone = require('clone');
+var config = require('../lib/config');
 var constants = require('../../lib/util/constants');
 var h = require('./helpers');
 var mod_err = require('../lib/err');
 var mod_uuid = require('node-uuid');
 var mod_fabric_net = require('../lib/fabric-net');
 var mod_nic = require('../lib/nic');
+var mod_nic_tag = require('../lib/nic-tag');
 var mod_net = require('../lib/net');
 var mod_portolan = require('../lib/portolan');
 var mod_vlan = require('../lib/vlan');
@@ -39,8 +41,10 @@ var OWNERS = [
     mod_uuid.v4(),
     mod_uuid.v4()
 ];
-// XXX: Don't hardcode this!
-var UNDERLAY_NIC_TAG = 'sdc_underlay';
+var OVERLAY_MTU = config.server.overlay.defaultOverlayMTU;
+var OVERLAY_NIC_TAG = config.server.overlay.overlayNicTag;
+var UNDERLAY_MTU = config.server.overlay.defaultUnderlayMTU;
+var UNDERLAY_NIC_TAG = config.server.overlay.underlayNicTag;
 var VLANS = [
     {
         name: mod_vlan.randomName(),
@@ -74,6 +78,7 @@ var NETS = [
         vlan_id: VLANS[0].vlan_id,
         subnet: '10.2.1.0/24',
         gateway: '10.2.1.5',
+        mtu: OVERLAY_MTU,
         name: mod_fabric_net.generateName(),
         owner_uuid: VLANS[0].owner_uuid,
         provision_start_ip: '10.2.1.5',
@@ -88,6 +93,7 @@ var NETS = [
         vlan_id: VLANS[0].vlan_id,
         subnet: '10.2.2.0/23',
         gateway: '10.2.3.254',
+        mtu: OVERLAY_MTU,
         name: mod_fabric_net.generateName(),
         owner_uuid: VLANS[0].owner_uuid,
         provision_start_ip: '10.2.2.5',
@@ -100,6 +106,7 @@ var NETS = [
     {
         vlan_id: VLANS[1].vlan_id,
         subnet: '192.168.0.0/24',
+        mtu: OVERLAY_MTU,
         name: mod_fabric_net.generateName(),
         owner_uuid: VLANS[1].owner_uuid,
         provision_start_ip: '192.168.0.2',
@@ -112,6 +119,7 @@ var NETS = [
     {
         vlan_id: VLANS[2].vlan_id,
         subnet: '192.168.0.0/24',
+        mtu: OVERLAY_MTU,
         name: mod_fabric_net.generateName('overlap'),
         owner_uuid: VLANS[2].owner_uuid,
         provision_start_ip: '192.168.0.2',
@@ -132,8 +140,43 @@ var SERVER_NICS = [];
 
 
 
+// XXX: make test() here something that checks if overlays are enabled,
+// and if not, fails and ends the test
+
+
+
 // --- Tests
 
+
+
+test('overlay / underlay nic tags', function (t) {
+
+    t.test('overlay tag', function (t2) {
+        mod_nic_tag.get(t2, {
+            params: {
+                name: OVERLAY_NIC_TAG
+            },
+            partialExp: {
+                mtu: UNDERLAY_MTU,
+                name: OVERLAY_NIC_TAG
+            }
+        });
+    });
+
+
+    t.test('underlay tag', function (t2) {
+        mod_nic_tag.get(t2, {
+            params: {
+                name: UNDERLAY_NIC_TAG
+            },
+            partialExp: {
+                mtu: UNDERLAY_MTU,
+                name: UNDERLAY_NIC_TAG
+            }
+        });
+    });
+
+});
 
 
 test('create VLANs', function (t) {
@@ -227,10 +270,24 @@ test('list VLANs', function (t) {
 test('create network', function (t) {
 
     t.test('create network: 0', function (t2) {
+        // Make sure we don't require mtu to be set:
+        var params = clone(NETS[0]);
+        delete params.mtu;
+
         mod_fabric_net.createAndGet(t2, {
             fillInMissing: true,
-            params: NETS[0],
+            params: params,
             exp: NETS[0]
+        });
+    });
+
+
+    t.test('get full network: 0', function (t2) {
+        mod_net.get(t2, {
+            params: {
+                uuid: NETS[0].uuid
+            },
+            exp: mod_fabric_net.toRealNetObj(NETS[0])
         });
     });
 
@@ -354,7 +411,7 @@ test('provision server nics', function (t) {
     });
 
 
-    t.test('REAL_NETS[0]: provision', function (t2) {
+    t.test('REAL_NETS[0]: provision non-underlay nic', function (t2) {
         mod_nic.provision(t2, {
             fillInMissing: true,
             net: REAL_NETS[0].uuid,
@@ -373,19 +430,34 @@ test('provision server nics', function (t) {
     });
 
 
-    t.test('REAL_NETS[0]: provision', function (t2) {
+    t.test('non-underlay nic: underlay mapping not created', function (t2) {
+        SERVER_NICS.push(mod_nic.lastCreated());
+        t.ok(SERVER_NICS[0], 'have last created nic');
+
+        mod_portolan.underlayMapping(t2, {
+            params: {
+                cn_uuid: SERVERS[0]
+            },
+            expErr: mod_portolan.notFoundErr()
+        });
+    });
+
+
+    t.test('REAL_NETS[0]: provision underlay nic', function (t2) {
         mod_nic.provision(t2, {
             fillInMissing: true,
             net: REAL_NETS[0].uuid,
             params: {
                 belongs_to_type: 'server',
                 belongs_to_uuid: SERVERS[0],
-                owner_uuid: ADMIN_OWNER
+                owner_uuid: ADMIN_OWNER,
+                underlay: true
             },
             exp: mod_net.addNetParams(REAL_NETS[0], {
                 belongs_to_type: 'server',
                 belongs_to_uuid: SERVERS[0],
-                owner_uuid: ADMIN_OWNER
+                owner_uuid: ADMIN_OWNER,
+                underlay: true
             }),
             state: CREATED    // store this nic in CREATED.nics
         });
@@ -394,7 +466,8 @@ test('provision server nics', function (t) {
 
     t.test('underlay mapping created', function (t2) {
         SERVER_NICS.push(mod_nic.lastCreated());
-        t.ok(SERVER_NICS[0], 'have last created nic');
+        t.ok(SERVER_NICS[1], 'have last created nic');
+        t.ok(SERVER_NICS[1].underlay, 'nic has underlay property');
 
         mod_portolan.underlayMapping(t2, {
             params: {
@@ -402,7 +475,7 @@ test('provision server nics', function (t) {
             },
             exp: {
                 cn_uuid: SERVERS[0],
-                ip: SERVER_NICS[0].ip,
+                ip: SERVER_NICS[1].ip,
                 port: constants.VXLAN_PORT
             }
         });
@@ -662,17 +735,17 @@ test('update nics', function (t) {
 test('delete server nic', function (t) {
 
     t.test('delete server nic', function (t2) {
+        t.ok(SERVER_NICS[1], 'have underlay nic');
+        t.ok(SERVER_NICS[1].underlay, 'nic has underlay property');
+
         mod_nic.del(t2, {
-            mac: SERVER_NICS[0].mac,
+            mac: SERVER_NICS[1].mac,
             exp: {}
         });
     });
 
 
     t.test('underlay mapping removed', function (t2) {
-        SERVER_NICS.push(mod_nic.lastCreated());
-        t.ok(SERVER_NICS[0], 'have last created nic');
-
         mod_portolan.underlayMapping(t2, {
             params: {
                 cn_uuid: SERVERS[0]
@@ -735,7 +808,13 @@ test('delete server nic', function (t) {
 
 // Other tests:
 //
-// - Don't allow deleting the overlay tag
+// - Don't allow deleting the overlay or underlay tags
+// - Don't allow setting the underlay tag:
+//   - on more than one server nic
+//   - if belongs_to_type !== 'server'
+// - Validation of underlay param
+// - Update a server's nic to add the underlay param
+// - Only allow provisioning fabric networks on the overlay nic
 
 //
 // XXX

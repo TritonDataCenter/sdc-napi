@@ -1,6 +1,6 @@
 {
   "name": "napi",
-  "description": "Network Provisioning API",
+  "description": "SmartDataCenter Networking API",
   "version": "1.2.0",
   "author": "Joyent (joyent.com)",
   "private": true,
@@ -12,7 +12,7 @@
     "ipaddr.js": "0.1.8",
     "moray": "git+ssh://git@github.com:joyent/node-moray.git#441fd44",
     "node-uuid": "1.2.0",
-    "portolan-moray": "git+ssh://git@github.com:joyent/sdc-portolan-moray.git#237d357",
+    "portolan-moray": "git+ssh://git@github.com:joyent/sdc-portolan-moray.git#14f5bd5",
     "restify": "git+ssh://git@github.com:mcavage/node-restify.git#0d7b4ba",
     "sdc-clients": "git+ssh://git@github.com:joyent/node-sdc-clients.git#121bd66",
     "tape": "3.0.3",
@@ -25,7 +25,8 @@
   "devDependencies": {
     "async": "0.1.22",
     "crc": "0.2.1",
-    "ldapjs": "0.5.7"
+    "ldapjs": "0.5.7",
+    "xtend": "4.0.0"
   },
   "scripts": {
     "start": "./sbin/napid",

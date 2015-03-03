@@ -55,8 +55,10 @@ function createNic(t, opts, callback) {
     if (mac == 'generate') {
         mac = common.randomMAC();
     }
+    opts.idKey = 'mac';
     opts.type = TYPE;
     opts.reqType = 'create';
+
 
     client.createNic(mac, clone(opts.params),
         common.afterAPIcall.bind(null, t, opts, callback));
@@ -165,8 +167,8 @@ function delNic(t, opts, callback) {
     var params = opts.params || {};
 
     log.debug({ mac: opts.mac }, 'delete nic');
-    opts.type = TYPE;
     opts.id = opts.mac;
+    opts.type = TYPE;
 
     client.deleteNic(opts.mac, params, common.reqOpts(t),
         common.afterAPIdelete.bind(null, t, opts, callback));
@@ -202,6 +204,33 @@ function lastCreatedNic() {
 
 
 /**
+ * List networks
+ */
+function listNics(t, opts, callback) {
+    assert.object(t, 't');
+    assert.object(opts, 'opts');
+    assert.optionalBool(opts.deepEqual, 'opts.deepEqual');
+    assert.optionalArrayOfObject(opts.present, 'opts.present');
+
+    var client = opts.client || mod_client.get();
+    var params = opts.params || {};
+    var desc = ' ' + JSON.stringify(params)
+        + (opts.desc ? (' ' + opts.desc) : '');
+
+    if (!opts.desc) {
+        opts.desc = desc;
+    }
+    opts.id = 'mac';
+    opts.type = TYPE;
+
+    log.debug({ params: params }, 'list networks');
+
+    client.listNics(params, common.reqOpts(t, opts.desc),
+        common.afterAPIlist.bind(null, t, opts, callback));
+}
+
+
+/**
  * Provision a nic and compare the output
  */
 function provisionNic(t, opts, callback) {
@@ -209,6 +238,7 @@ function provisionNic(t, opts, callback) {
 
     var client = opts.client || mod_client.get();
     log.debug({ params: opts.params }, 'provisioning nic');
+    opts.idKey = 'mac';
     opts.type = TYPE;
     opts.reqType = 'create';
 
@@ -261,6 +291,7 @@ module.exports = {
     del: delNic,
     get: getNic,
     lastCreated: lastCreatedNic,
+    list: listNics,
     provision: provisionNic,
     update: updateNic,
     updateAndGet: updateAndGet

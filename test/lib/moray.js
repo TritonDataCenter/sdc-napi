@@ -88,8 +88,15 @@ function getIPs(network) {
 
     return Object.keys(buckets[bucketName]).map(function (key) {
         return buckets[bucketName][key].value;
-    }).sort(function (a, b) { return util_ip.compareTo(a.ip, b.ip); });
+    }).sort(function (a, b) {
+        if (a.hasOwnProperty('ipaddr')) {
+            return util_ip.compareTo(a.ipaddr, b.ipaddr);
+        }
+
+        return util_ip.compareTo(a.ip, b.ip);
+    });
 }
+
 
 /**
  * Gets all nic records from fake moray, sorted by MAC address

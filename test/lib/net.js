@@ -193,6 +193,7 @@ function lastCreated() {
 function listNets(t, opts, callback) {
     assert.object(t, 't');
     assert.object(opts, 'opts');
+    assert.optionalBool(opts.deepEqual, 'opts.deepEqual');
     assert.optionalArrayOfObject(opts.present, 'opts.present');
 
     var client = opts.client || mod_client.get();

@@ -53,7 +53,7 @@ function create(t, opts, callback) {
 
     var name = opts.name;
     if (name == '<generate>') {
-        name = util.format('pool%d-%d', NUM++, process.pid);
+        name = util.format('test-pool%d-%d', NUM++, process.pid);
     }
     opts.reqType = 'create';
     opts.type = 'pool';

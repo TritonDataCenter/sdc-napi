@@ -15,6 +15,7 @@
 var assert = require('assert-plus');
 var clone = require('clone');
 var common = require('./common');
+var config = require('./config');
 var fmt = require('util').format;
 var log = require('./log');
 var mod_client = require('./client');
@@ -26,11 +27,13 @@ var doneErr = common.doneErr;
 var doneRes = common.doneRes;
 
 
+
 // --- Globals
 
 
 
 var NUM = 0;
+var OVERLAY_MTU = config.server.overlay.defaultOverlayMTU;
 var TYPE = 'fabric-network';
 
 
@@ -106,7 +109,7 @@ function createAndGetFabricNet(t, opts, callback) {
             return doneErr(err, t, callback);
         }
 
-        opts.uuid = res.uuid;
+        opts.params.uuid = res.uuid;
         opts.reqType = 'get';
         return getFabricNet(t, opts, callback);
     });
@@ -221,7 +224,7 @@ function lastCreatedFabricNet() {
 /**
  * List fabric networks
  */
-function list(t, opts, callback) {
+function listFabricNets(t, opts, callback) {
     assert.object(t, 't');
     assert.object(opts, 'opts');
     assert.optionalArrayOfObject(opts.present, 'opts.present');
@@ -246,6 +249,19 @@ function list(t, opts, callback) {
 
     client.listFabricNetworks(owner, vlan, params,
         common.afterAPIlist.bind(null, t, opts, callback));
+}
+
+
+/**
+ * Convert a fabric network object to a real network object
+ */
+function toRealNetObj(fabric) {
+    var net = clone(fabric);
+    net.mtu = OVERLAY_MTU;
+    net.owner_uuids = [ net.owner_uuid ];
+    delete net.owner_uuid;
+
+    return net;
 }
 
 
@@ -290,8 +306,9 @@ module.exports = {
     generateName: generateNetworkName,
     get: getFabricNet,
     lastCreated: lastCreatedFabricNet,
-    list: list,
+    list: listFabricNets,
     nicTag: fabricNetworkNicTag,
+    toRealNetObj: toRealNetObj,
     update: updateFabricNetwork,
     updateAndGet: updateAndGet
 };
