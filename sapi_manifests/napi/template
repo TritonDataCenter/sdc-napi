@@ -9,10 +9,20 @@
     "logLevel": "info",
     "port": 2020
   },
+{{#fabric_cfg}}
   "overlay": {
+      "enabled": true,
+      "defaultOverlayMTU": {{{default_overlay_mtu}}},
+      "defaultUnderlayMTU": {{{default_underlay_mtu}}},
       "overlayNicTag": "sdc_overlay",
       "underlayNicTag": "{{{sdc_underlay_tag}}}"
   },
+{{/fabric_cfg}}
+{{^fabric_cfg}}
+  "overlay": {
+      "enabled": false
+  },
+{{/fabric_cfg}}
   "ufdsAdminUuid": "{{{ufds_admin_uuid}}}",
   "wfapi": {
     "forceReplace": true,

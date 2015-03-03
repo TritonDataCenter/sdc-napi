@@ -64,6 +64,21 @@ function createTag(t, opts, callback) {
 
 
 /**
+ * Create a nic tag, compare the output, then do the same for a get of
+ * that tag.
+ */
+function createAndGetTag(t, opts, callback) {
+    createTag(t, opts, function (err, res) {
+        if (err) {
+            return doneErr(err, t, callback);
+        }
+
+        return getTag(t, opts, callback);
+    });
+}
+
+
+/**
  * Delete a nic tag
  */
 function delTag(t, opts, callback) {
@@ -79,6 +94,25 @@ function delTag(t, opts, callback) {
 
     client.deleteNicTag(opts.name, params,
         common.afterAPIdelete.bind(null, t, opts, callback));
+}
+
+
+/**
+ * Get a nic tag
+ */
+function getTag(t, opts, callback) {
+    common.assertArgs(t, opts, callback);
+
+    var client = opts.client || mod_client.get();
+    var name = opts.name || opts.params.name;
+    assert.string(name, 'opts.name');
+
+    opts.reqType = 'get';
+    opts.type = TYPE;
+    log.debug({ tagName: name }, 'getting nic tag');
+
+    client.getNicTag(name,
+        common.afterAPIcall.bind(null, t, opts, callback));
 }
 
 
@@ -117,10 +151,47 @@ function listTags(t, opts, callback) {
 }
 
 
+/**
+ * Update a nic tag and compare the output
+ */
+function updateTag(t, opts, callback) {
+    common.assertArgs(t, opts, callback);
+    assert.string(opts.name, 'opts.name');
+
+    var client = opts.client || mod_client.get();
+    var name = opts.name;
+
+    opts.type = TYPE;
+    opts.reqType = 'update';
+
+    client.updateNicTag(name, opts.params,
+        common.afterAPIcall.bind(null, t, opts, callback));
+}
+
+
+/**
+ * Update a nic tag, compare the output, then do the same for a get of
+ * that tag.
+ */
+function updateAndGetTag(t, opts, callback) {
+    updateTag(t, opts, function (err, res) {
+        if (err) {
+            return doneErr(err, t, callback);
+        }
+
+        return getTag(t, opts, callback);
+    });
+}
+
+
 
 module.exports = {
     create: createTag,
+    createAndGet: createAndGetTag,
     del: delTag,
+    get: getTag,
     lastCreated: lastCreated,
-    list: listTags
+    list: listTags,
+    update: updateTag,
+    updateAndGet: updateAndGetTag
 };
