@@ -9,6 +9,7 @@
     "bunyan": "1.2.3",
     "clone": "0.1.5",
     "cmdln": "3.0.2",
+    "dashdash": "1.7.3",
     "ipaddr.js": "0.1.8",
     "moray": "git+ssh://git@github.com:joyent/node-moray.git#441fd44",
     "node-uuid": "1.2.0",
