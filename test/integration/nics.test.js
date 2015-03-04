@@ -135,7 +135,7 @@ test('POST /nics (basic)', function (t) {
 
         params.primary = false;
         params.mac = mac;
-        params.state = 'running';
+        params.state = constants.DEFAULT_NIC_STATE;
         t.deepEqual(res, params, 'nic params returned' + desc);
         state.nic.a = params;
         state.desc.a = desc;
@@ -214,7 +214,7 @@ test('POST /nics (with IP but no network)', function (t) {
 
         params.primary = false;
         params.mac = mac;
-        params.state = 'running';
+        params.state = constants.DEFAULT_NIC_STATE;
         mod_net.addNetParams(state.networks[0], params);
         t.deepEqual(res, params, 'nic params returned' + desc);
         state.nic.c = params;
@@ -283,7 +283,7 @@ test('POST /nics (with IP already reserved)', function (t) {
 
             d.params.primary = false;
             d.params.mac = mac;
-            d.params.state = 'running';
+            d.params.state = constants.DEFAULT_NIC_STATE;
             mod_net.addNetParams(state.networks[0], d.params);
             t2.deepEqual(res, d.params, 'nic params returned' + d.desc);
             state.resNic1 = d.params;
@@ -382,7 +382,7 @@ test('POST /networks/:uuid/nics (basic)', function (t) {
         params.primary = false;
         params.mac = res.mac;
         params.ip = res.ip;
-        params.state = 'running';
+        params.state = constants.DEFAULT_NIC_STATE;
         mod_net.addNetParams(state.networks[0], params);
 
         t.deepEqual(res, params, 'nic params returned' + desc);
@@ -413,7 +413,7 @@ test('POST /networks/:uuid/nics (with IP)', function (t) {
 
         params.primary = false;
         params.mac = res.mac;
-        params.state = 'running';
+        params.state = constants.DEFAULT_NIC_STATE;
         mod_net.addNetParams(state.networks[0], params);
 
         t.deepEqual(res, params, 'nic params returned' + desc);
@@ -482,7 +482,7 @@ test('POST /nics (with reserved IP)', function (t) {
         params.primary = false;
         params.mac = mac;
         params.ip = res.ip;
-        params.state = 'running';
+        params.state = constants.DEFAULT_NIC_STATE;
         mod_net.addNetParams(state.networks[0], params);
         t.deepEqual(res, params, 'nic params returned' + desc);
         state.resNic2 = res;
@@ -535,7 +535,7 @@ test('POST /nics (with model)', function (t) {
 
                 params.primary = false;
                 params.mac = mac;
-                params.state = 'running';
+                params.state = constants.DEFAULT_NIC_STATE;
                 t.deepEqual(res, params, 'nic params returned' + desc);
                 state.nic.model = params;
                 state.desc.model = desc;
@@ -878,7 +878,7 @@ test('PUT /nics (with network_uuid set to admin)', function (t) {
             params.primary = false;
             params.mac = mac;
             params.ip = res2.ip;
-            params.state = 'running';
+            params.state = constants.DEFAULT_NIC_STATE;
 
             for (var n in mod_net.netParams) {
                 if (state.adminNet.hasOwnProperty(mod_net.netParams[n])) {

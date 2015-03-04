@@ -292,7 +292,7 @@ test('Create nic - network_uuid=admin', function (t) {
             owner_uuid: params.owner_uuid,
             primary: false,
             resolvers: ADMIN_NET.resolvers,
-            state: 'running',
+            state: constants.DEFAULT_NIC_STATE,
             vlan_id: ADMIN_NET.vlan_id
         };
         t.deepEqual(res, exp, 'response');
@@ -392,7 +392,7 @@ test('Create nic - empty nic_tags_provided', function (t) {
         d.exp = {
             mac: mac,
             primary: false,
-            state: 'running'
+            state: constants.DEFAULT_NIC_STATE
         };
         h.copyParams(d.params, d.exp);
         delete d.exp.nic_tags_provided;
@@ -552,7 +552,7 @@ test('Provision nic', function (t) {
             primary: false,
             resolvers: NET2.resolvers,
             routes: NET2.routes,
-            state: 'running',
+            state: constants.DEFAULT_NIC_STATE,
             vlan_id: NET2.vlan_id
         };
         t.deepEqual(res, exp, 'result');
@@ -925,7 +925,7 @@ test('Provision nic - with IP', function (t) {
                 primary: false,
                 resolvers: NET2.resolvers,
                 routes: NET2.routes,
-                state: 'running',
+                state: constants.DEFAULT_NIC_STATE,
                 vlan_id: NET2.vlan_id
             };
             t2.deepEqual(res, d.exp, 'result');
@@ -1049,36 +1049,49 @@ test('Provision nic - with different state', function (t) {
         belongs_to_type: 'zone',
         belongs_to_uuid: mod_uuid.v4(),
         owner_uuid:  mod_uuid.v4(),
-        state: 'provisioning'
+        state: 'stopped'
+    };
+    var exp = {
+        belongs_to_type: params.belongs_to_type,
+        belongs_to_uuid: params.belongs_to_uuid,
+        ip: h.nextProvisionableIP(NET2),
+        mtu: NET2.mtu,
+        netmask: '255.255.255.0',
+        network_uuid: NET2.uuid,
+        nic_tag: NET2.nic_tag,
+        owner_uuid: params.owner_uuid,
+        primary: false,
+        resolvers: NET2.resolvers,
+        routes: NET2.routes,
+        state: 'stopped',
+        vlan_id: NET2.vlan_id
     };
 
-    NAPI.provisionNic(NET2.uuid, params, function (err, res) {
-        t.ifError(err);
-        if (err) {
-            return t.end();
-        }
+    t.test('provision', function (t2) {
+        mod_nic.provision(t2, {
+            fillInMissing: true,
+            net: NET2.uuid,
+            params: params,
+            exp: exp
+        });
+    });
 
-        t.deepEqual(res, {
-            belongs_to_type: params.belongs_to_type,
-            belongs_to_uuid: params.belongs_to_uuid,
-            ip: h.nextProvisionableIP(NET2),
-            mac: res.mac,
-            mtu: NET2.mtu,
-            netmask: '255.255.255.0',
-            network_uuid: NET2.uuid,
-            nic_tag: NET2.nic_tag,
-            owner_uuid: params.owner_uuid,
-            primary: false,
-            resolvers: NET2.resolvers,
-            routes: NET2.routes,
-            state: 'provisioning',
-            vlan_id: NET2.vlan_id
-        }, 'result');
+    t.test('get nic', function (t2) {
+        mod_nic.get(t2, {
+            mac: exp.mac,
+            exp: exp
+        });
+    });
 
-        NAPI.getNic(res.mac, function (err2, res2) {
-            t.ifError(err2);
-            t.deepEqual(res2, res, 'compare response with store');
-            return t.end();
+    t.test('update state', function (t2) {
+        exp.state = 'running';
+
+        mod_nic.updateAndGet(t2, {
+            mac: exp.mac,
+            params: {
+                state: 'running'
+            },
+            exp: exp
         });
     });
 });
@@ -1122,7 +1135,7 @@ test('Update nic - provision IP', function (t) {
             owner_uuid: d.params.owner_uuid,
             primary: false,
             resolvers: NET3.resolvers,
-            state: 'running',
+            state: constants.DEFAULT_NIC_STATE,
             vlan_id: NET3.vlan_id
         };
 
@@ -1185,7 +1198,7 @@ test('Update nic - IP parameters updated', function (t) {
             owner_uuid: d.params.owner_uuid,
             primary: false,
             resolvers: NET.resolvers,
-            state: 'running',
+            state: constants.DEFAULT_NIC_STATE,
             vlan_id: NET.vlan_id
         };
 
@@ -1285,7 +1298,7 @@ test('Update nic - change IP', function (t) {
             owner_uuid: params.owner_uuid,
             primary: false,
             resolvers: NET.resolvers,
-            state: 'running',
+            state: constants.DEFAULT_NIC_STATE,
             vlan_id: NET.vlan_id
         };
         d.other = mod_uuid.v4();
@@ -1762,7 +1775,7 @@ test('Update nic - change state', function (t) {
         }
         t.equal(res.ip, h.nextProvisionableIP(NET2), 'IP');
 
-        t.equal(res.state, 'running');
+        t.equal(res.state, constants.DEFAULT_NIC_STATE);
         res.state = 'stopped';
 
         NAPI.updateNic(res.mac, res, function (err2, res2) {
