@@ -601,7 +601,7 @@ test('Provision nic - on network pool', function (t) {
                     owner_uuid: params.owner_uuid,
                     primary: false,
                     resolvers: net.resolvers,
-                    state: 'running',
+                    state: constants.DEFAULT_NIC_STATE,
                     vlan_id: net.vlan_id
                 }, 'result for' + desc);
 
