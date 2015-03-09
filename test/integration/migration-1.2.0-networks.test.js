@@ -327,6 +327,7 @@ var EXP = {
             vlan_id: 0,
             nic_tag: 'admin',
             resolvers: [ '10.99.99.11' ],
+            subnet: '10.99.99.0/24',
             network_uuid: '07eef409-c6eb-42cb-8712-bb0deaab8108',
             nic_tags_provided: [ 'admin' ]
         },
@@ -343,6 +344,7 @@ var EXP = {
             vlan_id: 0,
             nic_tag: 'admin',
             resolvers: [ '10.99.99.11' ],
+            subnet: '10.99.99.0/24',
             network_uuid: '07eef409-c6eb-42cb-8712-bb0deaab8108'
         },
         {
@@ -358,6 +360,7 @@ var EXP = {
             vlan_id: 0,
             nic_tag: 'admin',
             resolvers: [ '10.99.99.11' ],
+            subnet: '10.99.99.0/24',
             network_uuid: '07eef409-c6eb-42cb-8712-bb0deaab8108'
         }
     ],

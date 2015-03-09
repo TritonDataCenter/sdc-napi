@@ -36,6 +36,7 @@ var NIC_NET_PARAMS = [
     'nic_tag',
     'resolvers',
     'routes',
+    'subnet',
     'vlan_id'
 ];
 var NUM = 0;

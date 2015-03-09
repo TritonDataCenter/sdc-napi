@@ -19,6 +19,7 @@ var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
 var mod_moray = require('../lib/moray');
 var mod_net = require('../lib/net');
+var mod_nic = require('../lib/nic');
 var mod_tag = require('../lib/nic-tag');
 var mod_pool = require('../lib/pool');
 var mod_uuid = require('node-uuid');
@@ -589,21 +590,13 @@ test('Provision nic - on network pool', function (t) {
                 }
 
                 var net = nextIPnum < 6 ? NETS[0] : NETS[1];
-                t.deepEqual(res, {
+                t.deepEqual(res, mod_nic.addDefaultParams({
                     belongs_to_type: params.belongs_to_type,
                     belongs_to_uuid: params.belongs_to_uuid,
                     ip: nextIP,
                     mac: res.mac,
-                    mtu: constants.MTU_DEFAULT,
-                    netmask: '255.255.255.240',
-                    network_uuid: net.uuid,
-                    nic_tag: net.nic_tag,
-                    owner_uuid: params.owner_uuid,
-                    primary: false,
-                    resolvers: net.resolvers,
-                    state: constants.DEFAULT_NIC_STATE,
-                    vlan_id: net.vlan_id
-                }, 'result for' + desc);
+                    owner_uuid: params.owner_uuid
+                }, net), 'result for' + desc);
 
                 return cb();
             });

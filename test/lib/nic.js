@@ -15,8 +15,10 @@
 var assert = require('assert-plus');
 var clone = require('clone');
 var common = require('./common');
+var constants = require('../../lib/util/constants');
 var log = require('./log');
 var mod_client = require('./client');
+var mod_net = require('./net');
 var mod_vasync = require('vasync');
 var verror = require('verror');
 
@@ -30,11 +32,33 @@ var doneErr = common.doneErr;
 
 
 var TYPE = 'nic';
+var DEFAULTS = {
+    primary: false,
+    state: constants.DEFAULT_NIC_STATE
+};
 
 
 
 // --- Exports
 
+
+
+/**
+ * Add default params to a nic for doing a deepEqual
+ */
+function addDefaultParams(nic, net) {
+    for (var d in DEFAULTS) {
+        if (!nic.hasOwnProperty(d)) {
+            nic[d] = DEFAULTS[d];
+        }
+    }
+
+    if (net) {
+        mod_net.addNetParams(net, nic);
+    }
+
+    return nic;
+}
 
 
 /**
@@ -284,6 +308,7 @@ function updateAndGet(t, opts, callback) {
 
 
 module.exports = {
+    addDefaultParams: addDefaultParams,
     create: createNic,
     createAndGet: createAndGetNic,
     createN: createNumNics,

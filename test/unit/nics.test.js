@@ -280,21 +280,13 @@ test('Create nic - network_uuid=admin', function (t) {
             return t.end();
         }
 
-        var exp = {
+        var exp = mod_nic.addDefaultParams({
             belongs_to_type: params.belongs_to_type,
             belongs_to_uuid: params.belongs_to_uuid,
             ip: res.ip,
             mac: res.mac,
-            mtu: ADMIN_NET.mtu,
-            netmask: ADMIN_NET.netmask,
-            network_uuid: ADMIN_NET.uuid,
-            nic_tag: ADMIN_NET.nic_tag,
-            owner_uuid: params.owner_uuid,
-            primary: false,
-            resolvers: ADMIN_NET.resolvers,
-            state: constants.DEFAULT_NIC_STATE,
-            vlan_id: ADMIN_NET.vlan_id
-        };
+            owner_uuid: params.owner_uuid
+        }, ADMIN_NET);
         t.deepEqual(res, exp, 'response');
 
         NAPI.getNic(res.mac, function (err2, res2) {
@@ -389,11 +381,9 @@ test('Create nic - empty nic_tags_provided', function (t) {
             nic_tags_provided: '',
             owner_uuid: mod_uuid.v4()
         };
-        d.exp = {
-            mac: mac,
-            primary: false,
-            state: constants.DEFAULT_NIC_STATE
-        };
+        d.exp = mod_nic.addDefaultParams({
+            mac: mac
+        });
         h.copyParams(d.params, d.exp);
         delete d.exp.nic_tags_provided;
 
@@ -553,6 +543,7 @@ test('Provision nic', function (t) {
             resolvers: NET2.resolvers,
             routes: NET2.routes,
             state: constants.DEFAULT_NIC_STATE,
+            subnet: NET2.subnet,
             vlan_id: NET2.vlan_id
         };
         t.deepEqual(res, exp, 'result');
@@ -912,22 +903,13 @@ test('Provision nic - with IP', function (t) {
                 return t2.end();
             }
 
-            d.exp = {
+            d.exp = mod_nic.addDefaultParams({
                 belongs_to_type: params.belongs_to_type,
                 belongs_to_uuid: params.belongs_to_uuid,
                 ip: fmt('10.0.%d.200', NET2.num),
                 mac: res.mac,
-                mtu: NET2.mtu,
-                netmask: '255.255.255.0',
-                network_uuid: NET2.uuid,
-                nic_tag: NET2.nic_tag,
-                owner_uuid: params.owner_uuid,
-                primary: false,
-                resolvers: NET2.resolvers,
-                routes: NET2.routes,
-                state: constants.DEFAULT_NIC_STATE,
-                vlan_id: NET2.vlan_id
-            };
+                owner_uuid: params.owner_uuid
+            }, NET2);
             t2.deepEqual(res, d.exp, 'result');
             return t2.end();
         });
@@ -1051,21 +1033,13 @@ test('Provision nic - with different state', function (t) {
         owner_uuid:  mod_uuid.v4(),
         state: 'stopped'
     };
-    var exp = {
+    var exp = mod_nic.addDefaultParams({
         belongs_to_type: params.belongs_to_type,
         belongs_to_uuid: params.belongs_to_uuid,
         ip: h.nextProvisionableIP(NET2),
-        mtu: NET2.mtu,
-        netmask: '255.255.255.0',
-        network_uuid: NET2.uuid,
-        nic_tag: NET2.nic_tag,
         owner_uuid: params.owner_uuid,
-        primary: false,
-        resolvers: NET2.resolvers,
-        routes: NET2.routes,
-        state: 'stopped',
-        vlan_id: NET2.vlan_id
-    };
+        state: 'stopped'
+    }, NET2);
 
     t.test('provision', function (t2) {
         mod_nic.provision(t2, {
@@ -1123,21 +1097,13 @@ test('Update nic - provision IP', function (t) {
     });
 
     t.test('update', function (t2) {
-        d.exp = {
+        d.exp = mod_nic.addDefaultParams({
             belongs_to_type: d.params.belongs_to_type,
             belongs_to_uuid: d.params.belongs_to_uuid,
             ip: NET3.provision_start_ip,
             mac: d.mac,
-            mtu: NET3.mtu,
-            netmask: '255.255.255.0',
-            network_uuid: NET3.uuid,
-            nic_tag: NET3.nic_tag,
-            owner_uuid: d.params.owner_uuid,
-            primary: false,
-            resolvers: NET3.resolvers,
-            state: constants.DEFAULT_NIC_STATE,
-            vlan_id: NET3.vlan_id
-        };
+            owner_uuid: d.params.owner_uuid
+        }, NET3);
 
         mod_nic.update(t2, {
             mac: d.mac,
@@ -1186,21 +1152,13 @@ test('Update nic - IP parameters updated', function (t) {
             owner_uuid:  mod_uuid.v4()
         };
         d.mac = h.randomMAC();
-        d.exp = {
+        d.exp = mod_nic.addDefaultParams({
             belongs_to_type: d.params.belongs_to_type,
             belongs_to_uuid: d.params.belongs_to_uuid,
             ip: d.params.ip,
             mac: d.mac,
-            mtu: NET.mtu,
-            netmask: '255.255.255.0',
-            network_uuid: NET.uuid,
-            nic_tag: NET.nic_tag,
-            owner_uuid: d.params.owner_uuid,
-            primary: false,
-            resolvers: NET.resolvers,
-            state: constants.DEFAULT_NIC_STATE,
-            vlan_id: NET.vlan_id
-        };
+            owner_uuid: d.params.owner_uuid
+        }, NET);
 
         mod_nic.create(t2, {
             mac: d.mac,
@@ -1286,21 +1244,13 @@ test('Update nic - change IP', function (t) {
         };
 
         d.mac = h.randomMAC();
-        d.exp = {
+        d.exp = mod_nic.addDefaultParams({
             belongs_to_type: params.belongs_to_type,
             belongs_to_uuid: params.belongs_to_uuid,
             ip: params.ip,
             mac: d.mac,
-            mtu: NET.mtu,
-            netmask: '255.255.255.0',
-            network_uuid: NET.uuid,
-            nic_tag: NET.nic_tag,
-            owner_uuid: params.owner_uuid,
-            primary: false,
-            resolvers: NET.resolvers,
-            state: constants.DEFAULT_NIC_STATE,
-            vlan_id: NET.vlan_id
-        };
+            owner_uuid: params.owner_uuid
+        }, NET);
         d.other = mod_uuid.v4();
 
         mod_nic.create(t2, {
