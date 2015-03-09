@@ -133,9 +133,8 @@ test('POST /nics (basic)', function (t) {
             return t.end();
         }
 
-        params.primary = false;
         params.mac = mac;
-        params.state = constants.DEFAULT_NIC_STATE;
+        mod_nic.addDefaultParams(params);
         t.deepEqual(res, params, 'nic params returned' + desc);
         state.nic.a = params;
         state.desc.a = desc;
@@ -167,9 +166,8 @@ test('POST /nics (with IP, network and state)', function (t) {
                 return t2.end();
             }
 
-            params.primary = false;
             params.mac = d.mac;
-            mod_net.addNetParams(state.networks[0], params);
+            mod_nic.addDefaultParams(params, state.networks[0]);
             t2.deepEqual(res, params, 'nic params returned' + desc);
             state.nic.b = params;
             state.desc.b = desc;
@@ -212,10 +210,8 @@ test('POST /nics (with IP but no network)', function (t) {
             return t.end();
         }
 
-        params.primary = false;
         params.mac = mac;
-        params.state = constants.DEFAULT_NIC_STATE;
-        mod_net.addNetParams(state.networks[0], params);
+        mod_nic.addDefaultParams(params, state.networks[0]);
         t.deepEqual(res, params, 'nic params returned' + desc);
         state.nic.c = params;
         state.desc.c = desc;
@@ -281,10 +277,8 @@ test('POST /nics (with IP already reserved)', function (t) {
                 return t2.end();
             }
 
-            d.params.primary = false;
             d.params.mac = mac;
-            d.params.state = constants.DEFAULT_NIC_STATE;
-            mod_net.addNetParams(state.networks[0], d.params);
+            mod_nic.addDefaultParams(d.params, state.networks[0]);
             t2.deepEqual(res, d.params, 'nic params returned' + d.desc);
             state.resNic1 = d.params;
             state.desc.resNic1 = d.desc;
@@ -379,11 +373,9 @@ test('POST /networks/:uuid/nics (basic)', function (t) {
         }
         var desc = util.format(' [%s: network nic - no IP]', res.mac);
 
-        params.primary = false;
         params.mac = res.mac;
         params.ip = res.ip;
-        params.state = constants.DEFAULT_NIC_STATE;
-        mod_net.addNetParams(state.networks[0], params);
+        mod_nic.addDefaultParams(params, state.networks[0]);
 
         t.deepEqual(res, params, 'nic params returned' + desc);
         state.nic.d = params;
@@ -411,10 +403,8 @@ test('POST /networks/:uuid/nics (with IP)', function (t) {
         }
         desc = util.format(' [%s: %s]', res.mac, desc);
 
-        params.primary = false;
         params.mac = res.mac;
-        params.state = constants.DEFAULT_NIC_STATE;
-        mod_net.addNetParams(state.networks[0], params);
+        mod_nic.addDefaultParams(params, state.networks[0]);
 
         t.deepEqual(res, params, 'nic params returned' + desc);
         state.nic.e = params;
@@ -479,11 +469,9 @@ test('POST /nics (with reserved IP)', function (t) {
         }
 
         delete params.reserved;
-        params.primary = false;
         params.mac = mac;
         params.ip = res.ip;
-        params.state = constants.DEFAULT_NIC_STATE;
-        mod_net.addNetParams(state.networks[0], params);
+        mod_nic.addDefaultParams(params, state.networks[0]);
         t.deepEqual(res, params, 'nic params returned' + desc);
         state.resNic2 = res;
         state.desc.resNic2 = desc;
@@ -787,11 +775,10 @@ test('PUT /nics (with network_uuid and state)', function (t) {
                 return t.end();
             }
 
-            params.primary = false;
             params.mac = mac;
             params.ip = res2.ip;
             params.state = 'stopped';
-            mod_net.addNetParams(state.networks[0], params);
+            mod_nic.addDefaultParams(params, state.networks[0]);
             t.ok(res2.ip, 'nic now has IP address');
             t.deepEqual(res2, params, 'nic params returned' + desc);
             state.nic.putIPnetUUID = params;
@@ -875,19 +862,10 @@ test('PUT /nics (with network_uuid set to admin)', function (t) {
                 return t.end();
             }
 
-            params.primary = false;
             params.mac = mac;
             params.ip = res2.ip;
-            params.state = constants.DEFAULT_NIC_STATE;
-
-            for (var n in mod_net.netParams) {
-                if (state.adminNet.hasOwnProperty(mod_net.netParams[n])) {
-                    params[mod_net.netParams[n]] =
-                        state.adminNet[mod_net.netParams[n]];
-                }
-            }
-            params.network_uuid = state.adminNet.uuid;
             params.owner_uuid = updateParams.owner_uuid;
+            mod_nic.addDefaultParams(params, state.adminNet);
 
             t.deepEqual(res2, params, 'nic params returned' + desc);
             state.nic.putIPwithName = params;
