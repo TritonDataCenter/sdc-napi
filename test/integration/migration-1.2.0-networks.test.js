@@ -85,6 +85,12 @@ var BUCKETS = {
     }
 };
 
+var VERSIONS = {
+    networks: 3,
+    nics: 2,
+    nictags: 1
+};
+
 var NETS = {
     admin: '07eef409-c6eb-42cb-8712-bb0deaab8108',
     external: '62525d6e-466e-464b-892d-01f925a12fae'
@@ -327,7 +333,6 @@ var EXP = {
             vlan_id: 0,
             nic_tag: 'admin',
             resolvers: [ '10.99.99.11' ],
-            subnet: '10.99.99.0/24',
             network_uuid: '07eef409-c6eb-42cb-8712-bb0deaab8108',
             nic_tags_provided: [ 'admin' ]
         },
@@ -344,7 +349,6 @@ var EXP = {
             vlan_id: 0,
             nic_tag: 'admin',
             resolvers: [ '10.99.99.11' ],
-            subnet: '10.99.99.0/24',
             network_uuid: '07eef409-c6eb-42cb-8712-bb0deaab8108'
         },
         {
@@ -360,7 +364,6 @@ var EXP = {
             vlan_id: 0,
             nic_tag: 'admin',
             resolvers: [ '10.99.99.11' ],
-            subnet: '10.99.99.0/24',
             network_uuid: '07eef409-c6eb-42cb-8712-bb0deaab8108'
         }
     ],
@@ -507,7 +510,7 @@ test('networks', function (t) {
                 subnet: '10.88.88.0/24',
                 subnet_start: '10.88.88.0',
                 subnet_type: 'ipv4',
-                v: 3
+                v: VERSIONS.networks
             })
         });
     });
@@ -528,7 +531,7 @@ test('networks', function (t) {
                 subnet: '10.99.99.0/24',
                 subnet_start: '10.99.99.0',
                 subnet_type: 'ipv4',
-                v: 3
+                v: VERSIONS.networks
             })
         });
     });
@@ -573,7 +576,7 @@ test('nics', function (t) {
             key: NICS.serverNoIP,
             exp: extend(INITIAL.nics[0].value, {
                 nic_tags_provided_arr: [ 'external' ],
-                v: 2
+                v: VERSIONS.nics
             })
         });
     });
@@ -583,7 +586,7 @@ test('nics', function (t) {
         var exp = extend(INITIAL.nics[1].value, {
             ipaddr: '10.99.99.7',
             nic_tags_provided_arr: [ 'admin' ],
-            v: 2
+            v: VERSIONS.nics
         });
         delete exp.free;
 
@@ -598,7 +601,7 @@ test('nics', function (t) {
     t.test('moray: zone nic with IP', function (t2) {
         var exp = extend(INITIAL.nics[2].value, {
             ipaddr: '10.99.99.8',
-            v: 2
+            v: VERSIONS.nics
         });
         delete exp.free;
 
@@ -654,7 +657,7 @@ test('nic tags', function (t) {
             key: 'admin',
             exp: extend(INITIAL.nictags[1].value, {
                 mtu: constants.MTU_DEFAULT,
-                v: 1
+                v: VERSIONS.nictags
             })
         });
     });
