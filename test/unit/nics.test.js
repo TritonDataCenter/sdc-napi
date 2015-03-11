@@ -543,7 +543,6 @@ test('Provision nic', function (t) {
             resolvers: NET2.resolvers,
             routes: NET2.routes,
             state: constants.DEFAULT_NIC_STATE,
-            subnet: NET2.subnet,
             vlan_id: NET2.vlan_id
         };
         t.deepEqual(res, exp, 'result');

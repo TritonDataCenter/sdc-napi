@@ -31,12 +31,12 @@ var doneErr = common.doneErr;
 
 var NIC_NET_PARAMS = [
     'gateway',
+    'gateway_provisioned',
     'mtu',
     'netmask',
     'nic_tag',
     'resolvers',
     'routes',
-    'subnet',
     'vlan_id'
 ];
 var NUM = 0;
