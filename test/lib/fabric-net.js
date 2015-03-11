@@ -91,6 +91,11 @@ function createFabricNet(t, opts, callback) {
         if (!opts.exp.hasOwnProperty('fabric')) {
             opts.exp.fabric = true;
         }
+
+        if (opts.params.gateway &&
+                !opts.exp.hasOwnProperty('gateway_provisioned')) {
+            opts.exp.gateway_provisioned = false;
+        }
     }
 
     client.createFabricNetwork(owner, vlan, params, common.reqOpts(t),

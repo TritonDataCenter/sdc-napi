@@ -32,8 +32,7 @@ var test = require('tape');
 
 
 
-// XXX: make this the actual owner?
-var ADMIN_OWNER = mod_uuid.v4();
+var ADMIN_OWNER;    // Loaded in setup below
 var CREATED = {};
 // XXX: shouldn't have to do this!
 var NAPI = h.createNAPIclient();
@@ -142,6 +141,23 @@ var SERVER_NICS = [];
 
 // XXX: make test() here something that checks if overlays are enabled,
 // and if not, fails and ends the test
+
+
+// --- Setup
+
+
+
+test('setup', function (t) {
+    t.test('load UFDS admin UUID', function (t2) {
+        h.loadUFDSadminUUID(t2, function (adminUUID) {
+            if (adminUUID) {
+                ADMIN_OWNER = adminUUID;
+            }
+
+            return t2.end();
+        });
+    });
+});
 
 
 
@@ -328,6 +344,19 @@ test('create network', function (t) {
     });
 
 
+    t.test('gateway_provisioned set', function (t2) {
+        t2.equal(NETS[0].gateway_provisioned, false,
+            'NETS[0]: gateway_provisioned unset');
+        t2.equal(NETS[1].gateway_provisioned, false,
+            'NETS[1]: gateway_provisioned unset');
+        t2.equal(NETS[2].gateway_provisioned, undefined,
+            'NETS[1]: no gateway_provisioned property');
+        t2.equal(NETS[3].gateway_provisioned, undefined,
+            'NETS[2]: no gateway_provisioned property');
+
+        return t2.end();
+    });
+
     t.test('vnet_ids match', function (t2) {
         // VLANs with the same owner_uuid share the same vnet_id
         t.ok(VLANS[0].vnet_id, 'VLANS[0] has vnet_id');
@@ -424,8 +453,7 @@ test('provision server nics', function (t) {
                 belongs_to_type: 'server',
                 belongs_to_uuid: SERVERS[0],
                 owner_uuid: ADMIN_OWNER
-            }),
-            state: CREATED    // store this nic in CREATED.nics
+            })
         });
     });
 
@@ -458,8 +486,7 @@ test('provision server nics', function (t) {
                 belongs_to_uuid: SERVERS[0],
                 owner_uuid: ADMIN_OWNER,
                 underlay: true
-            }),
-            state: CREATED    // store this nic in CREATED.nics
+            })
         });
     });
 
@@ -507,10 +534,10 @@ test('provision zone nics', function (t) {
             exp: mod_net.addNetParams(NETS[0], {
                 belongs_to_type: 'zone',
                 belongs_to_uuid: VMS[0],
+                fabric: true,
                 nic_tag: nicTags[0],
                 owner_uuid: OWNERS[0]
-            }),
-            state: CREATED    // store this nic in CREATED.nics
+            })
         });
     });
 
@@ -543,16 +570,19 @@ test('provision zone nics', function (t) {
             exp: mod_net.addNetParams(NETS[0], {
                 belongs_to_type: 'zone',
                 belongs_to_uuid: VMS[0],
+                fabric: true,
                 ip: '10.2.1.40',
                 nic_tag: nicTags[0],
                 owner_uuid: OWNERS[0]
-            }),
-            state: CREATED    // store this nic in CREATED.nics
+            })
         });
     });
 
 
     t.test('NETS[1]: provision', function (t2) {
+        CREATED.net0nic = mod_nic.lastCreated();
+        t.ok(CREATED.net0nic, 'last created nic');
+
         mod_nic.provision(t2, {
             fillInMissing: true,
             net: NETS[1].uuid,
@@ -565,11 +595,11 @@ test('provision zone nics', function (t) {
             exp: mod_net.addNetParams(NETS[1], {
                 belongs_to_type: 'zone',
                 belongs_to_uuid: VMS[1],
+                fabric: true,
                 cn_uuid: SERVERS[0],
                 nic_tag: nicTags[0],
                 owner_uuid: OWNERS[0]
-            }),
-            state: CREATED    // store this nic in CREATED.nics
+            })
         });
     });
 
@@ -607,10 +637,10 @@ test('provision zone nics', function (t) {
             exp: mod_net.addNetParams(NETS[3], {
                 belongs_to_type: 'zone',
                 belongs_to_uuid: VMS[2],
+                fabric: true,
                 nic_tag: nicTags[1],
                 owner_uuid: OWNERS[1]
-            }),
-            state: CREATED    // store this nic in CREATED.nics
+            })
         });
     });
 
@@ -689,6 +719,8 @@ test('provision zone nics', function (t) {
             expErr: mod_portolan.notFoundErr()
         });
     });
+
+    // XXX: provision with different owner and make sure it errors
 });
 
 
@@ -754,6 +786,131 @@ test('delete server nic', function (t) {
         });
     });
 
+});
+
+
+test('provision gateway', function (t) {
+
+    var gw = mod_uuid.v4();
+    var gwNic;
+    var nicTags = [
+        mod_fabric_net.nicTag(t, NETS[0]),
+        mod_fabric_net.nicTag(t, NETS[3])
+    ];
+
+
+    t.test('NETS[0]: nic has gateway_provisioned=false', function (t2) {
+        mod_nic.get(t2, {
+            mac: CREATED.net0nic.mac,
+            partialExp: {
+                gateway_provisioned: false
+            }
+        });
+    });
+
+
+    t.test('NETS[0]: provision gateway', function (t2) {
+        mod_nic.provision(t2, {
+            fillInMissing: true,
+            net: NETS[0].uuid,
+            params: {
+                belongs_to_type: 'zone',
+                belongs_to_uuid: gw,
+                ip: NETS[0].gateway,
+                owner_uuid: ADMIN_OWNER
+            },
+            exp: mod_net.addNetParams(NETS[0], {
+                belongs_to_type: 'zone',
+                belongs_to_uuid: gw,
+                fabric: true,
+                gateway_provisioned: true,
+                nic_tag: nicTags[0],
+                owner_uuid: ADMIN_OWNER
+            })
+        });
+    });
+
+
+    t.test('get network after gateway provision', function (t2) {
+        NETS[0].gateway_provisioned = true;
+        gwNic = mod_nic.lastCreated();
+
+        mod_net.get(t2, {
+            params: {
+                uuid: NETS[0].uuid
+            },
+            exp: mod_fabric_net.toRealNetObj(NETS[0])
+        });
+    });
+
+
+    // Now that we have a gateway provisioned, the nic should indicate that
+    // the gateway is provisioned
+    t.test('NETS[0]: nic has gateway_provisioned=true', function (t2) {
+        mod_nic.get(t2, {
+            mac: CREATED.net0nic.mac,
+            partialExp: {
+                gateway_provisioned: true
+            }
+        });
+    });
+
+
+    t.test('NETS[0]: provision another nic', function (t2) {
+        mod_nic.provision(t2, {
+            fillInMissing: true,
+            net: NETS[0].uuid,
+            params: {
+                belongs_to_type: 'zone',
+                belongs_to_uuid: VMS[2],
+                owner_uuid: OWNERS[0]
+            },
+            exp: mod_net.addNetParams(NETS[0], {
+                belongs_to_type: 'zone',
+                belongs_to_uuid: VMS[2],
+                fabric: true,
+                gateway_provisioned: true,
+                nic_tag: nicTags[0],
+                owner_uuid: OWNERS[0]
+            })
+        });
+    });
+
+
+    t.test('delete nic', function (t2) {
+        mod_nic.del(t2, {
+            mac: gwNic.mac,
+            exp: {}
+        });
+    });
+
+
+    t.test('get network after gateway delete', function (t2) {
+        NETS[0].gateway_provisioned = false;
+        gwNic = mod_nic.lastCreated();
+
+        mod_net.get(t2, {
+            params: {
+                uuid: NETS[0].uuid
+            },
+            exp: mod_fabric_net.toRealNetObj(NETS[0])
+        });
+    });
+
+
+    t.test('NETS[0]: nic back to gateway_provisioned=false', function (t2) {
+        mod_nic.get(t2, {
+            mac: CREATED.net0nic.mac,
+            partialExp: {
+                gateway_provisioned: false
+            }
+        });
+    });
+
+    // XXX: Update gw nic and make sure things stay the same
+
+    // XXX: test to make sure the user can't provision the gateway on their
+    // own
 });
 
 
