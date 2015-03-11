@@ -157,7 +157,7 @@ test('overlay / underlay nic tags', function (t) {
                 name: OVERLAY_NIC_TAG
             },
             partialExp: {
-                mtu: UNDERLAY_MTU,
+                mtu: OVERLAY_MTU,
                 name: OVERLAY_NIC_TAG
             }
         });
