@@ -1,0 +1,118 @@
+#!/bin/bash
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+
+#
+# Copyright (c) 2015, Joyent, Inc.
+#
+
+LOGLINES=50
+PWD=$(unset CDPATH; cd $(dirname $0); pwd)
+TOP=$(unset CDPATH; cd $PWD/..; pwd)
+BUNYAN=${TOP}/node_modules/.bin/bunyan
+SVC_FILE=$PWD/.service
+
+function fatal()
+{
+    echo "Error: $*" >&2
+    exit 1
+}
+
+
+
+# --- Load service variable and any other variables that depend on it
+
+
+
+[[ ! -e $SVC_FILE ]] && fatal "Service file \"$SVC_FILE\" does not exist"
+source $SVC_FILE
+[[ -z $SVC ]] && fatal "SVC variable not exported in service file \"$SVC_FILE\""
+
+LOGFILE=$(svcs -L ${SVC})
+
+
+
+function restart_svc()
+{
+    local state
+    state=$(svcs -o state -H ${SVC})
+
+    case "$state" in
+        "disabled")
+            exec svcadm enable ${SVC}
+            ;;
+        "maintenance")
+            exec svcadm clear ${SVC}
+            ;;
+        *)
+            exec svcadm restart ${SVC}
+            ;;
+    esac
+}
+
+
+function usage()
+{
+    local msg me
+    msg="$*"
+    [[ -n "$msg" ]] && echo "$msg"
+    me=$(basename $0)
+cat - >&2 <<USAGE
+Administer ${SVC}
+
+Usage:
+        $me <subcommand>
+
+Subcommands:
+        grep        Grep the current and historical service logs for a string
+        lastlog     View the last ${LOGLINES} bunyan-formatted log lines
+        log         View the bunyan-formated log
+        restart     Restart the service
+        stop        Stop the service
+        tail        Tail the log and pipe through bunyan
+USAGE
+    exit 2
+}
+
+
+
+# --- Mainline
+
+
+
+CMD=$1
+
+case "$CMD" in
+    "clear")
+        exec svcadm clear ${SVC}
+        ;;
+    "log")
+        ${BUNYAN} ${LOGFILE}
+        ;;
+    "lastlog")
+        # XXX: allow overriding LOGLINES with an opt
+        exec tail -n ${LOGLINES} ${LOGFILE} | ${BUNYAN}
+        ;;
+    "grep")
+        [[ -z $2 ]] && usage "Must specify string to search for!"
+        grep -h $2 ${LOGFILE} /var/log/sdc/upload/*${SVC}* | ${BUNYAN}
+        ;;
+    "restart")
+        restart_svc
+        ;;
+    "stop")
+        svcadm disable ${SVC}
+        ;;
+    "tail")
+        exec tail -f ${LOGFILE} | ${BUNYAN}
+        ;;
+    "")
+        usage
+        ;;
+    *)
+        fatal "Unknown command \"$CMD\""
+        ;;
+esac
