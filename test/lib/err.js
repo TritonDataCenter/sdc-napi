@@ -32,6 +32,15 @@ function invalidParamErr(param, msg) {
 
 
 /**
+ * Return a "network name in use" error
+ */
+function netNameInUseErr() {
+    return new errors.InvalidParamsError(constants.msg.NET_NAME_IN_USE,
+        [ errors.duplicateParam('name') ]).body;
+}
+
+
+/**
  * Return an error for an overlapping subnet
  */
 function subnetOverlapErr(nets) {
@@ -57,6 +66,7 @@ function vlanInUseErr() {
 
 module.exports = {
     invalidParam: invalidParamErr,
+    netNameInUse: netNameInUseErr,
     subnetOverlap: subnetOverlapErr,
     vlanInUse: vlanInUseErr
 };

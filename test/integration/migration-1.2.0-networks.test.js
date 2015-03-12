@@ -99,14 +99,22 @@ var NETS = {
 var NICS = {
     serverNoIP: '345044264853',
     serverWithIP: '345043656780',
-    zone0: '108005419488235'
+    zone0: '108005419488235',
+    zone1Primary: '108005419488236',
+    zone1NotPrimary: '108005419488237'
 };
 
 var OWNERS = {
-    admin: '930896af-bf8c-48d4-885c-6573a94b1853'
+    admin: '930896af-bf8c-48d4-885c-6573a94b1853',
+    user0: '95672b8e-5690-4428-b0d2-72c700cf3cf8'
 };
 
 var SERVERS = [
+    mod_uuid.v4()
+];
+
+var VMS = [
+    '98643c6e-cc7a-45ae-b70c-f9e93cdfefa3',
     mod_uuid.v4()
 ];
 
@@ -147,7 +155,7 @@ var INITIAL = {
                 ip: 174285576,
                 reserved: false,
                 belongs_to_type: 'zone',
-                belongs_to_uuid: '98643c6e-cc7a-45ae-b70c-f9e93cdfefa3',
+                belongs_to_uuid: VMS[0],
                 owner_uuid: OWNERS.admin
             }
         },
@@ -170,6 +178,7 @@ var INITIAL = {
             value: {
                 uuid: NETS.external,
                 name: 'external',
+                name_str: 'global:external',
                 vlan_id: 0,
                 subnet_end_ip: 173562111,
                 subnet_start_ip: 173561856,
@@ -187,6 +196,7 @@ var INITIAL = {
             value: {
                 uuid: NETS.admin,
                 name: 'admin',
+                name_str: 'global:admin',
                 vlan_id: 0,
                 subnet_end_ip: 174285823,
                 subnet_start_ip: 174285568,
@@ -239,7 +249,7 @@ var INITIAL = {
             value: {
                 mac: 108005419488235,
                 owner_uuid: OWNERS.admin,
-                belongs_to_uuid: '98643c6e-cc7a-45ae-b70c-f9e93cdfefa3',
+                belongs_to_uuid: VMS[0],
                 belongs_to_type: 'zone',
                 primary_flag: true,
                 state: constants.DEFAULT_NIC_STATE,
@@ -262,6 +272,33 @@ var INITIAL = {
                 network_uuid: '07eef409-c6eb-42cb-8712-bb0deaab8108',
                 nic_tag: 'admin',
                 free: false
+            }
+        },
+
+        // zone nics to test that we're not running the updates in nic.batch()
+
+        {
+            key: NICS.zone1Primary,
+            value: {
+                mac: NICS.zone1Primary,
+                owner_uuid: OWNERS.user0,
+                belongs_to_uuid: VMS[1],
+                belongs_to_type: 'zone',
+                primary_flag: true,
+                state: constants.DEFAULT_NIC_STATE,
+                nic_tag: 'external'
+            }
+        },
+        {
+            key: NICS.zone1NotPrimary,
+            value: {
+                mac: NICS.zone1NotPrimary,
+                owner_uuid: OWNERS.user0,
+                belongs_to_uuid: VMS[1],
+                belongs_to_type: 'zone',
+                primary_flag: false,
+                state: constants.DEFAULT_NIC_STATE,
+                nic_tag: 'external'
             }
         }
     ],
@@ -345,13 +382,12 @@ var EXP = {
                 '10.2.0.0/16': '10.1.1.1',
                 '10.3.0.0': '10.1.1.2'
             },
-            subnet: '10.99.99.0/24',
             network_uuid: '07eef409-c6eb-42cb-8712-bb0deaab8108',
             nic_tags_provided: [ 'admin' ]
         },
         {
             belongs_to_type: 'zone',
-            belongs_to_uuid: '98643c6e-cc7a-45ae-b70c-f9e93cdfefa3',
+            belongs_to_uuid: VMS[0],
             mac: '62:3a:f8:a9:93:eb',
             mtu: constants.MTU_DEFAULT,
             owner_uuid: OWNERS.admin,
@@ -366,7 +402,6 @@ var EXP = {
                 '10.2.0.0/16': '10.1.1.1',
                 '10.3.0.0': '10.1.1.2'
             },
-            subnet: '10.99.99.0/24',
             network_uuid: '07eef409-c6eb-42cb-8712-bb0deaab8108'
         },
         {
@@ -386,8 +421,26 @@ var EXP = {
                 '10.2.0.0/16': '10.1.1.1',
                 '10.3.0.0': '10.1.1.2'
             },
-            subnet: '10.99.99.0/24',
             network_uuid: '07eef409-c6eb-42cb-8712-bb0deaab8108'
+        },
+
+        {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: VMS[1],
+            mac: '62:3a:f8:a9:93:ec',
+            owner_uuid: OWNERS.user0,
+            primary: true,
+            state: constants.DEFAULT_NIC_STATE,
+            nic_tag: 'external'
+        },
+        {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: VMS[1],
+            mac: '62:3a:f8:a9:93:ed',
+            owner_uuid: OWNERS.user0,
+            primary: false,
+            state: constants.DEFAULT_NIC_STATE,
+            nic_tag: 'external'
         }
     ],
 
@@ -417,7 +470,7 @@ var EXP = {
             free: false,
             reserved: false,
             belongs_to_type: 'zone',
-            belongs_to_uuid: '98643c6e-cc7a-45ae-b70c-f9e93cdfefa3',
+            belongs_to_uuid: VMS[0],
             network_uuid: NETS.admin,
             owner_uuid: OWNERS.admin
         },

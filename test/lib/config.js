@@ -33,6 +33,9 @@ var NAPI_PORT = process.env.NAPI_PORT || 80;
 
 // XXX: Allow overriding these values with config.json!
 var CONFIG = {
+    defaults: {
+        nic_tag_name: 'int_test_' + process.pid
+    },
     moray: {
         host: process.env.MORAY_HOST || '10.99.99.17',
         logLevel: process.env.LOG_LEVEL || 'fatal',

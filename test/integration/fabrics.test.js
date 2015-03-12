@@ -15,6 +15,7 @@
 var clone = require('clone');
 var config = require('../lib/config');
 var constants = require('../../lib/util/constants');
+var extend = require('xtend');
 var h = require('./helpers');
 var mod_err = require('../lib/err');
 var mod_uuid = require('node-uuid');
@@ -67,6 +68,7 @@ var VLANS = [
 var REAL_NETS = [
     h.validNetworkParams({ nic_tag: UNDERLAY_NIC_TAG })
 ];
+
 // Fabric networks:
 var NETS = [
 
@@ -148,6 +150,7 @@ var SERVER_NICS = [];
 
 
 test('setup', function (t) {
+
     t.test('load UFDS admin UUID', function (t2) {
         h.loadUFDSadminUUID(t2, function (adminUUID) {
             if (adminUUID) {
@@ -157,6 +160,9 @@ test('setup', function (t) {
             return t2.end();
         });
     });
+
+    t.test('create default nic tag', mod_nic_tag.createDefault);
+
 });
 
 
@@ -376,6 +382,173 @@ test('create network', function (t) {
         t.equal(NETS[3].vnet_id, VLANS[2].vnet_id, 'NETS[3] vnet_id');
 
         return t2.end();
+    });
+
+});
+
+
+test('identical networks, different users', function (t) {
+
+    var identical = {
+        subnet: '192.168.1.0/24',
+        name: mod_fabric_net.generateName(),
+        provision_start_ip: '192.168.1.2',
+        provision_end_ip: '192.168.1.254'
+    };
+    var identicalNets = [
+        extend(identical, {
+            owner_uuid: OWNERS[0],
+            vlan_id: VLANS[1].vlan_id
+        }),
+        extend(identical, {
+            owner_uuid: OWNERS[1],
+            vlan_id: VLANS[2].vlan_id
+        }),
+
+        // A "real" (non-fabric) network:
+        h.validNetworkParams(identical)
+
+    ];
+
+
+    t.test('create identical network: 0', function (t2) {
+        mod_fabric_net.createAndGet(t2, {
+            fillInMissing: true,
+            params: identicalNets[0],
+            exp: identicalNets[0]
+        });
+    });
+
+
+    t.test('create identical network: 1', function (t2) {
+        mod_fabric_net.createAndGet(t2, {
+            fillInMissing: true,
+            params: identicalNets[1],
+            exp: identicalNets[1]
+        });
+    });
+
+
+    t.test('create real identical network', function (t2) {
+        mod_net.create(t2, {
+            fillInMissing: true,
+            params: identicalNets[2],
+            exp: identicalNets[2]
+        });
+    });
+
+
+    t.test('list identical networks: no owner', function (t2) {
+        mod_net.list(t2, {
+            params: {
+                name: identical.name
+            },
+            deepEqual: true,
+            present: [ identicalNets[2] ]
+        });
+    });
+
+
+    t.test('list identical networks: OWNERS[0]', function (t2) {
+        mod_net.list(t2, {
+            params: {
+                name: identical.name,
+                provisionable_by: OWNERS[0]
+            },
+            deepEqual: true,
+            present: [
+                mod_fabric_net.toRealNetObj(identicalNets[0]),
+                identicalNets[2]
+            ]
+        });
+    });
+
+
+    t.test('list identical fabric networks: OWNERS[0]', function (t2) {
+        mod_net.list(t2, {
+            params: {
+                fabric: true,
+                name: identical.name,
+                provisionable_by: OWNERS[0]
+            },
+            deepEqual: true,
+            present: [
+                mod_fabric_net.toRealNetObj(identicalNets[0])
+            ]
+        });
+    });
+
+
+    t.test('list identical networks: OWNERS[1]', function (t2) {
+        mod_net.list(t2, {
+            params: {
+                name: identical.name,
+                provisionable_by: OWNERS[1]
+            },
+            deepEqual: true,
+            present: [
+                mod_fabric_net.toRealNetObj(identicalNets[1]),
+                identicalNets[2]
+            ]
+        });
+    });
+
+
+    t.test('list identical fabric networks: OWNERS[1]', function (t2) {
+        mod_net.list(t2, {
+            params: {
+                fabric: true,
+                name: identical.name,
+                provisionable_by: OWNERS[1]
+            },
+            deepEqual: true,
+            present: [
+                mod_fabric_net.toRealNetObj(identicalNets[1])
+            ]
+        });
+    });
+
+
+    t.test('list identical fabric networks: no owner specified', function (t2) {
+        mod_net.list(t2, {
+            params: {
+                fabric: true,
+                name: identical.name
+            },
+            deepEqual: true,
+            present: [
+                mod_fabric_net.toRealNetObj(identicalNets[0]),
+                mod_fabric_net.toRealNetObj(identicalNets[1])
+            ]
+        });
+    });
+
+
+    t.test('list identical fabric networks: non-existent name', function (t2) {
+        mod_net.list(t2, {
+            params: {
+                fabric: true,
+                name: mod_fabric_net.generateName('doesnotexist')
+            },
+            deepEqual: true,
+            present: []
+        });
+    });
+
+
+    t.test('create second network with same name', function (t2) {
+        mod_fabric_net.create(t2, {
+            fillInMissing: true,
+            params: {
+                vlan_id: VLANS[1].vlan_id,
+                subnet: '192.168.2.0/24',
+                name: identical.name,
+                owner_uuid: OWNERS[0],
+                provision_start_ip: '192.168.2.2',
+                provision_end_ip: '192.168.2.254'
+            },
+            expErr: mod_err.netNameInUse()
+        });
     });
 
 });
