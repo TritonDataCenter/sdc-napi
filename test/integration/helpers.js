@@ -36,7 +36,7 @@ var ADMIN_UUID;
 // according to RFC 2544, and therefore shouldn't be used for anything:
 var TEST_NET_FMT = '198.18.%d.%d';
 var TEST_NET_PFX = '198.18.%d.';
-var DEFAULT_NIC_TAG = 'int_test_' + process.pid;
+var DEFAULT_NIC_TAG = config.defaults.nic_tag_name;
 var NET_NUM = 0;
 
 

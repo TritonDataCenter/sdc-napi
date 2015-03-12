@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright (c) 2015, Joyent, Inc.
  */
 
 /*
@@ -15,6 +15,7 @@
 var assert = require('assert-plus');
 var clone = require('clone');
 var common = require('./common');
+var config = require('./config');
 var log = require('./log');
 var mod_client = require('./client');
 var util = require('util');
@@ -28,6 +29,7 @@ var doneErr = common.doneErr;
 
 
 
+var DEFAULT_NIC_TAG = config.defaults.nic_tag_name;
 var NUM = 0;
 var TYPE = 'nic_tag';
 
@@ -35,6 +37,20 @@ var TYPE = 'nic_tag';
 
 // --- Exports
 
+
+
+/**
+ * Create the default nic tag
+ */
+function createDefaultTag(t) {
+    createTag(t, {
+        name: DEFAULT_NIC_TAG,
+        exp: {
+            name: DEFAULT_NIC_TAG,
+            mtu: 1500
+        }
+    });
+}
 
 
 /**
@@ -54,6 +70,7 @@ function createTag(t, opts, callback) {
         name = util.format('test_tag%d_%d', NUM++, process.pid);
     }
 
+    opts.idKey = 'uuid';
     opts.reqType = 'create';
     opts.type = TYPE;
     log.debug({ tagName: name }, 'creating nic tag');
@@ -187,6 +204,7 @@ function updateAndGetTag(t, opts, callback) {
 
 module.exports = {
     create: createTag,
+    createDefault: createDefaultTag,
     createAndGet: createAndGetTag,
     del: delTag,
     get: getTag,
