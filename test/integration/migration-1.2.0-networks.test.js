@@ -196,7 +196,11 @@ var INITIAL = {
                 nic_tag: 'admin',
                 v: 2,
                 owner_uuids: ',930896af-bf8c-48d4-885c-6573a94b1853,',
-                resolvers: [ 174285579 ]
+                resolvers: [ 174285579 ],
+                routes: {
+                    '167903232/16': 167837953,
+                    '167968768': 167837954
+                }
             }
         }
     ],
@@ -306,6 +310,10 @@ var EXP = {
             provision_end_ip: '10.99.99.253',
             nic_tag: 'admin',
             resolvers: [ '10.99.99.11' ],
+            routes: {
+                '10.2.0.0/16': '10.1.1.1',
+                '10.3.0.0': '10.1.1.2'
+            },
             owner_uuids: [ OWNERS.admin ]
         }
     ],
@@ -333,6 +341,11 @@ var EXP = {
             vlan_id: 0,
             nic_tag: 'admin',
             resolvers: [ '10.99.99.11' ],
+            routes: {
+                '10.2.0.0/16': '10.1.1.1',
+                '10.3.0.0': '10.1.1.2'
+            },
+            subnet: '10.99.99.0/24',
             network_uuid: '07eef409-c6eb-42cb-8712-bb0deaab8108',
             nic_tags_provided: [ 'admin' ]
         },
@@ -349,6 +362,11 @@ var EXP = {
             vlan_id: 0,
             nic_tag: 'admin',
             resolvers: [ '10.99.99.11' ],
+            routes: {
+                '10.2.0.0/16': '10.1.1.1',
+                '10.3.0.0': '10.1.1.2'
+            },
+            subnet: '10.99.99.0/24',
             network_uuid: '07eef409-c6eb-42cb-8712-bb0deaab8108'
         },
         {
@@ -364,6 +382,11 @@ var EXP = {
             vlan_id: 0,
             nic_tag: 'admin',
             resolvers: [ '10.99.99.11' ],
+            routes: {
+                '10.2.0.0/16': '10.1.1.1',
+                '10.3.0.0': '10.1.1.2'
+            },
+            subnet: '10.99.99.0/24',
             network_uuid: '07eef409-c6eb-42cb-8712-bb0deaab8108'
         }
     ],
@@ -528,6 +551,10 @@ test('networks', function (t) {
                 provision_end_ip_addr: '10.99.99.253',
                 provision_start_ip_addr: '10.99.99.38',
                 resolver_addrs: [ '10.99.99.11' ],
+                route_addrs: {
+                    '10.2.0.0/16': '10.1.1.1',
+                    '10.3.0.0': '10.1.1.2'
+                },
                 subnet: '10.99.99.0/24',
                 subnet_start: '10.99.99.0',
                 subnet_type: 'ipv4',
