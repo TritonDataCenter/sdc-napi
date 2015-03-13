@@ -36,7 +36,7 @@ var vasync = require('vasync');
 
 
 
-var CONF = require('./test-config.json');
+var CONF = require('../config.json');
 var NAPI;
 var TAG;
 var MSG = {

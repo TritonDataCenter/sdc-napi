@@ -44,7 +44,7 @@ var CONFIG = {
     napi: {
         host: fmt('http://%s:%d', NAPI_HOST, NAPI_PORT)
     },
-    server: JSON.parse(fs.readFileSync(__dirname + '/../unit/test-config.json'))
+    server: JSON.parse(fs.readFileSync(__dirname + '/../config.json'))
 };
 
 CONFIG.server.moray = clone(CONFIG.moray);

@@ -28,7 +28,7 @@ var util_ip = require('../../lib/util/ip');
 
 
 
-var CONF = require('./test-config.json');
+var CONF = require('../config.json');
 var NAPI;
 var TAG;
 

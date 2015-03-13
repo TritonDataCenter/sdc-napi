@@ -5,7 +5,7 @@
 #
 
 #
-# Copyright (c) 2014, Joyent, Inc.
+# Copyright (c) 2015, Joyent, Inc.
 #
 
 #
@@ -102,6 +102,7 @@ pkg: all $(SMF_MANIFESTS)
 		$(TOP)/sbin \
 		$(INSTDIR)/
 	cp smf/manifests/*.xml $(INSTDIR)/smf/manifests
+	cp $(TOP)/test/config.json $(INSTDIR)/test/
 	cp $(TOP)/test/runtest $(INSTDIR)/test/
 	cp $(TOP)/test/runtests $(INSTDIR)/test/
 	cp -r $(TOP)/test/integration/* $(INSTDIR)/test/integration/
