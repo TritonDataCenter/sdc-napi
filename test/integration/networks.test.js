@@ -202,27 +202,24 @@ test('GET /networks/admin', function (t) {
 
 
 test('GET /networks', function (t) {
-    napi.listNetworks(function (err, res) {
-        t.ifError(err, 'get networks');
-        if (err) {
-            return t.end();
-        }
 
-        t.ok(res.length > 0, 'have networks in list');
-
-        var found = false;
-
-        for (var n in res) {
-            if (res[n].uuid == state.network.uuid) {
-                found = true;
-                t.deepEqual(res[n], state.network, 'network params in list');
-                break;
-            }
-        }
-
-        t.ok(found, 'found the test network');
-        return t.end();
+    t.test('list all networks', function (t2) {
+        mod_net.list(t2, {
+            present: [ state.network, state.network2 ]
+        });
     });
+
+
+    t.test('list networks: OR name', function (t2) {
+        mod_net.list(t2, {
+            params: {
+                name: [ state.network.name, state.network2.name ]
+            },
+            deepEqual: true,
+            present: [ state.network, state.network2 ]
+        });
+    });
+
 });
 
 
