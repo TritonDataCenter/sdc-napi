@@ -18,6 +18,7 @@ var common = require('./common');
 var config = require('./config');
 var log = require('./log');
 var mod_client = require('./client');
+var mod_vasync = require('vasync');
 var util = require('util');
 
 var doneRes = common.doneRes;
@@ -66,6 +67,7 @@ function createTag(t, opts, callback) {
     assert.optionalObject(opts.partialExp, 'opts.partialExp');
 
     var name = opts.name;
+    var params = opts.params || {};
     if (name == '<generate>') {
         name = util.format('test_tag%d_%d', NUM++, process.pid);
     }
@@ -75,7 +77,7 @@ function createTag(t, opts, callback) {
     opts.type = TYPE;
     log.debug({ tagName: name }, 'creating nic tag');
 
-    client.createNicTag(name,
+    client.createNicTag(name, params,
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 
@@ -91,6 +93,35 @@ function createAndGetTag(t, opts, callback) {
         }
 
         return getTag(t, opts, callback);
+    });
+}
+
+
+/**
+ * Delete all the nic tags created by this test
+ */
+function delAllCreatedTags(t) {
+    assert.object(t, 't');
+
+    var created = common.allCreated(TYPE + 's');
+    if (created.length === 0) {
+        t.ok(true, 'No nic tags created');
+        return t.end();
+    }
+
+    mod_vasync.forEachParallel({
+        inputs: created,
+        func: function _delOne(tag, cb) {
+            var delOpts = {
+                continueOnErr: true,
+                exp: {},
+                name: tag
+            };
+
+            delTag(t, delOpts, cb);
+        }
+    }, function () {
+        return t.end();
     });
 }
 
@@ -181,7 +212,7 @@ function updateTag(t, opts, callback) {
     opts.type = TYPE;
     opts.reqType = 'update';
 
-    client.updateNicTag(name, opts.params,
+    client.updateNicTag(name, opts.params, common.reqOpts(t, opts.desc),
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 
@@ -196,6 +227,12 @@ function updateAndGetTag(t, opts, callback) {
             return doneErr(err, t, callback);
         }
 
+        if (opts.params && opts.params.name) {
+            // We've update the tag name, so we have to get it with the
+            // new name:
+            opts.name = opts.params.name;
+        }
+
         return getTag(t, opts, callback);
     });
 }
@@ -207,6 +244,7 @@ module.exports = {
     createDefault: createDefaultTag,
     createAndGet: createAndGetTag,
     del: delTag,
+    delAllCreated: delAllCreatedTags,
     get: getTag,
     lastCreated: lastCreated,
     list: listTags,
