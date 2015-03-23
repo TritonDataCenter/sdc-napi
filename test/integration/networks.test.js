@@ -17,10 +17,10 @@ var fmt = require('util').format;
 var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
 var mod_net = require('../lib/net');
+var mod_uuid = require('node-uuid');
 var mod_vasync = require('vasync');
 var test = require('tape');
 var util = require('util');
-var UUID = require('node-uuid');
 
 
 
@@ -29,6 +29,14 @@ var UUID = require('node-uuid');
 
 
 var napi = h.createNAPIclient();
+var OWNERS = [
+    mod_uuid.v4()
+];
+var NETS = [
+    h.validNetworkParams({
+        owner_uuids: [ OWNERS[0] ]
+    })
+];
 var state = { };
 var ufdsAdminUuid;  // Loaded in setup below
 
@@ -220,6 +228,25 @@ test('GET /networks', function (t) {
         });
     });
 
+
+    t.test('create network with different owner', function (t2) {
+        mod_net.create(t2, {
+            fillInMissing: true,
+            params: NETS[0],
+            exp: NETS[0]
+        });
+    });
+
+
+    t.test('list all networks: provisionable_by', function (t2) {
+        mod_net.list(t2, {
+            params: {
+                provisionable_by: OWNERS[0]
+            },
+            present: [ state.network, state.network2 ]
+        });
+    });
+
 });
 
 
@@ -244,49 +271,26 @@ test('GET /networks (filtered)', function (t) {
 
 
 test('GET /networks (filter: multiple nic tags)', function (t) {
-    var filters = [
-        { nic_tag: [ state.nicTag.name, state.nicTag2.name ] },
-        { nic_tag: state.nicTag.name + ',' + state.nicTag2.name }
-    ];
 
-    function filterList(filter, cb) {
-        var desc = util.format(' (nic_tag=%j)', filter.nic_tag);
-
-        napi.listNetworks(filter, function (err, res) {
-            t.ifError(err, 'get networks' + desc);
-            t.ok(res, 'list returned' + desc);
-            if (err || !res) {
-                return t.end();
-            }
-
-            var found = 0;
-            t.equal(res.length, 2, 'matches two networks' + desc);
-            for (var n in res) {
-                if (res[n].uuid == state.network.uuid) {
-                    found++;
-                    t.deepEqual(res[n], state.network,
-                        'network params in list');
-                    continue;
-                }
-
-                if (res[n].uuid == state.network2.uuid) {
-                    found++;
-                    t.deepEqual(res[n], state.network2,
-                        'network2 params in list');
-                    continue;
-                }
-            }
-
-            t.equal(found, 2, 'both networks found');
-            return cb();
+    t.test('multiple nic tags: array', function (t2) {
+        mod_net.list(t2, {
+            params: {
+                nic_tag: [ state.nicTag.name, state.nicTag2.name ]
+            },
+            deepEqual: true,
+            present: [ state.network, state.network2, NETS[0] ]
         });
-    }
+    });
 
-    mod_vasync.forEachParallel({
-        func: filterList,
-        inputs: filters
-    }, function (err) {
-        t.end();
+
+    t.test('multiple nic tags: comma-separated', function (t2) {
+        mod_net.list(t2, {
+            params: {
+                nic_tag: state.nicTag.name + ',' + state.nicTag2.name
+            },
+            deepEqual: true,
+            present: [ state.network, state.network2, NETS[0] ]
+        });
     });
 
 });
@@ -380,34 +384,41 @@ test('POST /networks (comma-separated resolvers)', function (t) {
 
 
 
-test('DELETE /networks/:uuid', function (t) {
-    var names = ['network', 'network2', 'network3', 'singleResolver',
-        'commaResolvers'];
+test('teardown', function (t) {
 
-    function deleteNet(n, cb) {
-        if (!state.hasOwnProperty(n)) {
-            return cb();
+    test('DELETE /networks/:uuid', function (t2) {
+        var names = ['network', 'network2', 'network3', 'singleResolver',
+            'commaResolvers'];
+
+        function deleteNet(n, cb) {
+            if (!state.hasOwnProperty(n)) {
+                return cb();
+            }
+            napi.deleteNetwork(state[n].uuid, { force: true }, function (err) {
+                t2.ifError(err, 'delete network ' + n);
+                return cb();
+            });
         }
-        napi.deleteNetwork(state[n].uuid, { force: true }, function (err) {
-            t.ifError(err, 'delete network ' + n);
-            return cb();
+
+        mod_vasync.forEachParallel({
+            func: deleteNet,
+            inputs: names
+        }, function (err) {
+            return t2.end();
         });
-    }
-
-    mod_vasync.forEachParallel({
-        func: deleteNet,
-        inputs: names
-    }, function (err) {
-        return t.end();
     });
-});
 
 
-test('remove test nic tag', function (t) {
-    h.deleteNicTag(t, napi, state);
-});
+    t.test('delete created networks', mod_net.delAllCreated);
 
 
-test('remove second test nic tag', function (t) {
-    h.deleteNicTag(t, napi, state, 'nicTag2');
+    test('remove test nic tag', function (t2) {
+        h.deleteNicTag(t2, napi, state);
+    });
+
+
+    test('remove second test nic tag', function (t2) {
+        h.deleteNicTag(t2, napi, state, 'nicTag2');
+    });
+
 });

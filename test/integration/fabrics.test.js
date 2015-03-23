@@ -66,7 +66,14 @@ var VLANS = [
 ];
 // Real (non-fabric networks):
 var REAL_NETS = [
-    h.validNetworkParams({ nic_tag: UNDERLAY_NIC_TAG })
+    h.validNetworkParams({ nic_tag: UNDERLAY_NIC_TAG }),
+
+    // Create a real network for the owner to make sure that we don't
+    // mistakenly list it when listing fabric networks
+    h.validNetworkParams({
+        owner_uuids: [ OWNERS[1] ],
+        vlan_id: VLANS[1].vlan_id
+    })
 ];
 
 // Fabric networks:
@@ -387,6 +394,82 @@ test('create network', function (t) {
 });
 
 
+//
+// XXX: add me later
+//  test('update networks', function (t) {
+//      t.test('resize subnet', function (t2) {
+//          mod_fabric_net.update(t2, {
+//              fillInMissing: true,
+//              params: {
+//                  uuid: NETS[3].uuid,
+//                  vlan_id: NETS[3].vlan_id,
+//                  owner_uuid: NETS[3].owner_uuid,
+//                  provision_start_ip: '192.168.0.1',
+//                  provision_end_ip: '192.168.0.250'
+//              },
+//              exp: NETS[3]
+//          });
+//      });
+//  });
+//
+
+
+test('list networks', function (t) {
+
+    t.test('create real network', function (t2) {
+        mod_net.create(t2, {
+            fillInMissing: true,
+            params: REAL_NETS[1],
+            exp: REAL_NETS[1]
+        });
+    });
+
+
+    t.test('VLANS[0]', function (t2) {
+        mod_fabric_net.list(t2, {
+            params: {
+                owner_uuid: OWNERS[0],
+                vlan_id: VLANS[0].vlan_id
+            },
+            deepEqual: true,
+            present: [ NETS[0], NETS[1] ]
+        });
+    });
+
+
+    t.test('VLANS[1]', function (t2) {
+        mod_fabric_net.list(t2, {
+            params: {
+                owner_uuid: OWNERS[0],
+                vlan_id: VLANS[1].vlan_id
+            },
+            deepEqual: true,
+            present: [ NETS[2] ]
+        });
+    });
+
+
+    t.test('VLANS[2]', function (t2) {
+        mod_fabric_net.list(t2, {
+            params: {
+                owner_uuid: VLANS[2].owner_uuid,
+                vlan_id: VLANS[2].vlan_id
+            },
+            deepEqual: true,
+            present: [ NETS[3] ]
+        });
+    });
+
+});
+
+
+/*
+ * Test that we can create the same network (particularly with the same name)
+ * for different users, and for both real and fabric networks.
+ *
+ * Note that this test is after the list test above so that we don't have to
+ * much about adding more networks to NETS
+ */
 test('identical networks, different users', function (t) {
 
     var identical = {
@@ -407,7 +490,6 @@ test('identical networks, different users', function (t) {
 
         // A "real" (non-fabric) network:
         h.validNetworkParams(identical)
-
     ];
 
 
@@ -548,51 +630,6 @@ test('identical networks, different users', function (t) {
                 provision_end_ip: '192.168.2.254'
             },
             expErr: mod_err.netNameInUse()
-        });
-    });
-
-});
-
-
-//
-// XXX: add me later
-//  test('update networks', function (t) {
-//      t.test('resize subnet', function (t2) {
-//          mod_fabric_net.update(t2, {
-//              fillInMissing: true,
-//              params: {
-//                  uuid: NETS[3].uuid,
-//                  vlan_id: NETS[3].vlan_id,
-//                  owner_uuid: NETS[3].owner_uuid,
-//                  provision_start_ip: '192.168.0.1',
-//                  provision_end_ip: '192.168.0.250'
-//              },
-//              exp: NETS[3]
-//          });
-//      });
-//  });
-//
-
-
-test('list networks', function (t) {
-
-    t.test('VLANS[0]', function (t2) {
-        mod_fabric_net.list(t2, {
-            params: {
-                owner_uuid: OWNERS[0],
-                vlan_id: VLANS[0].vlan_id
-            },
-            present: [ NETS[0], NETS[1] ]
-        });
-    });
-
-    t.test('VLANS[1]', function (t2) {
-        mod_fabric_net.list(t2, {
-            params: {
-                owner_uuid: OWNERS[0],
-                vlan_id: VLANS[1].vlan_id
-            },
-            present: [ NETS[2] ]
         });
     });
 

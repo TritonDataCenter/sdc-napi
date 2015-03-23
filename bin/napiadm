@@ -64,15 +64,15 @@ cat - >&2 <<USAGE
 Administer ${SVC}
 
 Usage:
-        $me <subcommand>
+    $me <subcommand>
 
 Subcommands:
-        grep        Grep the current and historical service logs for a string
-        lastlog     View the last ${LOGLINES} bunyan-formatted log lines
-        log         View the bunyan-formated log
-        restart     Restart the service
-        stop        Stop the service
-        tail        Tail the log and pipe through bunyan
+    grep        Grep the current and historical service logs for a string
+    lastlog     View the last ${LOGLINES} bunyan-formatted log lines
+    log         View the bunyan-formated log
+    restart     Restart the service
+    stop        Stop the service
+    tail        Tail the log and pipe through bunyan
 USAGE
     exit 2
 }
