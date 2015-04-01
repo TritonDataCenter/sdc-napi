@@ -1,6 +1,6 @@
 ---
 title: Networking API (NAPI)
-apisections: Nic Tags, Networks, IPs, Fabrics, Nics, Network Pools, Search, Link Aggregations
+apisections: Nic Tags, Networks, IPs, Fabrics, Fabric VLANs, Fabric Networks, Nics, Network Pools, Search, Link Aggregations
 markdown2extras: tables, code-friendly
 ---
 <!--
@@ -39,20 +39,20 @@ these changes to servers, which is the domain of
 
 ## IP and Nic Provisioning
 
-When you [create a Nic](#CreateNic) in NAPI, you can specify a MAC address and
+When you [create a nic](#CreateNic) in NAPI, you can specify a MAC address and
 IP address. If you do not pick a MAC address, one will be generated at random
 for the new nic. If you do not pick an IP address, the next available address
 on the logical network will be used.  The next available address is chosen
 in the following way:
 
 * If there are IPs in the network that have never been used, pick the lowest
-  one that doesn't have belongs_to_uuid set and is unreserved.
+  one that doesn't have `belongs_to_uuid` set and is unreserved.
 * If all IPs in the network have been used before, pick the least
   recently used unreserved IP.
 
 Based on the above, [setting the **reserved** property on an IP](#UpdateIP)
 removes it from the automatic selection process. It can still be used by
-specifying it as **ip** when [creating a Nic](#CreateNic).
+specifying it as **ip** when [creating a nic](#CreateNic).
 [Setting the **free** property on an IP](#UpdateIP) removes all other
 properties from the IP (including **reserved**, **belongs_to_uuid**, and
 **belongs_to_type**).  This therefore makes the IP available for automatic
@@ -69,17 +69,17 @@ server nics that *provide* the nic tags, and VM virtual nics that *attach*
 to a nic tag.
 
 For physical server nics, you can specify that a server's nic has a nic tag
-(using the `nic_tags_provided` property - see [Nics](#Nics) below).  This
+(using the `nic_tags_provided` property - see [Nics](#nics) below).  This
 indicates that this nic is able to reach all other server nics attached to
 the same nic tag.  For example, if you add "external" to the
 `nic_tags_provided` of one of Server A's nics, that nic should have Layer 2
 connectivity with all other nics that are also tagged with the "external"
-tag.  You can also tag [link aggregations](#Aggregations) with tags in
+tag.  You can also tag [link aggregations](#link-aggregations) with tags in
 `nic_tags_provided`, since they also provide Layer 2 connectivity.
 
 For VM virtual nics, you do not set `nic_tags_provided` - instead, each nic
 has a `nic_tag` property (either set manually, or inherited from its
-[Logical Network](#Networks)).  This allows the rest of the SDC provisioning
+[Logical Network](#networks)).  This allows the rest of the SDC provisioning
 stack to not have to worry about how networks are physically connected - when
 provisioning or migrating a VM, you only need to confirm that the destination
 server has nics that provide the tags required.
@@ -88,8 +88,10 @@ If you provision a nic on the "external" nic tag (for example), when the
 VM provision request is sent to the Compute Node, it looks for a physical nic
 that provides the "external" nic tag, and creates a Virtual Nic (vnic) over
 that physical interface.  You can inspect the nic tags provided on a Compute
-Node using the `nictagadm (1m)` and `sysinfo (1m)` tools.  You can inspect the
-nic tags of a VM on a Compute Node using the `vmadm (1m)` tool.
+Node using the [nictagadm (1m)](https://smartos.org/man/1m/nictagadm) and
+[sysinfo (1m)](https://smartos.org/man/1m/sysinfo) tools.  You can inspect the
+nic tags of a VM on a Compute Node using the
+[vmadm (1m)](https://smartos.org/man/1m/vmadm) tool.
 
 ## Nic Tag MTUs
 
@@ -98,9 +100,9 @@ Compute Nodes that have that tag.  When a Compute Node reboots, it gets the
 MTU of all nic tags for a physical nic, and sets the MTU of that nic to the
 maximum of all of those MTUs.
 
-MTUs for nic tags have a minimum value of *1500* and a maximum value of *9000*.
-Networks created on a nic tag cannot have an MTU higher than the MTU of the nic
-tag they're created on.
+MTUs for nic tags have a minimum value of **1500** and a maximum value of
+**9000**.  Networks created on a nic tag cannot have an MTU higher than the MTU
+of the nic tag they're created on.
 
 
 ## ListNicTags (GET /nic_tags)
@@ -572,24 +574,53 @@ removed (similar to the *unassign* option above).
 
 # Fabrics
 
+## Overview
+
 These endpoints manage fabrics.  Fabrics are per-owner overlay networks: each
 account gets a fabric that's isolated from all other fabrics in the datacenter.
 VMs in account can only connect to machines on their own fabric, but not the
 fabrics of other users.
 
-To use fabrics, users create VLANs on their fabric, and then create networks
-on that VLAN.
+To use fabrics, users [create VLANs](#CreateFabricVLAN) on their fabric, and
+then [create networks](#CreateFabricNetwork) on that VLAN.  See the
+[Fabric VLANs](#fabric-vlans) and [Fabric Networks](#fabric-networks) sections
+for API endpoints.
+
+## Interaction with Portolan
+
+For fabric networks to work, the packets from each fabric network (the overlay
+network) are encapsulated by a Compute Node and sent over the underlay network
+to other Compute Nodes.  In order to send a packet on an overlay network from
+one Compute Node to another, we therefore need to lookup the following
+pieces of data:
+
+1. What Compute Node the destination MAC or IP address is on, and then
+2. The IP address of that Compute Node on the underlay network
+
+These lookups are handled by the
+[portolan](https://github.com/joyent/sdc-portolan) service, which looks up the
+data in [moray](https://github.com/joyent/moray) buckets.  NAPI populates these
+tables.
+
+To cover item #1 above, set the `cn_uuid` property when calling the
+[CreateNic](#CreateNic) or [UpdateNic](#UpdateNic) endpoints.  This is
+currently done by the provision workflow in
+[VMAPI](https://github.com/joyent/sdc-vmapi), and kept up to date by
+[net-agent](https://github.com/joyent/sdc-net-agent) on the Compute Node.
+
+To cover item #2 above, set the `underlay` property on a server's vnic when
+calling the [CreateNic](#CreateNic) or [UpdateNic](#UpdateNic) endpoints.
 
 
-## Fabric VLANs
+# Fabric VLANs
 
 These enpoints manage a user's fabric VLANs.
 
-### ListFabricVLANs (GET /fabrics/:owner_uuid/vlans)
+## ListFabricVLANs (GET /fabrics/:owner_uuid/vlans)
 
 List VLANs owned by a user.
 
-#### Example
+### Example
 
     GET /fabrics/2ee96b00-2bd6-4eda-9fc1-84b56a1059ad/vlans
 
@@ -603,11 +634,11 @@ List VLANs owned by a user.
     ]
 
 
-### CreateFabricVLAN (POST /fabrics/:owner_uuid/vlans)
+## CreateFabricVLAN (POST /fabrics/:owner_uuid/vlans)
 
 Create a new fabric VLAN.
 
-#### Inputs
+### Inputs
 
 All inputs are required.
 
@@ -616,7 +647,7 @@ All inputs are required.
 | name               | String         | network name                                                    |
 | vlan_id            | Number         | VLAN ID (0 if no VLAN ID)                                       |
 
-#### Example
+### Example
 
     POST /fabrics/cd1cc2a9-e6ad-4c1c-a6bc-acd14e0d4d11/vlans
         vlan_id=44
@@ -632,11 +663,11 @@ All inputs are required.
 The `vnet_id` property is unique to an `owner_uuid` - each account has their
 own unique ID that's shared by all of their Fabric VLANs and networks.
 
-### GetFabricVLAN (GET /fabrics/:owner_uuid/vlans/:vlan_id)
+## GetFabricVLAN (GET /fabrics/:owner_uuid/vlans/:vlan_id)
 
 Get a VLAN by its VLAN ID.
 
-#### Example
+### Example
 
     GET /fabrics/cd1cc2a9-e6ad-4c1c-a6bc-acd14e0d4d11/vlans/44
 
@@ -647,11 +678,11 @@ Get a VLAN by its VLAN ID.
       "vnet_id": 7757106
     }
 
-### UpdateFabricVLAN (PUT /fabrics/:owner_uuid/vlans/:vlan_id)
+## UpdateFabricVLAN (PUT /fabrics/:owner_uuid/vlans/:vlan_id)
 
 Update a fabric VLAN.
 
-#### Inputs
+### Inputs
 
 All inputs are required.
 
@@ -659,7 +690,7 @@ All inputs are required.
 | ------------------ | -------------- | --------------------------------------------------------------- |
 | name               | String         | network name                                                    |
 
-#### Example
+### Example
 
     PUT /fabrics/cd1cc2a9-e6ad-4c1c-a6bc-acd14e0d4d11/vlans/44
         name=qa
@@ -672,26 +703,26 @@ All inputs are required.
     }
 
 
-### DeleteFabricVLAN (DELETE /fabrics/:owner_uuid/vlans/:vlan_id)
+## DeleteFabricVLAN (DELETE /fabrics/:owner_uuid/vlans/:vlan_id)
 
 Delete a fabric VLAN.
 
-#### Example
+### Example
 
     DELETE /fabrics/cd1cc2a9-e6ad-4c1c-a6bc-acd14e0d4d11/vlans/44
 
     {}
 
 
-## Fabric Networks
+# Fabric Networks
 
 These enpoints manage a user's fabric networks.
 
-### ListFabricNetworks (GET /fabrics/:owner_uuid/vlans/:vlan_id/networks)
+## ListFabricNetworks (GET /fabrics/:owner_uuid/vlans/:vlan_id/networks)
 
 List a user's networks on a VLAN.
 
-#### Example
+### Example
 
     GET /fabrics/2ee96b00-2bd6-4eda-9fc1-84b56a1059ad/vlans/44
 
@@ -718,11 +749,11 @@ List a user's networks on a VLAN.
     ]
 
 
-### CreateFabricNetwork (POST /fabrics/:owner_uuid/vlans/:vlan_id/networks)
+## CreateFabricNetwork (POST /fabrics/:owner_uuid/vlans/:vlan_id/networks)
 
 Create a new fabric network on a VLAN.
 
-#### Inputs
+### Inputs
 
 The parameters to this endpoint are the same as to [CreateNetwork](#CreateNetwork),
 but with some fields removed:
@@ -740,7 +771,7 @@ but with some fields removed:
 | description        | String         | Description (Optional)                              |
 
 
-#### Example
+### Example
 
     POST /fabrics/cd1cc2a9-e6ad-4c1c-a6bc-acd14e0d4d11/vlans/44/networks
         name=web
@@ -780,15 +811,15 @@ There are several read-only properties of the network:
 - `netmask`: derived from subnet
 - `nic_tag`: Set to `overlay.overlayNicTag` in the NAPI config.
 - `owner_uuid`: the owner of the fabric
-- `vnet_id`: per-owner virtual network ID - see [Fabric VLANs](#Fabric VLANS)
+- `vnet_id`: per-owner virtual network ID - see [Fabric VLANs](#fabric-vlans)
   above.
 
 
-### GetFabricNetwork (GET /fabrics/:owner_uuid/vlans/:vlan_id/networks/:network_uuid)
+## GetFabricNetwork (GET /fabrics/:owner_uuid/vlans/:vlan_id/networks/:network_uuid)
 
 Get a Network by its Network ID.
 
-#### Example
+### Example
 
     GET /fabrics/cd1cc2a9-e6ad-4c1c-a6bc-acd14e0d4d11/vlans/44/networks/4944e6d9-d3ee-462c-b5a6-1c953551ffcf
 
@@ -812,11 +843,11 @@ Get a Network by its Network ID.
       "netmask": "255.255.255.0"
     }
 
-### DeleteFabricNetwork (DELETE /fabrics/:owner_uuid/vlans/:vlan_id/networks/:network_uuid)
+## DeleteFabricNetwork (DELETE /fabrics/:owner_uuid/vlans/:vlan_id/networks/:network_uuid)
 
 Delete a fabric network.
 
-#### Example
+### Example
 
     DELETE /fabrics/cd1cc2a9-e6ad-4c1c-a6bc-acd14e0d4d11/vlans/44/networks/4944e6d9-d3ee-462c-b5a6-1c953551ffcf
 
@@ -957,6 +988,7 @@ Creates a new nic.
 | owner_uuid               | UUID                   | Nic Owner                                                                         |
 | belongs_to_uuid          | UUID                   | The UUID of what this Nic belongs to                                              |
 | belongs_to_type          | String                 | The type that this belongs to (eg: 'zone', 'server')                              |
+| cn_uuid                  | UUID                   | The UUID of the Compute Node a VM's nic is provisioned on (optional)              |
 | ip                       | String                 | IP address to assign to the nic                                                   |
 | network_uuid             | UUID                   | UUID of the network or network pool to provision an IP on                         |
 | nic_tag                  | String                 | Nic tag (required if IP specified)                                                |
@@ -971,6 +1003,7 @@ Creates a new nic.
 | allow_mac_spoofing       | Boolean                | Allow sending and receiving packets that don't match the nic's MAC address        |
 | allow_restricted_traffic | Boolean                | Allow sending restricted network traffic (packets that are not IPv4, IPv6 or ARP) |
 | allow_unfiltered_promisc | Boolean                | Allow this VM to have multiple MAC addresses                                      |
+| underlay                 | Boolean                | Indicates this vnic is to be used as a server's unerlay nic (optional)            |
 
 
 ### Example
@@ -1027,6 +1060,7 @@ Changes properties of the nic with the given MAC address.
 | owner_uuid               | UUID                   | Nic Owner                                                                         |
 | belongs_to_uuid          | UUID                   | The UUID of what this Nic belongs to                                              |
 | belongs_to_type          | String                 | The type that this belongs to (eg: 'zone', 'server')                              |
+| cn_uuid                  | UUID                   | The UUID of the Compute Node a VM's nic is provisioned on (optional)              |
 | ip                       | String                 | IP address to assign to the nic                                                   |
 | network_uuid             | UUID                   | The network UUID the nic's IP should be on                                        |
 | nic_tags_provided        | Array of nic tag names | Nic tags this nic provides                                                        |
@@ -1037,6 +1071,7 @@ Changes properties of the nic with the given MAC address.
 | allow_mac_spoofing       | Boolean                | Allow sending and receiving packets that don't match the nic's MAC address        |
 | allow_restricted_traffic | Boolean                | Allow sending restricted network traffic (packets that are not IPv4, IPv6 or ARP) |
 | allow_unfiltered_promisc | Boolean                | Allow this VM to have multiple MAC addresses                                      |
+| underlay                 | Boolean                | Indicates this vnic is to be used as a server's unerlay nic (optional)            |
 
 
 **Note: this is the MAC address with all colons removed.**
@@ -1446,28 +1481,28 @@ of the Compute Node that hosts them.**
 
 ## 2012-07-04
 
-- Can now pass `reserved` to POST /nics and POST /networks/:network_uuid/nics
-- Can now do a PUT /networks/:network_uuid/ips/:ip_addr to change the IP's
-  `reserved` property
+- Can now pass `reserved` to [CreateNic](#CreateNic) and
+  ProvisionNic(#ProvisionNic)
+- [UpdateIP](#UpdateIP) can now change the IP's `reserved` property
 
 ## 2012-08-20
 
-- `gateway` and `netmask` properties no longer required when POSTING to /nics
-  with an IP address
+- `gateway` and `netmask` properties no longer required when calling
+  [CreateNic](#CreateNic) with an IP address
 - Adding and updating nics now takes an optional `nic_tags_provided` parameter
 
 ## 2012-09-12
 
-- GET /networks: added `vlan_id` and `nic_tag` filters
+- [ListNetworks](#ListNetworks): added `vlan_id` and `nic_tag` filters
 
 ## 2013-02-07
 
-- Added network pool endpoints
+- Added [network pool](#network-pools) endpoints
 
 ## 2013-04-17
 
 - Added network `owner_uuid` parameter
-- Added `provisionable_by` parameter to NetworkList endpoint
+- Added `provisionable_by` parameter to [ListNetworks](#ListNetworks) endpoint
 
 ## 2013-05-01
 
@@ -1475,14 +1510,21 @@ of the Compute Node that hosts them.**
 
 ## 2013-05-14
 
-- Added SearchIPs endpoint
-- Added UpdateNetwork endpoint
+- Added [SearchIPs](#SearchIPs) endpoint
+- Added [UpdateNetwork](#UpdateNetwork) endpoint
 
 ## 2014-02-18
 
-- Added aggregations endpoints
+- Added [link aggregations](#link-aggregations) endpoints
 
 ## 2015-03-17
 
 - Nic tag endpoints now support the `mtu` property
+
+## 2015-03-31
+
+- Added [fabric VLANs](#fabric-vlans) and [fabric networks](#fabric-networks)
+  endpoints
+- [CreateNic](#CreateNic) and [UpdateNic](#UpdateNic) endpoints now support the
+  `cn_uuid` and `underlay` properties.
 
