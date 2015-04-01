@@ -1,6 +1,6 @@
 ---
 title: Networking API (NAPI)
-apisections: Nic Tags, Networks, IPs, Nics, Network Pools, Search, Link Aggregations
+apisections: Nic Tags, Networks, IPs, Fabrics, Nics, Network Pools, Search, Link Aggregations
 markdown2extras: tables, code-friendly
 ---
 <!--
@@ -10,7 +10,7 @@ markdown2extras: tables, code-friendly
 -->
 
 <!--
-    Copyright (c) 2014, Joyent, Inc.
+    Copyright (c) 2015, Joyent, Inc.
 -->
 
 # Networking API (NAPI)
@@ -23,12 +23,13 @@ markdown2extras: tables, code-friendly
 
 The Networking API allows for administering the following:
 
-* Nic Tags
-* Logical Networks
-* Logical Network Pools
-* IPs
-* Nics
-* Link Aggregations
+- Nic Tags
+- Logical Networks
+- Logical Network Pools
+- Fabrics
+- IPs
+- Nics
+- Link Aggregations
 
 NAPI itself is just a directory of the above - it does not handle communicating
 these changes to servers, which is the domain of
@@ -60,7 +61,46 @@ provisioning again.
 
 # Nic Tags
 
-These endpoints manage nic tags.
+## Nic Tag Concepts
+
+These endpoints manage nic tags.  Nic tags are intended to represent physical
+network connectivity of nics.  There are two components to this: physical
+server nics that *provide* the nic tags, and VM virtual nics that *attach*
+to a nic tag.
+
+For physical server nics, you can specify that a server's nic has a nic tag
+(using the `nic_tags_provided` property - see [Nics](#Nics) below).  This
+indicates that this nic is able to reach all other server nics attached to
+the same nic tag.  For example, if you add "external" to the
+`nic_tags_provided` of one of Server A's nics, that nic should have Layer 2
+connectivity with all other nics that are also tagged with the "external"
+tag.  You can also tag [link aggregations](#Aggregations) with tags in
+`nic_tags_provided`, since they also provide Layer 2 connectivity.
+
+For VM virtual nics, you do not set `nic_tags_provided` - instead, each nic
+has a `nic_tag` property (either set manually, or inherited from its
+[Logical Network](#Networks)).  This allows the rest of the SDC provisioning
+stack to not have to worry about how networks are physically connected - when
+provisioning or migrating a VM, you only need to confirm that the destination
+server has nics that provide the tags required.
+
+If you provision a nic on the "external" nic tag (for example), when the
+VM provision request is sent to the Compute Node, it looks for a physical nic
+that provides the "external" nic tag, and creates a Virtual Nic (vnic) over
+that physical interface.  You can inspect the nic tags provided on a Compute
+Node using the `nictagadm (1m)` and `sysinfo (1m)` tools.  You can inspect the
+nic tags of a VM on a Compute Node using the `vmadm (1m)` tool.
+
+## Nic Tag MTUs
+
+Setting the MTU of nic tags allows you to set the MTU of physical nics on
+Compute Nodes that have that tag.  When a Compute Node reboots, it gets the
+MTU of all nic tags for a physical nic, and sets the MTU of that nic to the
+maximum of all of those MTUs.
+
+MTUs for nic tags have a minimum value of *1500* and a maximum value of *9000*.
+Networks created on a nic tag cannot have an MTU higher than the MTU of the nic
+tag they're created on.
 
 
 ## ListNicTags (GET /nic_tags)
@@ -72,10 +112,12 @@ Returns a list of all nic tags.
     GET /nic_tags
     [
       {
+        "mtu": 1500,
         "uuid": "bc7e140a-f1fe-49fd-8b70-26379fa04492",
         "name": "admin"
       },
       {
+        "mtu": 1500,
         "uuid": "99ec3b5a-4291-4a40-ba0d-abf7ba1e6e4f",
         "name": "external"
       }
@@ -91,7 +133,8 @@ Returns the named nic tag.
     GET /nic_tags/admin
     {
       "uuid": "bc7e140a-f1fe-49fd-8b70-26379fa04492",
-      "name": "admin"
+      "name": "admin",
+      "mtu": 1500
     }
 
 
@@ -101,9 +144,10 @@ Creates a nic tag.
 
 ### Inputs
 
-| Field | Type   | Description  |
-| ----- | ------ | ------------ |
-| name  | String | nic tag name |
+| Field | Type   | Description                        |
+| ----- | ------ | ---------------------------------- |
+| name  | String | nic tag name                       |
+| mtu   | Number | MTU of underlying physical network |
 
 ### Example
 
@@ -121,9 +165,10 @@ Updates a nic tag.
 
 ### Inputs
 
-| Field | Type   | Description      |
-| ----- | ------ | ---------------- |
-| name  | String | new nic tag name |
+| Field | Type   | Description                        |
+| ----- | ------ | ---------------------------------- |
+| name  | String | new nic tag name                   |
+| mtu   | Number | MTU of underlying physical network |
 
 ### Example
 
@@ -525,10 +570,263 @@ removed (similar to the *unassign* option above).
 
 
 
+# Fabrics
+
+These endpoints manage fabrics.  Fabrics are per-owner overlay networks: each
+account gets a fabric that's isolated from all other fabrics in the datacenter.
+VMs in account can only connect to machines on their own fabric, but not the
+fabrics of other users.
+
+To use fabrics, users create VLANs on their fabric, and then create networks
+on that VLAN.
+
+
+## Fabric VLANs
+
+These enpoints manage a user's fabric VLANs.
+
+### ListFabricVLANs (GET /fabrics/:owner_uuid/vlans)
+
+List VLANs owned by a user.
+
+#### Example
+
+    GET /fabrics/2ee96b00-2bd6-4eda-9fc1-84b56a1059ad/vlans
+
+    [
+      {
+        "name": "default",
+        "owner_uuid": "2ee96b00-2bd6-4eda-9fc1-84b56a1059ad",
+        "vlan_id": 2,
+        "vnet_id": 3688662
+      }
+    ]
+
+
+### CreateFabricVLAN (POST /fabrics/:owner_uuid/vlans)
+
+Create a new fabric VLAN.
+
+#### Inputs
+
+All inputs are required.
+
+| Field              | Type           | Description                                                     |
+| ------------------ | -------------- | --------------------------------------------------------------- |
+| name               | String         | network name                                                    |
+| vlan_id            | Number         | VLAN ID (0 if no VLAN ID)                                       |
+
+#### Example
+
+    POST /fabrics/cd1cc2a9-e6ad-4c1c-a6bc-acd14e0d4d11/vlans
+        vlan_id=44
+        name=production
+
+    {
+      "name": "production",
+      "owner_uuid": "cd1cc2a9-e6ad-4c1c-a6bc-acd14e0d4d11",
+      "vlan_id": 44,
+      "vnet_id": 7757106
+    }
+
+The `vnet_id` property is unique to an `owner_uuid` - each account has their
+own unique ID that's shared by all of their Fabric VLANs and networks.
+
+### GetFabricVLAN (GET /fabrics/:owner_uuid/vlans/:vlan_id)
+
+Get a VLAN by its VLAN ID.
+
+#### Example
+
+    GET /fabrics/cd1cc2a9-e6ad-4c1c-a6bc-acd14e0d4d11/vlans/44
+
+    {
+      "name": "production",
+      "owner_uuid": "cd1cc2a9-e6ad-4c1c-a6bc-acd14e0d4d11",
+      "vlan_id": 44,
+      "vnet_id": 7757106
+    }
+
+### UpdateFabricVLAN (PUT /fabrics/:owner_uuid/vlans/:vlan_id)
+
+Update a fabric VLAN.
+
+#### Inputs
+
+All inputs are required.
+
+| Field              | Type           | Description                                                     |
+| ------------------ | -------------- | --------------------------------------------------------------- |
+| name               | String         | network name                                                    |
+
+#### Example
+
+    PUT /fabrics/cd1cc2a9-e6ad-4c1c-a6bc-acd14e0d4d11/vlans/44
+        name=qa
+
+    {
+      "name": "qa",
+      "owner_uuid": "cd1cc2a9-e6ad-4c1c-a6bc-acd14e0d4d11",
+      "vlan_id": 44,
+      "vnet_id": 7757106
+    }
+
+
+### DeleteFabricVLAN (DELETE /fabrics/:owner_uuid/vlans/:vlan_id)
+
+Delete a fabric VLAN.
+
+#### Example
+
+    DELETE /fabrics/cd1cc2a9-e6ad-4c1c-a6bc-acd14e0d4d11/vlans/44
+
+    {}
+
+
+## Fabric Networks
+
+These enpoints manage a user's fabric networks.
+
+### ListFabricNetworks (GET /fabrics/:owner_uuid/vlans/:vlan_id/networks)
+
+List a user's networks on a VLAN.
+
+#### Example
+
+    GET /fabrics/2ee96b00-2bd6-4eda-9fc1-84b56a1059ad/vlans/44
+
+    [
+      {
+        "mtu": 1400,
+        "nic_tag": "sdc_overlay",
+        "name": "web",
+        "provision_end_ip": "10.0.1.254",
+        "provision_start_ip": "10.0.1.2",
+        "vlan_id": 44,
+        "subnet": "10.0.1.0/24",
+        "uuid": "4944e6d9-d3ee-462c-b5a6-1c953551ffcf",
+        "fabric": true,
+        "vnet_id": 7757106,
+        "gateway_provisioned": false,
+        "resolvers": [
+          "8.8.8.8"
+        ],
+        "gateway": "10.0.1.1",
+        "owner_uuid": "cd1cc2a9-e6ad-4c1c-a6bc-acd14e0d4d11",
+        "netmask": "255.255.255.0"
+      }
+    ]
+
+
+### CreateFabricNetwork (POST /fabrics/:owner_uuid/vlans/:vlan_id/networks)
+
+Create a new fabric network on a VLAN.
+
+#### Inputs
+
+The parameters to this endpoint are the same as to [CreateNetwork](#CreateNetwork),
+but with some fields removed:
+
+| Field              | Type           | Description                                         |
+| ------------------ | -------------- | --------------------------------------------------- |
+| name               | String         | Network name                                        |
+| vlan_id            | Number         | Network ID                                          |
+| subnet             | CIDR           | Subnet                                              |
+| provision_start_ip | IP             | First IP address to allow provisioning on           |
+| provision_end_ip   | IP             | Last IP address to allow provisioning on            |
+| gateway            | IP             | Gateway IP address (Optional)                       |
+| resolvers          | Array of IPs   | Resolver IP addresses (Optional)                    |
+| routes             | Routes Object  | Static routes for hosts on this network (Optional)  |
+| description        | String         | Description (Optional)                              |
+
+
+#### Example
+
+    POST /fabrics/cd1cc2a9-e6ad-4c1c-a6bc-acd14e0d4d11/vlans/44/networks
+        name=web
+        subnet=10.0.1.0/24
+        provision_start_ip=10.0.1.2
+        provision_end_ip=10.0.1.254
+        gateway=10.0.1.1
+        resolvers=8.8.8.8
+
+    {
+      "mtu": 1400,
+      "nic_tag": "sdc_overlay",
+      "name": "web",
+      "provision_end_ip": "10.0.1.254",
+      "provision_start_ip": "10.0.1.2",
+      "vlan_id": 44,
+      "subnet": "10.0.1.0/24",
+      "uuid": "4944e6d9-d3ee-462c-b5a6-1c953551ffcf",
+      "fabric": true,
+      "vnet_id": 7757106,
+      "gateway_provisioned": false,
+      "resolvers": [
+        "8.8.8.8"
+      ],
+      "gateway": "10.0.1.1",
+      "owner_uuid": "cd1cc2a9-e6ad-4c1c-a6bc-acd14e0d4d11",
+      "netmask": "255.255.255.0"
+    }
+
+
+There are several read-only properties of the network:
+
+- `fabric`: Always set to `true`
+- `gateway_provisioned`: If there is a gateway for this network, and a NAT zone
+  has not been provisioned, this will be set to `false`.
+- `mtu`: Taken from `fabric_cfg.default_overlay_mtu` in the SDC SAPI config.
+- `netmask`: derived from subnet
+- `nic_tag`: Set to `overlay.overlayNicTag` in the NAPI config.
+- `owner_uuid`: the owner of the fabric
+- `vnet_id`: per-owner virtual network ID - see [Fabric VLANs](#Fabric VLANS)
+  above.
+
+
+### GetFabricNetwork (GET /fabrics/:owner_uuid/vlans/:vlan_id/networks/:network_uuid)
+
+Get a Network by its Network ID.
+
+#### Example
+
+    GET /fabrics/cd1cc2a9-e6ad-4c1c-a6bc-acd14e0d4d11/vlans/44/networks/4944e6d9-d3ee-462c-b5a6-1c953551ffcf
+
+    {
+      "mtu": 1400,
+      "nic_tag": "sdc_overlay",
+      "name": "web",
+      "provision_end_ip": "10.0.1.254",
+      "provision_start_ip": "10.0.1.2",
+      "vlan_id": 44,
+      "subnet": "10.0.1.0/24",
+      "uuid": "4944e6d9-d3ee-462c-b5a6-1c953551ffcf",
+      "fabric": true,
+      "vnet_id": 7757106,
+      "gateway_provisioned": false,
+      "resolvers": [
+        "8.8.8.8"
+      ],
+      "gateway": "10.0.1.1",
+      "owner_uuid": "cd1cc2a9-e6ad-4c1c-a6bc-acd14e0d4d11",
+      "netmask": "255.255.255.0"
+    }
+
+### DeleteFabricNetwork (DELETE /fabrics/:owner_uuid/vlans/:vlan_id/networks/:network_uuid)
+
+Delete a fabric network.
+
+#### Example
+
+    DELETE /fabrics/cd1cc2a9-e6ad-4c1c-a6bc-acd14e0d4d11/vlans/44/networks/4944e6d9-d3ee-462c-b5a6-1c953551ffcf
+
+    {}
+
+
+
 # Nics
 
 These endpoints manage nics.
-
 
 ## ListNics (GET /nics)
 
@@ -1148,38 +1446,43 @@ of the Compute Node that hosts them.**
 
 ## 2012-07-04
 
-  * Can now pass reserved to POST /nics and POST /networks/:network_uuid/nics
-  * Can now do a PUT /networks/:network_uuid/ips/:ip_addr to change the IP's
-    reserved property
+- Can now pass `reserved` to POST /nics and POST /networks/:network_uuid/nics
+- Can now do a PUT /networks/:network_uuid/ips/:ip_addr to change the IP's
+  `reserved` property
 
 ## 2012-08-20
 
-  * gateway and netmask no longer required when POSTING to /nics with an IP
-    address
-  * Adding and updating nics now takes an optional nic_tags_provided parameter
+- `gateway` and `netmask` properties no longer required when POSTING to /nics
+  with an IP address
+- Adding and updating nics now takes an optional `nic_tags_provided` parameter
 
 ## 2012-09-12
 
-  * GET /networks: added vlan_id and nic_tag filters
+- GET /networks: added `vlan_id` and `nic_tag` filters
 
 ## 2013-02-07
 
-  * Added network pool endpoints
+- Added network pool endpoints
 
 ## 2013-04-17
 
-  * Added network owner_uuid parameter
-  * Added provisionable_by parameter to NetworkList endpoint
+- Added network `owner_uuid` parameter
+- Added `provisionable_by` parameter to NetworkList endpoint
 
 ## 2013-05-01
 
-  * Changed network and network owner_uuid parameter to owner_uuids
+- Changed network and network pool `owner_uuid` parameter to `owner_uuids`
 
 ## 2013-05-14
 
-  * Added SearchIPs endpoint
-  * Added UpdateNetwork endpoint
+- Added SearchIPs endpoint
+- Added UpdateNetwork endpoint
 
 ## 2014-02-18
 
-  * Added aggregations endpoints
+- Added aggregations endpoints
+
+## 2015-03-17
+
+- Nic tag endpoints now support the `mtu` property
+
