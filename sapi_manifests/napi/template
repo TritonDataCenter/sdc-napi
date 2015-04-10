@@ -4,6 +4,9 @@
   "logLevel": "{{{NAPI_LOG_LEVEL}}}",
   "useNetAgent": true,
   "macOUI": "{{{napi_mac_prefix}}}",
+{{#experimental_fluentd_host}}
+  "fluentd_host": "{{{experimental_fluentd_host}}}",
+{{/experimental_fluentd_host}}
   "moray": {
     "host": "{{{MORAY_SERVICE}}}",
     "logLevel": "info",
