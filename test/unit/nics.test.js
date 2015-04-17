@@ -15,6 +15,7 @@
 var assert = require('assert-plus');
 var clone = require('clone');
 var constants = require('../../lib/util/constants');
+var extend = require('xtend');
 var fmt = require('util').format;
 var h = require('./helpers');
 var ip_common = require('../../lib/models/ip/common');
@@ -1708,35 +1709,105 @@ test('Update nic - no changes', function (t) {
 
 
 test('Update nic - change state', function (t) {
+
     var params = {
         belongs_to_type: 'zone',
         belongs_to_uuid: mod_uuid.v4(),
         owner_uuid:  mod_uuid.v4()
     };
 
-    NAPI.provisionNic(NET2.uuid, params, function (err, res) {
-        if (h.ifErr(t, err, 'provision new nic')) {
-            return t.end();
-        }
-
-        for (var p in params) {
-            t.equal(res[p], params[p], p + ' correct');
-        }
-        t.equal(res.ip, h.nextProvisionableIP(NET2), 'IP');
-
-        t.equal(res.state, constants.DEFAULT_NIC_STATE);
-        res.state = 'stopped';
-
-        NAPI.updateNic(res.mac, res, function (err2, res2) {
-            if (h.ifErr(t, err2, 'update nic')) {
-                return t.end();
-            }
-
-            t.deepEqual(res2, res, 'state changed to stopped');
-
-            return t.end();
+    t.test('provision', function (t2) {
+        mod_nic.provision(t2, {
+            net: NET2.uuid,
+            params: params,
+            partialExp: extend(params, {
+                ip: h.nextProvisionableIP(NET2),
+                state: constants.DEFAULT_NIC_STATE
+            })
         });
     });
+
+    t.test('update: change state', function (t2) {
+        var updateParams = {
+            state: 'stopped'
+        };
+
+        mod_nic.update(t2, {
+            mac: mod_nic.lastCreated().mac,
+            params: updateParams,
+            partialExp: updateParams
+        });
+    });
+
+});
+
+
+test('Update nic moray failure getting IP / network', function (t) {
+    var params = {
+        belongs_to_type: 'zone',
+        belongs_to_uuid: mod_uuid.v4(),
+        owner_uuid:  mod_uuid.v4()
+    };
+
+
+    t.test('provision', function (t2) {
+        mod_nic.provision(t2, {
+            net: NET2.uuid,
+            params: params,
+            partialExp: extend(params, {
+                ip: h.nextProvisionableIP(NET2),
+                network_uuid: NET2.uuid
+            })
+        });
+    });
+
+
+    t.test('update', function (t2) {
+        var errs = [
+            null,
+            null,
+            new Error('Oh no!')
+        ];
+        mod_moray.setErrors({ getObject: errs });
+
+        mod_nic.update(t2, {
+            mac: mod_nic.lastCreated().mac,
+            params: params,
+            expCode: 500,
+            expErr: {
+                code: 'InternalError',
+                message: 'Internal error'
+            }
+        });
+    });
+
+
+    t.test('check error', function (t2) {
+        // Make sure we made it to the correct error
+        t.deepEqual(mod_moray.getErrors().getObject, [], 'no errors remaining');
+
+        t.deepEqual(mod_moray.getLastError(), {
+            bucket: ip_common.bucketName(NET2.uuid),
+            key: mod_nic.lastCreated().ip,
+            op: 'getObject',
+            msg: 'Oh no!'
+        }, 'last error');
+
+        return t.end();
+    });
+
+
+    t.test('get', function (t2) {
+        mod_nic.get(t2, {
+            mac: mod_nic.lastCreated().mac,
+            partialExp: extend(params, {
+                ip: mod_nic.lastCreated().ip,
+                mac: mod_nic.lastCreated().mac,
+                network_uuid: NET2.uuid
+            })
+        });
+    });
+
 });
 
 

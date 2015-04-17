@@ -87,7 +87,8 @@ test('PUT /nic_tags/:name', function (t) {
 
     t.test('Update name only', function (t2) {
         var oldName = state.nicTags[0].name;
-        state.nicTags[0].name = oldName + '_new';
+        // Make sure this new name isn't over the 31 char limit:
+        state.nicTags[0].name = 'int_test' + process.pid + '_new';
 
         mod_nic_tag.updateAndGet(t2, {
             name: oldName,

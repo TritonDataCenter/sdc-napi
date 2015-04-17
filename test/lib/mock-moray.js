@@ -29,6 +29,7 @@ var verror = require('verror');
 
 var BUCKETS = {};
 var BUCKET_VALUES = {};
+var LAST_MORAY_ERROR;
 var MORAY_ERRORS = {};
 
 
@@ -40,14 +41,26 @@ var MORAY_ERRORS = {};
 /**
  * If there's an error in MORAY_ERRORS for the given operation, return it.
  */
-function getNextMorayError(op) {
+function getNextMorayError(op, details) {
     if (!MORAY_ERRORS.hasOwnProperty(op) ||
         typeof (MORAY_ERRORS[op]) !== 'object' ||
         MORAY_ERRORS[op].length === 0) {
         return;
     }
 
-    return MORAY_ERRORS[op].shift();
+    var morayErr = MORAY_ERRORS[op].shift();
+
+    // Allow passing null in the array to allow interleaving successes and
+    // errors
+    if (morayErr === null) {
+        return;
+    }
+
+    LAST_MORAY_ERROR = clone(details);
+    LAST_MORAY_ERROR.op = op;
+    LAST_MORAY_ERROR.msg = morayErr.message;
+
+    return morayErr;
 }
 
 
@@ -171,7 +184,7 @@ util.inherits(FakeMoray, EventEmitter);
 
 
 FakeMoray.prototype._del = function _del(bucket, key) {
-    var err = getNextMorayError('delObject');
+    var err = getNextMorayError('delObject', { bucket: bucket, key: key });
     if (err) {
         throw err;
     }
@@ -223,7 +236,7 @@ FakeMoray.prototype._updateObjects =
 FakeMoray.prototype.batch = function _batch(data, callback) {
     assert.arrayOfObject(data, 'data');
 
-    var err = getNextMorayError('batch');
+    var err = getNextMorayError('batch', { batch: data });
     if (err) {
         return callback(err);
     }
@@ -293,7 +306,7 @@ FakeMoray.prototype.close = function morayClose() {
 FakeMoray.prototype.createBucket =
     function createBucket(bucket, schema, callback) {
 
-    var err = getNextMorayError('createBucket');
+    var err = getNextMorayError('createBucket', { bucket: bucket });
     if (err) {
         return callback(err);
     }
@@ -305,7 +318,7 @@ FakeMoray.prototype.createBucket =
 
 
 FakeMoray.prototype.delBucket = function delBucket(bucket, callback) {
-    var err = getNextMorayError('delBucket');
+    var err = getNextMorayError('delBucket', { bucket: bucket });
     if (err) {
         return callback(err);
     }
@@ -342,7 +355,8 @@ FakeMoray.prototype.findObjects = function findObjects(bucket, filter, opts) {
     }
 
     process.nextTick(function () {
-        var err = getNextMorayError('findObjects');
+        var err = getNextMorayError('findObjects',
+            { bucket: bucket, filter: filter });
         if (err) {
             res.emit('error', err);
             return;
@@ -371,7 +385,7 @@ FakeMoray.prototype.findObjects = function findObjects(bucket, filter, opts) {
 
 
 FakeMoray.prototype.getBucket = function getBucket(bucket, callback) {
-    var err = getNextMorayError('getBucket');
+    var err = getNextMorayError('getBucket', { bucket: bucket });
     if (err) {
         return callback(err);
     }
@@ -385,7 +399,7 @@ FakeMoray.prototype.getBucket = function getBucket(bucket, callback) {
 
 
 FakeMoray.prototype.getObject = function getObject(bucket, key, callback) {
-    var err = getNextMorayError('getObject');
+    var err = getNextMorayError('getObject', { bucket: bucket, key: key });
     if (err) {
         return callback(err);
     }
@@ -411,7 +425,8 @@ FakeMoray.prototype.putObject =
         opts = {};
     }
 
-    var err = getNextMorayError('putObject');
+    var err = getNextMorayError('putObject',
+            { bucket: bucket, key: key, value: value, opts: opts });
     if (err) {
         return callback(err);
     }
@@ -515,7 +530,7 @@ FakeMoray.prototype._subnetFilter = function _subnetFilter(opts) {
 
     var res = new EventEmitter();
     setImmediate(function () {
-        var err = getNextMorayError('sql');
+        var err = getNextMorayError('sql', { opts: opts });
         if (err) {
             res.emit('error', err);
             return;
@@ -560,7 +575,7 @@ FakeMoray.prototype._gapNumber = function _gapNumber(opts) {
 
     var res = new EventEmitter();
     setImmediate(function () {
-        var err = getNextMorayError('sql');
+        var err = getNextMorayError('sql', { opts: opts });
         if (err) {
             res.emit('error', err);
             return;
@@ -625,7 +640,7 @@ FakeMoray.prototype._gapIP = function _gapIP(opts) {
 
     var res = new EventEmitter();
     setImmediate(function () {
-        var err = getNextMorayError('sql');
+        var err = getNextMorayError('sql', { opts: opts });
         if (err) {
             res.emit('error', err);
             return;
@@ -729,6 +744,9 @@ module.exports = {
     },
     set _errors(obj) {
         MORAY_ERRORS = obj;
+    },
+    get _lastError() {
+        return LAST_MORAY_ERROR;
     },
     FakeMoray: FakeMoray,
     createClient: createClient

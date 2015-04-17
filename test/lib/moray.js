@@ -99,6 +99,14 @@ function getIPs(network) {
 
 
 /**
+ * Returns the last moray error
+ */
+function getLastError() {
+    return mock_moray._lastError;
+}
+
+
+/**
  * Gets all nic records from fake moray, sorted by MAC address
  */
 function getNic(mac, ip) {
@@ -151,6 +159,7 @@ module.exports = {
     getErrors: getErrors,
     getIP: getIP,
     getIPs: getIPs,
+    getLastError: getLastError,
     getNic: getNic,
     getNics: getNics,
     getObj: getObj,
