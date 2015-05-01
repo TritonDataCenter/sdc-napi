@@ -379,6 +379,47 @@ test('POST /networks (comma-separated resolvers)', function (t) {
 });
 
 
+test('PUT /networks (update resolvers)', function (t) {
+    var params = h.validNetworkParams({ resolvers: ['8.8.4.4'] });
+
+    napi.createNetwork(params, function (err, res) {
+        t.ifError(err, 'create network');
+        if (err) {
+            return t.end();
+        }
+
+        params.mtu = constants.MTU_DEFAULT;
+        params.netmask = '255.255.255.0';
+        params.uuid = res.uuid;
+        state.updateResolvers = res;
+
+        t.deepEqual(res, params, 'parameters returned for network ' + res.uuid);
+
+        var updateParams = {
+            resolvers: ['1.2.3.4', '8.8.8.8']
+        };
+
+        napi.updateNetwork(res.uuid, updateParams, function (err2) {
+            t.ifError(err2, 'update network');
+            if (err2) {
+                return t.end();
+            }
+            napi.getNetwork(res.uuid, function (err3, res3) {
+                t.ifError(err3, 'create network');
+                if (err3) {
+                    return t.end();
+                }
+
+                params.resolvers = updateParams.resolvers;
+                t.deepEqual(res3, params, 'get parameters for network ' +
+                    res.uuid);
+                return t.end();
+            });
+        });
+    });
+});
+
+
 
 // --- Teardown
 
@@ -388,7 +429,7 @@ test('teardown', function (t) {
 
     test('DELETE /networks/:uuid', function (t2) {
         var names = ['network', 'network2', 'network3', 'singleResolver',
-            'commaResolvers'];
+            'commaResolvers', 'updateResolvers'];
 
         function deleteNet(n, cb) {
             if (!state.hasOwnProperty(n)) {
