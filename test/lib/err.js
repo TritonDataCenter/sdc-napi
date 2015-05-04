@@ -18,6 +18,24 @@ var util = require('util');
 
 
 
+// --- Globals
+
+
+
+var MESSAGES = {
+    ip: 'invalid IP',
+    longStr: 'must not be longer than 64 characters',
+    obj: constants.msg.OBJ,
+    str: constants.msg.STR,
+    emptyArray: constants.msg.ARRAY_EMPTY,
+    route: 'invalid route',
+    strArray: constants.msg.ARRAY_OF_STR,
+    uuid: constants.msg.INVALID_UUID,
+    vlan: constants.VLAN_MSG
+};
+
+
+
 // --- Exports
 
 
@@ -25,9 +43,15 @@ var util = require('util');
 /**
  * Return an error for an overlapping subnet
  */
-function invalidParamErr(param, msg) {
-    return new errors.InvalidParamsError(constants.msg.INVALID_PARAMS,
+function invalidParamErr(param, msg, invalid) {
+    var body = new errors.InvalidParamsError(constants.msg.INVALID_PARAMS,
         [ errors.invalidParam(param, msg) ]).body;
+
+    if (invalid) {
+        body.errors[0].invalid = invalid;
+    }
+
+    return body;
 }
 
 
@@ -37,6 +61,17 @@ function invalidParamErr(param, msg) {
 function netNameInUseErr() {
     return new errors.InvalidParamsError(constants.msg.NET_NAME_IN_USE,
         [ errors.duplicateParam('name') ]).body;
+}
+
+
+/**
+ * Return a "type not found" error
+ */
+function notFoundErr(type) {
+    return {
+        code: 'ResourceNotFound',
+        message: type + ' not found'
+    };
 }
 
 
@@ -66,7 +101,9 @@ function vlanInUseErr() {
 
 module.exports = {
     invalidParam: invalidParamErr,
+    msg: MESSAGES,
     netNameInUse: netNameInUseErr,
+    notFound: notFoundErr,
     subnetOverlap: subnetOverlapErr,
     vlanInUse: vlanInUseErr
 };

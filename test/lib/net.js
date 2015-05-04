@@ -104,8 +104,8 @@ function createAndGet(t, opts, callback) {
             return doneErr(err, t, callback);
         }
 
-        if (!opts.params) {
-            opts.params = res.uuid;
+        if (!opts.params.uuid) {
+            opts.params.uuid = res.uuid;
         }
 
         opts.params.uuid = res.uuid;

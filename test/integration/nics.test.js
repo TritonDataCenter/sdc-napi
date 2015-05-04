@@ -49,29 +49,6 @@ var uuids = {
 // --- Setup
 
 
-/**
- * Call createNic, but expect an error
- */
-function expCreateErr(t, mac, params, expErr) {
-    var client = h.createNAPIclient(t);
-
-    client.createNic(mac, params, function (err, res) {
-        t.ok(err, 'error was returned');
-        if (!err) {
-            return t.end();
-        }
-
-        t.equal(err.statusCode, 422, 'status code');
-        t.deepEqual(err.body, expErr, 'error body');
-        return t.end();
-    });
-}
-
-
-
-// --- Setup
-
-
 
 test('setup', function (t) {
     t.test('create nic tags', function (t2) {
@@ -184,9 +161,13 @@ test('POST /nics (with IP, network and state)', function (t) {
             belongs_to_type: 'server'
         };
 
-        expCreateErr(t2, d.mac, params, h.invalidParamErr({ errors: [
-            mod_err.duplicateParam('mac', mod_err.msg.duplicate)
-        ] }));
+        mod_nic.create(t2, {
+            mac: d.mac,
+            params: params,
+            expErr: h.invalidParamErr({ errors: [
+                mod_err.duplicateParam('mac', mod_err.msg.duplicate)
+            ]})
+        });
     });
 });
 
@@ -320,12 +301,16 @@ test('POST /nics (with IP already reserved)', function (t) {
         };
         var mac = h.randomMAC();
 
-        expCreateErr(t2, mac, params, h.invalidParamErr({ errors: [
-            mod_err.usedByParam('ip', d.params.belongs_to_type,
-                d.params.belongs_to_uuid,
-                util.format(constants.fmt.IP_IN_USE,
-                    d.params.belongs_to_type, d.params.belongs_to_uuid))
-        ] }));
+        mod_nic.create(t2, {
+            mac: mac,
+            params: params,
+            expErr: h.invalidParamErr({ errors: [
+                mod_err.usedByParam('ip', d.params.belongs_to_type,
+                    d.params.belongs_to_uuid,
+                    util.format(constants.fmt.IP_IN_USE,
+                        d.params.belongs_to_type, d.params.belongs_to_uuid))
+            ]})
+        });
     });
 
     t.test('create second nic with no IP', function (t2) {
@@ -1038,8 +1023,8 @@ test('GET /nics (filtered by belongs_to_uuid)', function (t) {
 
 test('GET /nics (filtered)', function (t) {
     var filters = [
-        { belongs_to_type: 'other' },
-        { owner_uuid: uuids.b },
+        { belongs_to_type: 'other', network_uuid: state.networks[0].uuid },
+        { owner_uuid: uuids.b, network_uuid: state.networks[0].uuid },
         { nic_tag: state.nicTag.name }
     ];
 
@@ -1286,9 +1271,13 @@ test('Check IPs are freed along with nics', function (t) {
 
 
 test('teardown', function (t) {
+
+    t.test('delete nics', mod_nic.delAllCreated);
+
     t.test('delete network', mod_net.delAllCreated);
 
     t.test('delete nic tags', function (t2) {
         h.deleteNicTags(t2, napi, state);
     });
+
 });

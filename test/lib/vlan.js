@@ -53,6 +53,10 @@ function createVLAN(t, opts, callback) {
     var params = clone(opts.params);
     delete params.owner_uuid;
 
+    if (!opts.desc && opts.expErr) {
+        opts.desc = JSON.stringify(opts.params);
+    }
+
     client.createFabricVLAN(owner, params, common.reqOpts(t, opts.desc),
         common.afterAPIcall.bind(null, t, opts, callback));
 }
@@ -209,6 +213,23 @@ function updateVLAN(t, opts, callback) {
 }
 
 
+/**
+ * Update a fabric VLAN, compare the output, then do the same for a get of
+ * that fabric VLAN.
+ */
+function updateAndGetVLAN(t, opts, callback) {
+    opts.reqType = 'update';
+    updateVLAN(t, opts, function (err, res) {
+        if (err) {
+            return doneErr(err, t, callback);
+        }
+
+        opts.reqType = 'get';
+        return getVLAN(t, opts, callback);
+    });
+}
+
+
 
 module.exports = {
     create: createVLAN,
@@ -218,5 +239,6 @@ module.exports = {
     get: getVLAN,
     list: listVLANs,
     randomName: randomVLANname,
-    update: updateVLAN
+    update: updateVLAN,
+    updateAndGet: updateAndGetVLAN
 };

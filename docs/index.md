@@ -614,7 +614,20 @@ calling the [CreateNic](#CreateNic) or [UpdateNic](#UpdateNic) endpoints.
 
 # Fabric VLANs
 
-These enpoints manage a user's fabric VLANs.
+These endpoints manage a user's fabric VLANs.
+
+## Fabric VLAN fields
+
+All endpoints take an optional `fields` parameter, which is an array specifying
+the properties that will be returned in the response body.  The properties
+supported are:
+
+- description
+- name
+- owner_uuid
+- vlan_id
+- vnet_id
+
 
 ## ListFabricVLANs (GET /fabrics/:owner_uuid/vlans)
 
@@ -640,12 +653,12 @@ Create a new fabric VLAN.
 
 ### Inputs
 
-All inputs are required.
-
-| Field              | Type           | Description                                                     |
-| ------------------ | -------------- | --------------------------------------------------------------- |
-| name               | String         | network name                                                    |
-| vlan_id            | Number         | VLAN ID (0 if no VLAN ID)                                       |
+| Field              | Type             | Description                                                                            |
+| ------------------ | ---------------- | -------------------------------------------------------------------------------------- |
+| name               | String           | VLAN name                                                                              |
+| description        | String           | VLAN description (Optional)                                                            |
+| fields             | Array of Strings | Properties to return - see [Fields](#fabric-vlan-fields) above for the list (Optional) |
+| vlan_id            | Number           | VLAN ID (0 if no VLAN ID)                                                              |
 
 ### Example
 
@@ -667,6 +680,14 @@ own unique ID that's shared by all of their Fabric VLANs and networks.
 
 Get a VLAN by its VLAN ID.
 
+### Inputs
+
+All inputs are optional.
+
+| Field              | Type             | Description                                                                 |
+| ------------------ | ---------------- | --------------------------------------------------------------------------- |
+| fields             | Array of Strings | Properties to return - see [Fields](#fabric-vlan-fields) above for the list |
+
 ### Example
 
     GET /fabrics/cd1cc2a9-e6ad-4c1c-a6bc-acd14e0d4d11/vlans/44
@@ -684,11 +705,13 @@ Update a fabric VLAN.
 
 ### Inputs
 
-All inputs are required.
+All inputs are optional.
 
-| Field              | Type           | Description                                                     |
-| ------------------ | -------------- | --------------------------------------------------------------- |
-| name               | String         | network name                                                    |
+| Field              | Type             | Description                                                                 |
+| ------------------ | ---------------- | --------------------------------------------------------------------------- |
+| name               | String           | VLAN name                                                                   |
+| description        | String           | VLAN description                                                            |
+| fields             | Array of Strings | Properties to return - see [Fields](#fabric-vlan-fields) above for the list |
 
 ### Example
 
@@ -716,11 +739,41 @@ Delete a fabric VLAN.
 
 # Fabric Networks
 
-These enpoints manage a user's fabric networks.
+These endpoints manage a user's fabric networks.
+
+## Fabric Network fields
+
+All endpoints take an optional `fields` parameter, which is an array specifying
+the properties that will be returned in the response body.  The properties
+supported are:
+
+- description
+- fabric
+- gateway
+- mtu
+- name
+- nic_tag
+- owner_uuid
+- owner_uuids
+- provision_end_ip
+- provision_start_ip
+- resolvers
+- routes
+- subnet
+- uuid
+- vlan_id
 
 ## ListFabricNetworks (GET /fabrics/:owner_uuid/vlans/:vlan_id/networks)
 
 List a user's networks on a VLAN.
+
+### Inputs
+
+All parameters are optional.
+
+| Field              | Type             | Description                                                                               |
+| ------------------ | ---------------- | ----------------------------------------------------------------------------------------- |
+| fields             | Array of Strings | Properties to return - see [Fields](#fabric-network-fields) above for the list (Optional) |
 
 ### Example
 
@@ -758,17 +811,18 @@ Create a new fabric network on a VLAN.
 The parameters to this endpoint are the same as to [CreateNetwork](#CreateNetwork),
 but with some fields removed:
 
-| Field              | Type           | Description                                         |
-| ------------------ | -------------- | --------------------------------------------------- |
-| name               | String         | Network name                                        |
-| vlan_id            | Number         | Network ID                                          |
-| subnet             | CIDR           | Subnet                                              |
-| provision_start_ip | IP             | First IP address to allow provisioning on           |
-| provision_end_ip   | IP             | Last IP address to allow provisioning on            |
-| gateway            | IP             | Gateway IP address (Optional)                       |
-| resolvers          | Array of IPs   | Resolver IP addresses (Optional)                    |
-| routes             | Routes Object  | Static routes for hosts on this network (Optional)  |
-| description        | String         | Description (Optional)                              |
+| Field              | Type             | Description                                                                               |
+| ------------------ | ---------------- | ----------------------------------------------------------------------------------------- |
+| name               | String           | Network name                                                                              |
+| vlan_id            | Number           | Network ID                                                                                |
+| subnet             | CIDR             | Subnet                                                                                    |
+| provision_start_ip | IP               | First IP address to allow provisioning on                                                 |
+| provision_end_ip   | IP               | Last IP address to allow provisioning on                                                  |
+| gateway            | IP               | Gateway IP address (Optional)                                                             |
+| resolvers          | Array of IPs     | Resolver IP addresses (Optional)                                                          |
+| routes             | Routes Object    | Static routes for hosts on this network (Optional)                                        |
+| description        | String           | Description (Optional)                                                                    |
+| fields             | Array of Strings | Properties to return - see [Fields](#fabric-network-fields) above for the list (Optional) |
 
 
 ### Example
@@ -818,6 +872,14 @@ There are several read-only properties of the network:
 ## GetFabricNetwork (GET /fabrics/:owner_uuid/vlans/:vlan_id/networks/:network_uuid)
 
 Get a Network by its Network ID.
+
+### Inputs
+
+All parameters are optional.
+
+| Field              | Type             | Description                                                                               |
+| ------------------ | ---------------- | ----------------------------------------------------------------------------------------- |
+| fields             | Array of Strings | Properties to return - see [Fields](#fabric-network-fields) above for the list (Optional) |
 
 ### Example
 
@@ -1528,3 +1590,9 @@ of the Compute Node that hosts them.**
 - [CreateNic](#CreateNic) and [UpdateNic](#UpdateNic) endpoints now support the
   `cn_uuid` and `underlay` properties.
 
+## 2015-05-01
+
+- [Fabric Networks](#fabric-networks) endpoints now support the `fields`
+  property.
+- [Fabric VLANs](#fabric-vlans) endpoints now support the `description` and
+  `fields` properties.

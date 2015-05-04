@@ -23,6 +23,7 @@ var mod_ip = require('../../lib/models/ip');
 var mod_moray = require('../lib/moray');
 var mod_net = require('../lib/net');
 var mod_nic = require('../lib/nic');
+var mod_test_err = require('../lib/err');
 var mod_uuid = require('node-uuid');
 var mod_wf = require('../lib/mock-wf');
 var test = require('tape');
@@ -37,15 +38,18 @@ var vasync = require('vasync');
 
 
 var CONF = require('../config.json');
+// 65 character string:
+var LONG_STR =
+    'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
 var NAPI;
 var TAG;
 var MSG = {
     end_outside: constants.msg.PROV_END_IP_OUTSIDE,
     end_broadcast: constants.msg.PROV_END_IP_BCAST,
-    start_outside: constants.msg.PROV_START_IP_OUTSIDE,
-    start_broadcast: constants.msg.PROV_START_IP_BCAST,
     mtu_invalid: constants.MTU_NETWORK_INVALID_MSG,
-    mtu_over_nictag: constants.MTU_NETWORK_GT_NICTAG
+    mtu_over_nictag: constants.MTU_NETWORK_GT_NICTAG,
+    start_outside: constants.msg.PROV_START_IP_OUTSIDE,
+    start_broadcast: constants.msg.PROV_START_IP_BCAST
 };
 var USE_STRINGS = true;
 
@@ -242,6 +246,12 @@ test('Create network - invalid parameters', function (t) {
         ['gateway', fmt('10.0.%d.254', num - 1), constants.GATEWAY_SUBNET_MSG],
         ['gateway', fmt('10.0.%d.1', num + 1), constants.GATEWAY_SUBNET_MSG],
 
+        ['name', 1, mod_test_err.msg.str],
+        ['name', LONG_STR, mod_test_err.msg.longStr],
+
+        ['description', 1, mod_test_err.msg.str],
+        ['description', LONG_STR, mod_test_err.msg.longStr],
+
         ['subnet', '1.2.3.4/a', 'Subnet bits invalid'],
         ['subnet', '1.2.3.4/7', 'Subnet bits invalid'],
         ['subnet', '1.2.3.4/33', 'Subnet bits invalid'],
@@ -392,6 +402,7 @@ test('Create network where mtu nic_tag > network > default', function (t) {
         });
     });
 });
+
 
 test('Create network where mtu == nic_tag == max', function (t) {
     var nicTagName = 'nictagmax2';
@@ -1043,7 +1054,13 @@ test('Update network - invalid parameters', function (t) {
         ],
         [ { gateway: '10.1.4.1' },
           { gateway: constants.GATEWAY_SUBNET_MSG }
-        ]
+        ],
+
+        [ { name: 1 }, { name: mod_test_err.msg.str } ],
+        [ { name: LONG_STR }, { name: mod_test_err.msg.longStr } ],
+
+        [ { description: 1 }, { description: mod_test_err.msg.str } ],
+        [ { description: LONG_STR }, { description: mod_test_err.msg.longStr } ]
     ];
 
     var vals = h.validNetworkParams({

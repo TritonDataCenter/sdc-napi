@@ -1,7 +1,7 @@
 {
   "name": "napi",
   "description": "SmartDataCenter Networking API",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "author": "Joyent (joyent.com)",
   "private": true,
   "dependencies": {
@@ -16,7 +16,7 @@
     "node-uuid": "1.2.0",
     "portolan-moray": "git+ssh://git@github.com:joyent/sdc-portolan-moray.git#14f5bd5",
     "restify": "git+ssh://git@github.com:mcavage/node-restify.git#0d7b4ba",
-    "sdc-clients": "git+ssh://git@github.com:joyent/node-sdc-clients.git#121bd66",
+    "sdc-clients": "git+ssh://git@github.com:joyent/node-sdc-clients.git#beadb69",
     "tape": "3.0.3",
     "trace-event": "1.3.0",
     "vasync": "1.6.2",

@@ -23,6 +23,7 @@ var mod_uuid = require('node-uuid');
 var mod_vlan = require('../lib/vlan');
 var mod_vasync = require('vasync');
 var test = require('tape');
+var testIfFabricsEnabled = require('../lib/fabrics').testIfEnabled;
 var util = require('util');
 
 
@@ -47,6 +48,7 @@ var VLAN = {
 
 
 test('setup', function (t) {
+
     t.test('create test nic tag', function (t2) {
         h.createNicTag(t2, NAPI, STATE);
     });
@@ -56,12 +58,13 @@ test('setup', function (t) {
         h.deletePreviousNetworks(t2);
     });
 
+});
 
-    t.test('create vlan', function (t2) {
-        mod_vlan.createAndGet(t2, {
-            params: VLAN,
-            exp: VLAN
-        });
+
+testIfFabricsEnabled('create vlan', function (t) {
+    mod_vlan.createAndGet(t, {
+        params: VLAN,
+        exp: VLAN
     });
 });
 
@@ -250,7 +253,8 @@ test('Networks - overlapping subnet ranges', function (t) {
 });
 
 
-test('Fabric networks - overlapping subnet ranges', function (t) {
+testIfFabricsEnabled('Fabric networks - overlapping subnet ranges',
+        function (t) {
     testOverlap(t, {
         fabric: true,
         module: mod_fabric_net,

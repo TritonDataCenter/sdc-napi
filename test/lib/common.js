@@ -85,6 +85,10 @@ function afterAPIcall(t, opts, callback, err, obj, _, res) {
             t.deepEqual(err.body, opts.expErr, type + 'error body' + desc);
         }
 
+        if (obj) {
+            t.deepEqual(obj, {}, 'body (error expected)' + desc);
+        }
+
         return done(err, null, opts, t, callback);
     }
 

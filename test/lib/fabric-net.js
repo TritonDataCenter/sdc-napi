@@ -213,7 +213,7 @@ function getFabricNet(t, opts, callback) {
     delete params.uuid;
     delete params.vlan_id;
 
-    client.getFabricNetwork(owner, vlan, net, params,
+    client.getFabricNetwork(owner, vlan, net, params, common.reqOpts(t),
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 

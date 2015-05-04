@@ -25,7 +25,7 @@ var mod_nic_tag = require('../lib/nic-tag');
 var mod_net = require('../lib/net');
 var mod_portolan = require('../lib/portolan');
 var mod_vlan = require('../lib/vlan');
-var test = require('tape');
+var test = require('../lib/fabrics').testIfEnabled;
 
 
 
@@ -38,6 +38,7 @@ var CREATED = {};
 // XXX: shouldn't have to do this!
 var NAPI = h.createNAPIclient();
 var OWNERS = [
+    mod_uuid.v4(),
     mod_uuid.v4(),
     mod_uuid.v4()
 ];
@@ -53,6 +54,7 @@ var VLANS = [
     },
     {
         name: mod_vlan.randomName(),
+        description: 'vlan 1',
         owner_uuid: OWNERS[0],
         vlan_id: 43
     },
@@ -62,6 +64,12 @@ var VLANS = [
         name: mod_vlan.randomName(),
         owner_uuid: OWNERS[1],
         vlan_id: 43
+    },
+
+    {
+        name: mod_vlan.randomName(),
+        owner_uuid: OWNERS[2],
+        vlan_id: 44
     }
 ];
 // Real (non-fabric networks):
@@ -86,7 +94,6 @@ var NETS = [
         vlan_id: VLANS[0].vlan_id,
         subnet: '10.2.1.0/24',
         gateway: '10.2.1.5',
-        mtu: OVERLAY_MTU,
         name: mod_fabric_net.generateName(),
         owner_uuid: VLANS[0].owner_uuid,
         provision_start_ip: '10.2.1.5',
@@ -101,7 +108,6 @@ var NETS = [
         vlan_id: VLANS[0].vlan_id,
         subnet: '10.2.2.0/23',
         gateway: '10.2.3.254',
-        mtu: OVERLAY_MTU,
         name: mod_fabric_net.generateName(),
         owner_uuid: VLANS[0].owner_uuid,
         provision_start_ip: '10.2.2.5',
@@ -114,7 +120,6 @@ var NETS = [
     {
         vlan_id: VLANS[1].vlan_id,
         subnet: '192.168.0.0/24',
-        mtu: OVERLAY_MTU,
         name: mod_fabric_net.generateName(),
         owner_uuid: VLANS[1].owner_uuid,
         provision_start_ip: '192.168.0.2',
@@ -127,11 +132,24 @@ var NETS = [
     {
         vlan_id: VLANS[2].vlan_id,
         subnet: '192.168.0.0/24',
-        mtu: OVERLAY_MTU,
         name: mod_fabric_net.generateName('overlap'),
         owner_uuid: VLANS[2].owner_uuid,
         provision_start_ip: '192.168.0.2',
         provision_end_ip: '192.168.0.254'
+    },
+
+    // -- On VLANS[3] (OWNERS[2])
+
+    // 4: intended for ensuring the "fields" property works
+    {
+        vlan_id: VLANS[3].vlan_id,
+        subnet: '172.16.0.0/22',
+        // Also double-check that the MTU is correct:
+        mtu: OVERLAY_MTU,
+        name: mod_fabric_net.generateName('fields'),
+        owner_uuid: VLANS[3].owner_uuid,
+        provision_start_ip: '172.16.1.1',
+        provision_end_ip: '172.16.3.254'
     }
 
 ];
@@ -245,6 +263,22 @@ test('create VLANs', function (t) {
         });
     });
 
+
+    t.test('create vlan: 3', function (t2) {
+        mod_vlan.createAndGet(t2, {
+            params: extend(VLANS[3], {
+                // Specify at least owner_uuid and vlan_id - these are required
+                // by mod_vlan.delAllCreated() in the test teardown.
+                fields: [ 'name', 'owner_uuid', 'vlan_id' ]
+            }),
+            exp: {
+                name: VLANS[3].name,
+                owner_uuid: VLANS[3].owner_uuid,
+                vlan_id: VLANS[3].vlan_id
+            }
+        });
+    });
+
 });
 
 
@@ -269,6 +303,27 @@ test('update VLANs', function (t) {
         });
     });
 
+
+    t.test('update: 3', function (t2) {
+        var updateParams = {
+            description: 'new description',
+            fields: [ 'name', 'description', 'vlan_id' ],
+            owner_uuid: VLANS[3].owner_uuid,
+            vlan_id: VLANS[3].vlan_id
+        };
+
+        VLANS[3].description = updateParams.description;
+
+        mod_vlan.updateAndGet(t2, {
+            params: updateParams,
+            exp: {
+                description: updateParams.description,
+                name: VLANS[3].name,
+                vlan_id: updateParams.vlan_id
+            }
+        });
+    });
+
 });
 
 
@@ -276,6 +331,7 @@ test('list VLANs', function (t) {
 
     t.test('OWNERS[0]', function (t2) {
         mod_vlan.list(t2, {
+            deepEqual: true,
             params: {
                 owner_uuid: OWNERS[0]
             },
@@ -286,10 +342,28 @@ test('list VLANs', function (t) {
 
     t.test('OWNERS[1]', function (t2) {
         mod_vlan.list(t2, {
+            deepEqual: true,
             params: {
                 owner_uuid: OWNERS[1]
             },
             present: [ VLANS[2] ]
+        });
+    });
+
+
+    t.test('OWNERS[2]: list with fields', function (t2) {
+        mod_vlan.list(t2, {
+            deepEqual: true,
+            params: {
+                fields: [ 'name', 'vlan_id' ],
+                owner_uuid: OWNERS[2]
+            },
+            present: [ VLANS[3] ].map(function (v) {
+                return {
+                    name: v.name,
+                    vlan_id: v.vlan_id
+                };
+            })
         });
     });
 
@@ -389,6 +463,44 @@ test('create network', function (t) {
         t.equal(NETS[3].vnet_id, VLANS[2].vnet_id, 'NETS[3] vnet_id');
 
         return t2.end();
+    });
+
+
+    t.test('create network: 4', function (t2) {
+        mod_fabric_net.createAndGet(t2, {
+            params: extend(NETS[4], {
+                // mod_fabric_net.delAllCreated() needs uuid, owner_uuid and
+                // vlan_id in order to delete the network:
+                fields: [ 'name', 'owner_uuid', 'subnet', 'uuid', 'vlan_id' ]
+            }),
+            exp: {
+                name: NETS[4].name,
+                owner_uuid: NETS[4].owner_uuid,
+                subnet: NETS[4].subnet,
+                // uuid gets filled in by createAndGet()
+                vlan_id: NETS[4].vlan_id
+            }
+        });
+    });
+
+
+    // Get net 4 to make sure fields weren't saved to moray
+    t.test('get network: 4', function (t2) {
+        var newNet4 = extend(mod_fabric_net.lastCreated(), {
+            fabric: true,
+            mtu: OVERLAY_MTU,
+            netmask: '255.255.252.0',
+            nic_tag: OVERLAY_NIC_TAG,
+            provision_start_ip: NETS[4].provision_start_ip,
+            provision_end_ip: NETS[4].provision_end_ip,
+            resolvers: []
+        });
+
+        mod_fabric_net.get(t2, {
+            fillIn: [ 'vnet_id' ],
+            params: newNet4,
+            exp: newNet4
+        });
     });
 
 });
@@ -1209,4 +1321,5 @@ test('teardown', function (t) {
     t.test('delete created VLANs', mod_vlan.delAllCreated);
 
     t.test('close portolan client', mod_portolan.closeClient);
+
 });
