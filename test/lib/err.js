@@ -23,11 +23,15 @@ var util = require('util');
 
 
 var MESSAGES = {
+    cidr: constants.msg.CIDR,
+    cidrBits: constants.msg.CIDR_BITS,
+    cidrIP: constants.msg.CIDR_IP,
+    cidrInvalid: constants.msg.CIDR_INVALID,
+    emptyArray: constants.msg.ARRAY_EMPTY,
     ip: 'invalid IP',
     longStr: 'must not be longer than 64 characters',
     obj: constants.msg.OBJ,
     str: constants.msg.STR,
-    emptyArray: constants.msg.ARRAY_EMPTY,
     route: 'invalid route',
     strArray: constants.msg.ARRAY_OF_STR,
     uuid: constants.msg.INVALID_UUID,

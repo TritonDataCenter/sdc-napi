@@ -572,6 +572,29 @@ test('list networks', function (t) {
         });
     });
 
+
+    t.test('list all networks: OWNERS[1]', function (t2) {
+        mod_net.list(t2, {
+            params: {
+                owner_uuid: OWNERS[1]
+            },
+            deepEqual: true,
+            present: [ REAL_NETS[1], mod_fabric_net.toRealNetObj(NETS[3]) ]
+        });
+    });
+
+
+    t.test('list all networks: OWNERS[1], fabric=true', function (t2) {
+        mod_net.list(t2, {
+            params: {
+                owner_uuid: OWNERS[1],
+                fabric: true
+            },
+            deepEqual: true,
+            present: [ mod_fabric_net.toRealNetObj(NETS[3]) ]
+        });
+    });
+
 });
 
 

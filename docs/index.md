@@ -212,17 +212,21 @@ it matches *all* of the input parameters.
 
 | Field            | Type    | Description                                               |
 | ---------------- | ------- | --------------------------------------------------------- |
-| name             | String  | network name                                              |
+| fabric           | Boolean | Whether the network is on a fabric or not                 |
+| name             | String  | Network name                                              |
 | vlan_id          | Integer | VLAN ID                                                   |
 | nic_tag          | String  | Nic Tag name                                              |
+| owner_uuid       | UUID    | Return networks that are owned by this owner_uuid         |
 | provisionable_by | UUID    | Return networks that are provisionable by this owner_uuid |
 
 
 **Notes:**
 
-* *provisionable_by* is intended to list networks that a UFDS user can
-  provision on. This includes both networks that have that user as its
-  owner_uuid and networks with no owner_uuid.
+* *`provisionable_by`* is intended to list networks that a UFDS user can
+  provision on. This includes both networks that contain that user in its
+  `owner_uuids` and networks with `owner_uuids` unset. Filtering by
+  `owner_uuid`, on the other hand, will only return networks with that owner
+  in `owner_uuids` (not networks with `owner_uuids` unset).
 
 ### Example
 
@@ -1596,3 +1600,10 @@ of the Compute Node that hosts them.**
   property.
 - [Fabric VLANs](#fabric-vlans) endpoints now support the `description` and
   `fields` properties.
+
+## 2015-05-07
+
+- [ListNetworks](#ListNetworks) now supports filtering by the `fabric`
+  property.  Filtering by `owner_uuid` now returns only networks owned by that
+  owner, rather than having identical behaviour to the `provisionable_by`
+  filter.

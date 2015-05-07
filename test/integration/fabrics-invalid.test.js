@@ -338,14 +338,26 @@ test('create invalid networks', function (t) {
             mod_err.invalidParam('routes', mod_err.msg.obj) ],
         [ { routes: { asdf: 'foo' } },
             mod_err.invalidParam('routes', mod_err.msg.route,
-            [ 'asdf', 'foo' ]) ]
+            [ 'asdf', 'foo' ]) ],
+
+        // subnet
+        [ { subnet: [] },
+            mod_err.invalidParam('subnet', mod_err.msg.str) ],
+        [ { subnet: 'asdf' },
+            mod_err.invalidParam('subnet', mod_err.msg.cidr) ],
+        [ { subnet: 'asdf/32' },
+            mod_err.invalidParam('subnet', mod_err.msg.cidrIP) ],
+        [ { subnet: '192.168.5.0/ab' },
+            mod_err.invalidParam('subnet', mod_err.msg.cidrBits) ],
+        [ { subnet: '172.16.0.1/22' },
+            mod_err.invalidParam('subnet', mod_err.msg.cidrInvalid) ]
     ];
 
     mod_vasync.forEachParallel({
         inputs: invalid,
         func: function _createInvalidNet(params, cb) {
             var baseParams = {
-                gateway: '172.16.1.1',
+                gateway: '172.16.1.2',
                 name: mod_fabric_net.generateName('fields'),
                 owner_uuid: OWNERS[0],
                 provision_start_ip: '172.16.1.2',
@@ -355,6 +367,7 @@ test('create invalid networks', function (t) {
             };
 
             mod_fabric_net.create(t, {
+                desc: JSON.stringify(params[0]),
                 params: extend(baseParams, params[0]),
                 expErr: params[1]
             }, cb);

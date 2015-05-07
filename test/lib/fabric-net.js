@@ -62,6 +62,7 @@ function createFabricNet(t, opts, callback) {
     common.assertArgs(t, opts, callback);
 
     var client = opts.client || mod_client.get();
+    var desc = opts.desc || '';
     var params = clone(opts.params);
     var owner = params.owner_uuid;
     var vlan = params.vlan_id;
@@ -98,7 +99,7 @@ function createFabricNet(t, opts, callback) {
         }
     }
 
-    client.createFabricNetwork(owner, vlan, params, common.reqOpts(t),
+    client.createFabricNetwork(owner, vlan, params, common.reqOpts(t, desc),
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 
