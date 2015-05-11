@@ -15,6 +15,7 @@
 var assert = require('assert-plus');
 var clone = require('clone');
 var common = require('./common');
+var fmt = require('util').format;
 var log = require('./log');
 var mod_client = require('./client');
 var mod_vasync = require('vasync');
@@ -73,7 +74,7 @@ function createNet(t, opts, callback) {
     var params = clone(opts.params);
 
     if (params.name == '<generate>') {
-        params.name = util.format('test-net%d-%d', NUM++, process.pid);
+        params.name = netName();
     }
 
     opts.idKey = 'uuid';
@@ -216,6 +217,14 @@ function listNets(t, opts, callback) {
 
 
 /**
+ * Generate a unique test network name
+ */
+function netName() {
+    return fmt('test-net%d-%d', NUM++, process.pid);
+}
+
+
+/**
  * Update a network and compare the output
  */
 function updateNet(t, opts, callback) {
@@ -256,6 +265,7 @@ module.exports = {
     get: getNet,
     lastCreated: lastCreated,
     list: listNets,
+    name: netName,
     netParams: NIC_NET_PARAMS,
     update: updateNet,
     updateAndGet: updateAndGet

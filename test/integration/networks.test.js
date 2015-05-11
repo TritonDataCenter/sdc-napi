@@ -13,6 +13,7 @@
  */
 
 var constants = require('../../lib/util/constants');
+var extend = require('xtend');
 var fmt = require('util').format;
 var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
@@ -379,44 +380,46 @@ test('POST /networks (comma-separated resolvers)', function (t) {
 });
 
 
-test('PUT /networks (update resolvers)', function (t) {
+test('network update: resolvers and name', function (tt) {
+
     var params = h.validNetworkParams({ resolvers: ['8.8.4.4'] });
+    var updateParams = {
+        name: mod_net.name(),
+        resolvers: ['1.2.3.4', '8.8.8.8']
+    };
 
-    napi.createNetwork(params, function (err, res) {
-        t.ifError(err, 'create network');
-        if (err) {
-            return t.end();
-        }
-
-        params.mtu = constants.MTU_DEFAULT;
-        params.netmask = '255.255.255.0';
-        params.uuid = res.uuid;
-        state.updateResolvers = res;
-
-        t.deepEqual(res, params, 'parameters returned for network ' + res.uuid);
-
-        var updateParams = {
-            resolvers: ['1.2.3.4', '8.8.8.8']
-        };
-
-        napi.updateNetwork(res.uuid, updateParams, function (err2) {
-            t.ifError(err2, 'update network');
-            if (err2) {
-                return t.end();
-            }
-            napi.getNetwork(res.uuid, function (err3, res3) {
-                t.ifError(err3, 'create network');
-                if (err3) {
-                    return t.end();
-                }
-
-                params.resolvers = updateParams.resolvers;
-                t.deepEqual(res3, params, 'get parameters for network ' +
-                    res.uuid);
-                return t.end();
-            });
+    tt.test('create network', function (t) {
+        mod_net.create(t, {
+            fillInMissing: true,
+            params: params,
+            exp: params
         });
     });
+
+
+    tt.test('update network', function (t) {
+        params = extend(params, updateParams);
+        updateParams.uuid = params.uuid;
+
+        mod_net.update(t, {
+            fillIn: [ 'job_uuid' ],
+            params: updateParams,
+            exp: params
+        });
+    });
+
+
+    tt.test('get network', function (t) {
+        delete params.job_uuid;
+
+        mod_net.get(t, {
+            params: {
+                uuid: params.uuid
+            },
+            exp: params
+        });
+    });
+
 });
 
 
@@ -427,9 +430,9 @@ test('PUT /networks (update resolvers)', function (t) {
 
 test('teardown', function (t) {
 
-    test('DELETE /networks/:uuid', function (t2) {
+    t.test('DELETE /networks/:uuid', function (t2) {
         var names = ['network', 'network2', 'network3', 'singleResolver',
-            'commaResolvers', 'updateResolvers'];
+            'commaResolvers'];
 
         function deleteNet(n, cb) {
             if (!state.hasOwnProperty(n)) {
@@ -453,12 +456,12 @@ test('teardown', function (t) {
     t.test('delete created networks', mod_net.delAllCreated);
 
 
-    test('remove test nic tag', function (t2) {
+    t.test('remove test nic tag', function (t2) {
         h.deleteNicTag(t2, napi, state);
     });
 
 
-    test('remove second test nic tag', function (t2) {
+    t.test('remove second test nic tag', function (t2) {
         h.deleteNicTag(t2, napi, state, 'nicTag2');
     });
 
