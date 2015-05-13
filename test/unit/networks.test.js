@@ -445,6 +445,32 @@ test('Create network where mtu == nic_tag == max', function (t) {
 });
 
 
+test('Create fabric network - non-private subnet', function (t) {
+    NAPI.createNetwork(h.validNetworkParams({
+        fabric: true,
+        provision_start_ip: fmt('123.0.%d.1', h.NET_NUM),
+        provision_end_ip: fmt('123.0.%d.254', h.NET_NUM),
+        subnet: fmt('123.0.%d.0/24', h.NET_NUM)
+    }), function (err, res) {
+        t.ok(err, 'error returned');
+
+        if (!err) {
+            return t.end();
+        }
+
+        t.equal(err.statusCode, 422, 'status code');
+        t.deepEqual(err.body, h.invalidParamErr({
+            errors: [
+                mod_err.invalidParam('subnet',
+                    constants.PRIV_RANGE_ONLY)
+            ],
+            message: 'Invalid parameters'
+        }), 'Error body');
+
+        return t.end();
+    });
+});
+
 // --- Update tests
 
 
