@@ -15,6 +15,7 @@
 var constants = require('../../lib/util/constants');
 var errors = require('../../lib/util/errors');
 var util = require('util');
+var util_mac = require('../../lib/util/mac');
 
 
 
@@ -57,6 +58,20 @@ function invalidParamErr(param, msg, invalid) {
 
     return body;
 }
+
+
+/**
+ * Return a "network must have no nics provisioned" error
+ */
+function netHasNicsErr(nics) {
+    var usedBy = nics.map(function (nic) {
+        return errors.usedBy('nic', nic.mac);
+    }).sort(function (a, b) {
+        return a.id < b.id;
+    });
+    return new errors.InUseError(constants.msg.NIC_ON_NET, usedBy).body;
+}
+
 
 
 /**
@@ -106,6 +121,7 @@ function vlanInUseErr() {
 module.exports = {
     invalidParam: invalidParamErr,
     msg: MESSAGES,
+    netHasNicsErr: netHasNicsErr,
     netNameInUse: netNameInUseErr,
     notFound: notFoundErr,
     subnetOverlap: subnetOverlapErr,

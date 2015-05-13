@@ -1222,6 +1222,15 @@ test('provision gateway', function (t) {
     });
 
 
+    t.test('delete NETS[0] not allowed', function (t2) {
+        var anotherNic = mod_nic.lastCreated();
+        var expected = [CREATED.net0nic, gwNic, anotherNic];
+        mod_fabric_net.del(t2, {
+            params: NETS[0],
+            expErr: mod_err.netHasNicsErr(expected)
+        });
+    });
+
     t.test('delete nic', function (t2) {
         mod_nic.del(t2, {
             mac: gwNic.mac,
