@@ -132,16 +132,33 @@ test('delete test networks', function (t) {
         vasync.forEachParallel({
             inputs: toDel,
             func: function _delNet(net, cb) {
-                var desc = fmt('delete: uuid=%s, name=%s', net.uuid, net.name);
-                NAPI.deleteNetwork(net.uuid,  {}, common.reqOpts(t, desc),
-                        function _afterDelNet(dErr) {
-                    if (h.ifErr(t, dErr, desc)) {
+                NAPI.listNics({
+                    network_uuid: net.uuid
+                }, function (listErr, nics) {
+                    var descr = fmt('list: network_uuid=%s', net.uuid);
+                    if (h.ifErr(t, listErr, descr)) {
                         return cb();
                     }
+                    vasync.forEachParallel({
+                        inputs: nics,
+                        func: function _delNic(nic, niccb) {
+                            NAPI.deleteNic(nic.mac, niccb);
+                        }
+                    }, function () {
+                        var desc = fmt('delete: uuid=%s, name=%s',
+                                net.uuid, net.name);
+                        NAPI.deleteNetwork(net.uuid,  {},
+                                common.reqOpts(t, desc),
+                                function _afterDelNet(dErr) {
+                            if (h.ifErr(t, dErr, desc)) {
+                                return cb();
+                            }
 
-                    t.ok(true, desc + ' deleted');
-                    deleted.push(net);
-                    return cb();
+                            t.ok(true, desc + ' deleted');
+                            deleted.push(net);
+                            return cb();
+                        });
+                    });
                 });
             }
         }, function () {

@@ -1226,7 +1226,11 @@ test('provision gateway', function (t) {
         var anotherNic = mod_nic.lastCreated();
         var expected = [CREATED.net0nic, gwNic, anotherNic];
         mod_fabric_net.del(t2, {
-            params: NETS[0],
+            params: {
+                uuid: NETS[0].uuid,
+                owner_uuid: NETS[0].owner_uuid,
+                vlan_id: NETS[0].vlan_id
+            },
             expErr: mod_err.netHasNicsErr(expected)
         });
     });
