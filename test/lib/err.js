@@ -116,6 +116,17 @@ function vlanInUseErr() {
     ]).body;
 }
 
+/**
+ * Return a "vlan must have no networks" error
+ */
+function vlanHasNetworksErr(nets) {
+    var usedBy = nets.map(function (net) {
+        return errors.usedBy('network', net.uuid);
+    }).sort(function (a, b) {
+        return a.id < b.id;
+    });
+    return new errors.InUseError(constants.msg.NET_ON_VLAN, usedBy).body;
+}
 
 
 module.exports = {
@@ -125,5 +136,6 @@ module.exports = {
     netNameInUse: netNameInUseErr,
     notFound: notFoundErr,
     subnetOverlap: subnetOverlapErr,
-    vlanInUse: vlanInUseErr
+    vlanInUse: vlanInUseErr,
+    vlanHasNetworks: vlanHasNetworksErr
 };

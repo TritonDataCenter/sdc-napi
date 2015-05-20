@@ -1301,12 +1301,6 @@ test('provision gateway', function (t) {
 // - Only owner_uuid
 
 
-// Delete tests:
-//
-// - Don't allow deleting a network if it has nics on it
-// - Don't allow deleting a VLAN if it has networks on it
-
-
 // Ownership tests:
 //
 // - Don't allow deleting someone else's network
@@ -1331,20 +1325,17 @@ test('provision gateway', function (t) {
 // - Update a server's nic to add the underlay param
 // - Only allow provisioning fabric networks on the overlay nic
 
-//
-// XXX
-//  test('delete vlan with networks on it', function (t) {
-//      mod_vlan.del(t, {
-//          params: {
-//
-//          },
-//          expErr: {
-//
-//          }
-//
-//      });
-//  });
-//
+
+test('delete vlan with networks on it not allowed', function (t) {
+    mod_vlan.del(t, {
+        params: {
+            owner_uuid: VLANS[0].owner_uuid,
+            vlan_id: VLANS[0].vlan_id
+        },
+        expErr: mod_err.vlanHasNetworks([NETS[0], NETS[1]])
+    });
+});
+
 
 
 test('teardown', function (t) {
