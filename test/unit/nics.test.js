@@ -156,7 +156,7 @@ test('Initial setup', function (t) {
 
 
 
-test('Create nic - mising params', function (t) {
+test('Create nic - missing params', function (t) {
     NAPI.post('/nics', {}, function (err, res) {
         t.ok(err, 'error returned');
         if (!err) {
@@ -269,7 +269,7 @@ test('Create nic - all invalid params', function (t) {
 });
 
 
-test('Create nic - network_uuid=admin', function (t) {
+test('Create nic on network_uuid=admin', function (t) {
     var params = {
         belongs_to_type: 'server',
         belongs_to_uuid: mod_uuid.v4(),
@@ -277,7 +277,7 @@ test('Create nic - network_uuid=admin', function (t) {
     };
 
     NAPI.provisionNic('admin', params, function (err, res) {
-        t.ifError(err);
+        t.ifError(err, 'create on admin: provisioned');
         if (err) {
             return t.end();
         }
@@ -289,11 +289,11 @@ test('Create nic - network_uuid=admin', function (t) {
             mac: res.mac,
             owner_uuid: params.owner_uuid
         }, ADMIN_NET);
-        t.deepEqual(res, exp, 'response');
+        t.deepEqual(res, exp, 'create on admin: good response');
 
         NAPI.getNic(res.mac, function (err2, res2) {
-            t.ifError(err2);
-            t.deepEqual(res2, exp, 'get response');
+            t.ifError(err2, 'create on admin: get success');
+            t.deepEqual(res2, exp, 'create on admin: good get response');
             return t.end();
         });
 
@@ -1027,7 +1027,7 @@ test('Provision nic - with IP', function (t) {
 });
 
 
-test('Provision nic - with different state', function (t) {
+test('(PNDS) Provision nic - with different state', function (t) {
     var params = {
         belongs_to_type: 'zone',
         belongs_to_uuid: mod_uuid.v4(),
@@ -1042,7 +1042,7 @@ test('Provision nic - with different state', function (t) {
         state: 'stopped'
     }, NET2);
 
-    t.test('provision', function (t2) {
+    t.test('(PNDS) provision', function (t2) {
         mod_nic.provision(t2, {
             fillInMissing: true,
             net: NET2.uuid,
@@ -1051,14 +1051,14 @@ test('Provision nic - with different state', function (t) {
         });
     });
 
-    t.test('get nic', function (t2) {
+    t.test('(PNDS) get nic', function (t2) {
         mod_nic.get(t2, {
             mac: exp.mac,
             exp: exp
         });
     });
 
-    t.test('update state', function (t2) {
+    t.test('(PNDS) update state', function (t2) {
         exp.state = 'running';
 
         mod_nic.updateAndGet(t2, {
