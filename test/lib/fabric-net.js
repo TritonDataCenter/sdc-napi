@@ -93,6 +93,10 @@ function createFabricNet(t, opts, callback) {
             opts.exp.fabric = true;
         }
 
+        if (!opts.exp.hasOwnProperty('internet_nat')) {
+            opts.exp.internet_nat = true;
+        }
+
         if (opts.params.gateway &&
                 !opts.exp.hasOwnProperty('gateway_provisioned')) {
             opts.exp.gateway_provisioned = false;

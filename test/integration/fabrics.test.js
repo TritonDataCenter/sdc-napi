@@ -94,6 +94,7 @@ var NETS = [
         vlan_id: VLANS[0].vlan_id,
         subnet: '10.2.1.0/24',
         gateway: '10.2.1.5',
+        internet_nat: true,
         name: mod_fabric_net.generateName(),
         owner_uuid: VLANS[0].owner_uuid,
         provision_start_ip: '10.2.1.5',
@@ -108,6 +109,7 @@ var NETS = [
         vlan_id: VLANS[0].vlan_id,
         subnet: '10.2.2.0/23',
         gateway: '10.2.3.254',
+        internet_nat: true,
         name: mod_fabric_net.generateName(),
         owner_uuid: VLANS[0].owner_uuid,
         provision_start_ip: '10.2.2.5',
@@ -120,6 +122,7 @@ var NETS = [
     {
         vlan_id: VLANS[1].vlan_id,
         subnet: '192.168.0.0/24',
+        internet_nat: false,
         name: mod_fabric_net.generateName(),
         owner_uuid: VLANS[1].owner_uuid,
         provision_start_ip: '192.168.0.2',
@@ -132,6 +135,7 @@ var NETS = [
     {
         vlan_id: VLANS[2].vlan_id,
         subnet: '192.168.0.0/24',
+        internet_nat: false,
         name: mod_fabric_net.generateName('overlap'),
         owner_uuid: VLANS[2].owner_uuid,
         provision_start_ip: '192.168.0.2',
@@ -146,6 +150,7 @@ var NETS = [
         subnet: '172.16.0.0/22',
         // Also double-check that the MTU is correct:
         mtu: OVERLAY_MTU,
+        internet_nat: false,
         name: mod_fabric_net.generateName('fields'),
         owner_uuid: VLANS[3].owner_uuid,
         provision_start_ip: '172.16.1.1',
@@ -488,6 +493,7 @@ test('create network', function (t) {
     t.test('get network: 4', function (t2) {
         var newNet4 = extend(mod_fabric_net.lastCreated(), {
             fabric: true,
+            internet_nat: false,
             mtu: OVERLAY_MTU,
             netmask: '255.255.252.0',
             nic_tag: OVERLAY_NIC_TAG,

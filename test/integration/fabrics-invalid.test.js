@@ -297,9 +297,9 @@ test('create invalid networks', function (t) {
         [ { fields: [ 'foo' ], name: 'asdf' },
             mod_err.invalidParam('fields', 'unknown field specified') ],
         [ { fields: [ 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k',
-          'l', 'm', 'n', 'o' ], name: 'asdf' },
+          'l', 'm', 'n', 'o', 'p' ], name: 'asdf' },
             mod_err.invalidParam('fields',
-                    'can only specify a maximum of 15 fields') ],
+                    'can only specify a maximum of 16 fields') ],
 
         // owner_uuid
         [ { owner_uuid: 'asdf' },

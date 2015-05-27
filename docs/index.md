@@ -754,6 +754,7 @@ supported are:
 - description
 - fabric
 - gateway
+- internet_nat
 - mtu
 - name
 - nic_tag
@@ -823,6 +824,7 @@ but with some fields removed:
 | provision_start_ip | IP               | First IP address to allow provisioning on                                                 |
 | provision_end_ip   | IP               | Last IP address to allow provisioning on                                                  |
 | gateway            | IP               | Gateway IP address (Optional)                                                             |
+| internet_nat       | Boolean          | Provision a NAT zone on the gateway address (Optional) (default: true)                    |
 | resolvers          | Array of IPs     | Resolver IP addresses (Optional)                                                          |
 | routes             | Routes Object    | Static routes for hosts on this network (Optional)                                        |
 | description        | String           | Description (Optional)                                                                    |

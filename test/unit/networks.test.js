@@ -335,6 +335,74 @@ test('Create network - invalid parameters', function (t) {
     });
 });
 
+test('Create fabric network - automatic gateway assignment', function (t) {
+    var gateway = fmt('10.0.%d.1', h.NET_NUM);
+    NAPI.createNetwork(h.validNetworkParams({
+        fabric: true,
+        internet_nat: true,
+        vnet_id: 1234
+    }), function (err, obj, req, res) {
+        if (h.ifErr(t, err, 'network creation')) {
+            return t.end();
+        }
+
+        t.equal(res.statusCode, 200, 'status code');
+        NAPI.getNetwork(obj.uuid, function (err2, obj2) {
+            t.ifError(err2);
+
+            t.deepEqual(obj2, obj, 'get response');
+            NAPI.getIP(obj.uuid, gateway, function (err3, res3) {
+                t.ifError(err3);
+                t.deepEqual(res3, {
+                    belongs_to_type: 'other',
+                    belongs_to_uuid: CONF.ufdsAdminUuid,
+                    free: false,
+                    ip: gateway,
+                    network_uuid: obj.uuid,
+                    owner_uuid: CONF.ufdsAdminUuid,
+                    reserved: true
+                }, util.format('IP %s params', gateway));
+                t.end();
+            });
+        });
+    });
+});
+
+test('Create fabric network - gateway address reserved', function (t) {
+    var ip = fmt('10.0.%d.1', h.NET_NUM);
+    var owner = '3888cf76-fecd-11e4-b788-ff04f1069d03';
+    NAPI.createNetwork(h.validNetworkParams({
+        gateway: ip,
+        owner_uuids: [owner],
+        fabric: true,
+        internet_nat: false,
+        vnet_id: 1234
+    }), function (err, obj, req, res) {
+        if (h.ifErr(t, err, 'network creation')) {
+            return t.end();
+        }
+
+        t.equal(res.statusCode, 200, 'status code');
+        NAPI.getNetwork(obj.uuid, function (err2, obj2) {
+            t.ifError(err2);
+
+            t.deepEqual(obj2, obj, 'get response');
+            NAPI.getIP(obj.uuid, ip, function (err3, res3) {
+                t.ifError(err3);
+                t.deepEqual(res3, {
+                    belongs_to_type: 'other',
+                    belongs_to_uuid: '00000000-0000-0000-0000-000000000000',
+                    free: false,
+                    ip: ip,
+                    network_uuid: obj.uuid,
+                    owner_uuid: owner,
+                    reserved: true
+                }, util.format('IP %s params', ip));
+                t.end();
+            });
+        });
+    });
+});
 
 test('Create network - provision start IP after end IP', function (t) {
     NAPI.createNetwork(h.validNetworkParams({
@@ -351,7 +419,7 @@ test('Create network - provision start IP after end IP', function (t) {
         t.deepEqual(err.body, h.invalidParamErr({
             errors: [
                 mod_err.invalidParam('provision_end_ip',
-                    constants.PROV_RANGE_ORDER_MSG),
+                   constants.PROV_RANGE_ORDER_MSG),
                 mod_err.invalidParam('provision_start_ip',
                     constants.PROV_RANGE_ORDER_MSG)
             ],

@@ -578,6 +578,7 @@ test('networks', function (t) {
             exp: extend(INITIAL.nets[0].value, {
                 fabric: false,
                 gateway_addr: '10.88.88.2',
+                internet_nat: true,
                 ip_use_strings: false,
                 mtu: constants.MTU_DEFAULT,
                 provision_end_ip_addr: '10.88.88.199',
@@ -598,6 +599,7 @@ test('networks', function (t) {
             key: NETS.admin,
             exp: extend(INITIAL.nets[1].value, {
                 fabric: false,
+                internet_nat: true,
                 ip_use_strings: false,
                 mtu: constants.MTU_DEFAULT,
                 owner_uuids_arr: [ OWNERS.admin ],
