@@ -20,7 +20,7 @@ fi
 NODE=${NODE_INSTALL}/bin/node
 
 if [[ -z "${SMF_FMRI}" ]]; then
-        ${NODE} ${TOP}/server.js "$@" | ${NODE} ${TOP}/node_modules/.bin/bunyan
+        ${NODE} --abort-on-uncaught-exception ${TOP}/server.js "$@" | ${NODE} ${TOP}/node_modules/.bin/bunyan
 else
-        ${NODE} ${TOP}/server.js "$@"
+        ${NODE} --abort-on-uncaught-exception ${TOP}/server.js "$@"
 fi
