@@ -18,6 +18,7 @@ var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
 var mod_uuid = require('node-uuid');
 var mod_net = require('../lib/net');
+var mod_nic = require('../lib/nic');
 var mod_pool = require('../lib/pool');
 var test = require('tape');
 var util = require('util');
@@ -41,6 +42,7 @@ var state = {
     testName: 'network-owner'
 };
 var ufdsAdminUuid;  // Loaded in setup below
+var noNicMACs = [];
 
 
 
@@ -64,6 +66,8 @@ function checkProvisionSuccess(newOwner, t) {
             t.deepEqual(err.body, {}, 'err body for debugging');
             return t.end();
         }
+
+        noNicMACs.push(res.mac);
 
         params.mac = res.mac;
         params.primary = false;
@@ -104,6 +108,24 @@ function createNetworkPool(t, name, params) {
     });
 }
 
+/*
+ * Clean up any allocated NICs
+ */
+function deleteNICs(t, done) {
+    vasync.forEachParallel({
+        inputs: noNicMACs,
+        func: function (mac, cb) {
+            napi.deleteNic(mac, function (err) {
+                if (h.ifErr(t, err, 'delete mac ' + mac)) {
+                    return cb(err);
+                }
+                cb();
+            });
+        }
+    }, function (err) {
+        done(err);
+    });
+}
 
 function deleteNetworkPool(t, name, callback) {
     napi.deleteNetworkPool(state[name].uuid, function (err) {
@@ -523,6 +545,9 @@ test('provisionable_by network pools: other owner', function (t) {
 test('teardown', function (t) {
     vasync.pipeline({
     funcs: [
+        function (_, cb) {
+            deleteNICs(t, cb);
+        },
         function (_, cb) {
             deleteNetworkPool(t, 'noOwnerPool', cb);
 

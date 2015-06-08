@@ -34,7 +34,8 @@ var napi = h.createNAPIclient();
 var state = {
     nic: {},
     ip: {},
-    desc: {}
+    desc: {},
+    mac: {}
 };
 var uuids = {
     admin: '',
@@ -149,6 +150,7 @@ test('POST /nics (with IP, network and state)', function (t) {
             state.nic.b = params;
             state.desc.b = desc;
             state.ip.b = params.ip;
+            state.mac.b = d.mac;
 
             return t2.end();
         });
@@ -168,6 +170,25 @@ test('POST /nics (with IP, network and state)', function (t) {
                 mod_err.duplicateParam('mac', mod_err.msg.duplicate)
             ]})
         });
+    });
+});
+
+test('Network deletion with active NIC fails', function (t) {
+    var mac = state.mac.b;
+    napi.deleteNetwork(state.networks[0].uuid, function (err) {
+        t.deepEqual(err.body, {
+            'code': 'InUse',
+            'message': 'network must have no NICs provisioned',
+            'errors': [
+                {
+                    'type': 'nic',
+                    'id': mac,
+                    'code': 'UsedBy',
+                    'message': 'In use by nic "' + mac + '"'
+                }
+            ]
+        }, 'Error is correct');
+        return t.end();
     });
 });
 
