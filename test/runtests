@@ -115,6 +115,14 @@ test_files=$(ls -1 test/integration/*.test.js)
 if [[ -n "$opt_test_pattern" ]]; then
     test_files=$(echo "$test_files" | grep "$opt_test_pattern" || true)
     echo "# Running filtered set of test files: $test_files"
+else
+    # Otherwise the default set we want to skip know *hanging*
+    # test cases.
+    hangers="migration-1.2.0-networks.test.js"
+    for hanger in $hangers; do
+        echo "# Excluding hanger test file: $hanger"
+        test_files=$(echo "$test_files" | grep -v $hanger)
+    done
 fi
 
 set +o errexit
