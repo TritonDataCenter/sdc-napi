@@ -40,6 +40,7 @@ as the napi zone in SDC.
         integration/    Integration tests (to be run in a deployed napi zone)
         unit/           Unit tests (to be run in your development environment)
     tools/              Miscellaneous dev tools
+    tools/data		Tools to generate bulk data
     Makefile
     package.json        npm module info (holds the project version)
     README.md
@@ -229,3 +230,10 @@ Other general test guidelines:
 - Check the TODOs in each of the test files as you modify them - you may have
   completed one of them while making your changes (or could easily add one of
   them).
+
+## Bulk Data Generation
+
+There are a series of scripts and C programs in the `tools/data` directory. They
+may be used to generate any kind of action necessary. To prepare the tools for
+use, run gmake inside of the directory and copy the resulting contents of the
+`tools/data/proto` to a directory on a head node.
