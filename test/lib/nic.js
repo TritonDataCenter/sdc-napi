@@ -235,6 +235,7 @@ function listNics(t, opts, callback) {
     assert.object(opts, 'opts');
     assert.optionalBool(opts.deepEqual, 'opts.deepEqual');
     assert.optionalArrayOfObject(opts.present, 'opts.present');
+    assert.optionalObject(opts.expErr, 'opts.expErr');
 
     var client = opts.client || mod_client.get();
     var params = opts.params || {};

@@ -22,12 +22,164 @@ var NAPI = require('sdc-clients').NAPI;
 var util = require('util');
 
 
-
-// --- Exported functions
-
-
-
 var CREATED = {};
+
+// --- Exported variables
+
+
+/**
+ * This is a set of common errors that can be used for the expErr funciton for
+ * limit, offset, and friends.
+ */
+var commonErrors = {
+    ce_limit: {
+        code: 'InvalidParameters',
+        message: 'Invalid parameters',
+        errors: [ {
+            code: 'InvalidParameter',
+            field: 'limit',
+            message: 'invalid limit, must be an integer greater than 0 or ' +
+                'less than or equal to 1000'
+         } ]
+    },
+    ce_offset: {
+        code: 'InvalidParameters',
+        message: 'Invalid parameters',
+        errors: [ {
+            code: 'InvalidParameter',
+            field: 'offset',
+            message: 'invalid value, offset must be an integer greater than ' +
+                'or equal to zero'
+        } ]
+    }, ce_unknown: {
+        code: 'InvalidParameters',
+        message: 'Invalid parameters',
+        errors: [ {
+            code: 'UnknownParameters',
+            field: [ 'terra' ],
+            message: 'Unknown parameters: terra'
+        } ]
+    }, ce_dunknown: {
+        code: 'InvalidParameters',
+        message: 'Invalid parameters',
+        errors: [ {
+            code: 'UnknownParameters',
+            field: [ 'terra', 'elbereth' ],
+            message: 'Unknown parameters: terra, elbereth'
+        } ]
+    }
+};
+
+var badLimitOffTests = [
+    {
+        bc_name: 'bad limit (I)',
+        bc_params: { limit: -5 },
+        bc_expcode: 422,
+        bc_experr: commonErrors.ce_limit
+    },
+    {
+        bc_name: 'bad limit (II)',
+        bc_params: { limit: 0 },
+        bc_expcode: 422,
+        bc_experr: commonErrors.ce_limit
+    },
+    {
+        bc_name: 'bad limit (III)',
+        bc_params: { limit: 'asdf' },
+        bc_expcode: 422,
+        bc_experr: commonErrors.ce_limit
+    },
+    {
+        bc_name: 'bad limit (IV)',
+        bc_params: { limit: 9001 },
+        bc_expcode: 422,
+        bc_experr: commonErrors.ce_limit
+    },
+    {
+        bc_name: 'bad limit (V)',
+        bc_params: { limit: { foo: 'bar' } },
+        bc_expcode: 422,
+        bc_experr: commonErrors.ce_limit
+    },
+    {
+        bc_name: 'bad limit (VI)',
+        bc_params: { limit: 3.456 },
+        bc_expcode: 422,
+        bc_experr: commonErrors.ce_limit
+    },
+    {
+        bc_name: 'bad limit (VII)',
+        bc_params: { limit: '304 asdf' },
+        bc_expcode: 422,
+        bc_experr: commonErrors.ce_limit
+    },
+    {
+        bc_name: 'bad limit (VIII)',
+        bc_params: { limit: undefined },
+        bc_expcode: 422,
+        bc_experr: commonErrors.ce_limit
+    },
+    {
+        bc_name: 'bad limit (IX)',
+        bc_params: { limit: null },
+        bc_expcode: 422,
+        bc_experr: commonErrors.ce_limit
+    },
+    {
+        bc_name: 'bad offset (I)',
+        bc_params: { offset: -5 },
+        bc_expcode: 422,
+        bc_experr: commonErrors.ce_offset
+    },
+    {
+        bc_name: 'bad offset (II)',
+        bc_params: { offset: 'asdf' },
+        bc_expcode: 422,
+        bc_experr: commonErrors.ce_offset
+    },
+    {
+        bc_name: 'bad offset (III)',
+        bc_params: { offset: { foo: 'bar' } },
+        bc_expcode: 422,
+        bc_experr: commonErrors.ce_offset
+    },
+    {
+        bc_name: 'bad offset (IV)',
+        bc_params: { offset: 5.678 },
+        bc_expcode: 422,
+        bc_experr: commonErrors.ce_offset
+    },
+    {
+        bc_name: 'bad offset (V)',
+        bc_params: { offset: '69 seconds left' },
+        bc_expcode: 422,
+        bc_experr: commonErrors.ce_offset
+    },
+    {
+        bc_name: 'bad offset (VI)',
+        bc_params: { offset: undefined },
+        bc_expcode: 422,
+        bc_experr: commonErrors.ce_offset
+    },
+    {
+        bc_name: 'bad offset (VII)',
+        bc_params: { offset: null },
+        bc_expcode: 422,
+        bc_experr: commonErrors.ce_offset
+    },
+    {
+        bc_name: 'unknown param (I)',
+        bc_params: { 'terra': 'incognita' },
+        bc_expcode: 422,
+        bc_experr: commonErrors.ce_unknown
+    },
+    {
+        bc_name: 'unknown param (II)',
+        bc_params: { 'terra': 'incognita', 'elbereth': 'gilothoniel' },
+        bc_expcode: 422,
+        bc_experr: commonErrors.ce_dunknown
+    }
+];
 
 
 
@@ -452,6 +604,8 @@ module.exports = {
     afterAPIlist: afterAPIlist,
     allCreated: allCreated,
     assertArgs: assertArgs,
+    badLimitOffTests: badLimitOffTests,
+    commonErrors: commonErrors,
     createClient: createClient,
     doneErr: doneErr,
     doneRes: doneRes,

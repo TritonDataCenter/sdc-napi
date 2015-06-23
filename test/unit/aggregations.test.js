@@ -13,6 +13,7 @@
  */
 
 var h = require('./helpers');
+var common = require('../lib/common');
 var clone = require('clone');
 var constants = require('../../lib/util/constants');
 var mod_aggr = require('../lib/aggr');
@@ -455,7 +456,7 @@ test('get', function (t) {
 
 
 test('list', function (t) {
-    t.plan(3);
+    t.plan(3 + common.badLimitOffTests.length);
 
     t.test('all', function (t2) {
         mod_aggr.list(t2, {}, function (err, list) {
@@ -518,6 +519,17 @@ test('list', function (t) {
             return t2.end();
         });
     });
+
+    for (var i = 0; i < common.badLimitOffTests.length; i++) {
+        var blot = common.badLimitOffTests[i];
+        t.test(blot.bc_name, function (t2) {
+            mod_aggr.list(t2, {
+                params: blot.bc_params,
+                expCode: blot.bc_expcode,
+                expErr: blot.bc_experr
+            });
+        });
+    }
 
     // XXX: filter by nic_tags_provided
 });

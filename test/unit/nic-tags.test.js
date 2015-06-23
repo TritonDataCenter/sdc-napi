@@ -12,6 +12,8 @@
  * Unit tests for nic tag endpoints
  */
 
+var assert = require('assert-plus');
+var common = require('../lib/common');
 var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
 var mod_moray = require('../lib/moray');
@@ -681,6 +683,32 @@ test('Update nic tag - MTU < networks', function (t) {
         });
     });
 });
+
+// --- List Tests
+
+function testTagList(t, opts, callback) {
+    assert.object(t, 't');
+    opts.type = 'ip';
+    opts.reqType = 'list';
+    NAPI.listNicTags(opts.params,
+        common.afterAPIcall.bind(null, t, opts, callback));
+}
+
+test('Listing Nic Tag failures', function (t) {
+    t.plan(common.badLimitOffTests.length);
+
+    for (var i = 0; i < common.badLimitOffTests.length; i++) {
+        var blot = common.badLimitOffTests[i];
+        t.test(blot.bc_name, function (t2) {
+            testTagList(t2, {
+                params: blot.bc_params,
+                expCode: blot.bc_expcode,
+                expErr: blot.bc_experr
+            });
+        });
+    }
+});
+
 
 // --- Teardown
 

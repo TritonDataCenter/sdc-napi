@@ -1,7 +1,7 @@
 ---
 title: Networking API (NAPI)
 apisections: Nic Tags, Networks, IPs, Fabrics, Fabric VLANs, Fabric Networks, Nics, Network Pools, Search, Link Aggregations
-markdown2extras: tables, code-friendly
+markdown2extras: tables, code-friendly, fenced-code-blocks
 ---
 <!--
     This Source Code Form is subject to the terms of the Mozilla Public
@@ -109,6 +109,13 @@ of the nic tag they're created on.
 
 Returns a list of all nic tags.
 
+### Inputs
+
+| Field  | Type    | Description                                                |
+| ------ | ------- | ---------------------------------------------------------- |
+| offset | Integer | Starting offset, see [Pagination](#pagination)             |
+| limit  | Integer | Maximum number of responses, see [Pagination](#pagination) |
+
 ### Example
 
     GET /nic_tags
@@ -146,10 +153,10 @@ Creates a nic tag.
 
 ### Inputs
 
-| Field | Type   | Description                        |
-| ----- | ------ | ---------------------------------- |
-| name  | String | nic tag name                       |
-| mtu   | Number | MTU of underlying physical network |
+| Field  | Type    | Description                                                |
+| ------ | ------- | ---------------------------------------------------------- |
+| name   | String  | nic tag name                                               |
+| mtu    | Number  | MTU of underlying physical network                         |
 
 ### Example
 
@@ -210,17 +217,25 @@ Returns a list of all logical networks.
 All parameters are optional filters on the list. A network will be listed if
 it matches *all* of the input parameters.
 
-| Field            | Type    | Description                                               |
-| ---------------- | ------- | --------------------------------------------------------- |
-| fabric           | Boolean | Whether the network is on a fabric or not                 |
-| name             | String  | Network name                                              |
-| vlan_id          | Integer | VLAN ID                                                   |
-| nic_tag          | String  | Nic Tag name                                              |
-| owner_uuid       | UUID    | Return networks that are owned by this owner_uuid         |
-| provisionable_by | UUID    | Return networks that are provisionable by this owner_uuid |
+| Field            | Type            | Description                                                |
+| ---------------- | --------------- | ---------------------------------------------------------- |
+| fabric           | Boolean         | Whether the network is on a fabric or not                  |
+| name             | String or Array | Network name                                               |
+| vlan_id          | Integer         | VLAN ID                                                    |
+| nic_tag          | String or Array | Nic Tag name                                               |
+| owner_uuid       | UUID            | Return networks that are owned by this owner_uuid          |
+| provisionable_by | UUID            | Return networks that are provisionable by this owner_uuid  |
+| offset           | Integer         | Starting offset, see [Pagination](#pagination)             |
+| limit            | Integer         | Maximum number of responses, see [Pagination](#pagination) |
 
 
 **Notes:**
+
+* Both the `name` and `nic_tag` arguments allow for arrays of network
+  names and network tags to be provided respectively. When multiple
+  names or nic tags are provided, if a name or nic tag matches any one
+  of the entries, then it will be included in the results. One can think
+  of an array of entries as being equivalent to a logical OR.
 
 * *`provisionable_by`* is intended to list networks that a UFDS user can
   provision on. This includes both networks that contain that user in its
@@ -490,6 +505,15 @@ These endpoints manage IPs on a logical network.
 
 Gets all of the IPs in use on that Logical Network.
 
+### Inputs
+
+| Field            | Type            | Description                                                |
+| ---------------- | --------------- | ---------------------------------------------------------- |
+| belongs_to_type  | String          | The type that this belongs to (eg: 'zone', 'server')       |
+| belongs_to_uuid  | UUID            | The UUID of what this IP belongs to                        |
+| offset           | Integer         | Starting offset, see [Pagination](#pagination)             |
+| limit            | Integer         | Maximum number of responses, see [Pagination](#pagination) |
+
 ### Example
 
     GET /networks/1275886f-3fdf-456e-bba6-28e0e2eab58f/ips
@@ -636,6 +660,13 @@ supported are:
 ## ListFabricVLANs (GET /fabrics/:owner_uuid/vlans)
 
 List VLANs owned by a user.
+
+### Inputs
+
+| Field  | Type    | Description                                                |
+| ------ | ------- | ---------------------------------------------------------- |
+| offset | Integer | Starting offset, see [Pagination](#pagination)             |
+| limit  | Integer | Maximum number of responses, see [Pagination](#pagination) |
 
 ### Example
 
@@ -936,16 +967,19 @@ Returns a list of all nics.
 All parameters are optional filters on the list. A nic is output in the list
 if it matches *all* of the input parameters.
 
-| Field             | Type                   | Description                                          |
-| ----------------- | ---------------------- | ---------------------------------------------------- |
-| owner_uuid        | UUID                   | Nic Owner                                            |
-| belongs_to_uuid   | UUID                   | The UUID of what this Nic belongs to                 |
-| belongs_to_type   | String                 | The type that this belongs to (eg: 'zone', 'server') |
-| nic_tag           | String                 | The nic tag that this nic is on                      |
-| nic_tags_provided | Array of nic tag names | Nic tags provided by the nic                         |
+| Field             | Type                   | Description                                                |
+| ----------------- | ---------------------- | ---------------------------------------------------------- |
+| owner_uuid        | UUID                   | Nic Owner                                                  |
+| belongs_to_uuid   | UUID                   | The UUID of what this Nic belongs to                       |
+| belongs_to_type   | String                 | The type that this belongs to (eg: 'zone', 'server')       |
+| network_uuid      | String                 | The UUID of the network the NIC is on                      |
+| nic_tag           | String                 | The nic tag that this nic is on                            |
+| nic_tags_provided | Array of nic tag names | Nic tags provided by the nic                               |
+| offset            | Integer                | Starting offset, see [Pagination](#pagination)             |
+| limit             | Integer                | Maximum number of responses, see [Pagination](#pagination) |
 
 Note: all filter fields above can have multiple comma-separated values to search
-on (like a logical OR).
+on (like a logical OR), excepting `offset` and `limit`.
 
 ### Example: list all nics
 
@@ -1206,9 +1240,12 @@ Returns a list of all logical network pools.
 All parameters are optional filters on the list. A network pool will be listed
 if it matches *all* of the input parameters.
 
-| Field            | Type | Description                                                    |
-| ---------------- | ---- | -------------------------------------------------------------- |
-| provisionable_by | UUID | Return network pools that are provisionable by this owner_uuid |
+| Field            | Type    | Description                                                    |
+| ---------------- | ------- | -------------------------------------------------------------- |
+| name             | String  | Return network pools that match the pool name                  |
+| provisionable_by | UUID    | Return network pools that are provisionable by this owner_uuid |
+| offset           | Integer | Starting offset, see [Pagination](#pagination)                 |
+| limit            | Integer | Maximum number of responses, see [Pagination](#pagination)     |
 
 ### Example
 
@@ -1378,11 +1415,13 @@ Returns a list of aggregations, optionally filtered by parameters.
 
 All parameters are optional filters on the list.
 
-| Field             | Type                   | Description                                             |
-| ----------------- | ---------------------- | ------------------------------------------------------- |
-| belongs_to_uuid   | UUID                   | The UUID of the Compute Node the aggregation belongs to |
-| macs              | Array of MAC addresses | MAC addresses of nics in the aggregation                |
-| nic_tags_provided | Array of nic tag names | Nic tags provided by the nic                            |
+| Field             | Type                   | Description                                                |
+| ----------------- | ---------------------- | ---------------------------------------------------------- |
+| belongs_to_uuid   | UUID                   | The UUID of the Compute Node the aggregation belongs to    |
+| macs              | Array of MAC addresses | MAC addresses of nics in the aggregation                   |
+| nic_tags_provided | Array of nic tag names | Nic tags provided by the nic                               |
+| offset            | Integer                | Starting offset, see [Pagination](#pagination)             |
+| limit             | Integer                | Maximum number of responses, see [Pagination](#pagination) |
 
 ### Example
 
@@ -1545,6 +1584,44 @@ In the example above, the node will boot with one aggregation, aggr0, with
 of the Compute Node that hosts them.**
 
 
+# Pagination
+
+The various listing endpoints, [ListNicTags](#ListNicTags),
+[ListNetworks](#ListNetworks), [ListIPs](#ListIPs),
+[ListFabricVLANs](#ListFabricVLANs), [ListFabricNetworks](#ListFabricNetworks),
+[ListNics](#ListNics), [ListNetworkPools](#ListNetworkPools), and
+[ListAggregations](#ListAggregations) are all paginated resources. Being
+paginated means that not all queries will be provided in a single call to these
+APIs. To control the pagination there are two different query parameters which
+may be specified:
+
+* `limit`
+* `offset`
+
+The `limit` property controls how many entries will be retrieved in a single
+request. By default, if `limit` is not specified, then the default limit, 1000
+entries, will be returned. `limit` may range between 1 and 1000, inclusive.
+
+The `offset` property controls which entry the query should start with. By
+default, if `offset` is not specified, then the default offset used is 0.
+
+These primitives may be combined to obtain all of the results. For example, if
+there are 2300 networks, then to obtain all of them, one would make the three
+following calls to [ListNetworks](#ListNetworks):
+
+```
+GET /networks
+GET /networks?offset=1000
+GET /networks?offset=2000
+```
+
+The general rule of thumb is that if you get a number of entries equal to your
+`limit`, then you should make another query, adding the `limit` amount to the
+`offset`. Once a number of entries less than `limit` has been returned, then
+there is no more need to call the API.
+
+
+
 # Changelog
 
 ## 2012-07-04
@@ -1609,3 +1686,18 @@ of the Compute Node that hosts them.**
   property.  Filtering by `owner_uuid` now returns only networks owned by that
   owner, rather than having identical behaviour to the `provisionable_by`
   filter.
+
+## 2015-06-30
+
+- All list endpoints now support the `limit` and `offset` properties to enable
+  pagination of results. See [Pagination](#Pagination) for more
+  information.
+- The list endpoints are now strict about checking for unknown query
+  parameters and will respond with an error about unknown query parameters if
+  encountered.
+- [ListNics](#ListNics) now supports filtering on the `network_uuid` property.
+- [ListNetworks](#ListNetworks) now supports `name` and `nic_tag` being arrays.
+- [ListNetworkPools](#ListNetworkPools) now supports filtering on the `name`
+  property.
+- [ListIPs](#ListIPs) now supports filtering on the `belongs_to_uuid`
+  and `belongs_to_type` properties.

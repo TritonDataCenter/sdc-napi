@@ -12,8 +12,10 @@
  * Unit tests for nic endpoints
  */
 
+var assert = require('assert-plus');
 var async = require('async');
 var clone = require('clone');
+var common = require('../lib/common');
 var constants = require('../../lib/util/constants');
 var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
@@ -510,7 +512,13 @@ test('provisionable_by network pools: owner', function (t) {
 
 // --- List tests
 
-
+function testPoolList(t, opts, callback) {
+    assert.object(t, 't');
+    opts.type = 'nic_tag';
+    opts.reqType = 'list';
+    NAPI.listNetworkPools(opts.params,
+        common.afterAPIcall.bind(null, t, opts, callback));
+}
 
 test('List pools', function (t) {
     NAPI.listNetworkPools(function (err, res) {
@@ -524,6 +532,22 @@ test('List pools', function (t) {
         t.deepEqual(res.sort(h.uuidSort), sorted, 'list result');
         return t.end();
     });
+});
+
+test('List Network Pool failures', function (t) {
+    t.plan(common.badLimitOffTests.length);
+
+     for (var i = 0; i < common.badLimitOffTests.length; i++) {
+        var blot = common.badLimitOffTests[i];
+        t.test(blot.bc_name, function (t2) {
+            testPoolList(t2, {
+                params: blot.bc_params,
+                expCode: blot.bc_expcode,
+                expErr: blot.bc_experr
+            });
+        });
+    }
+
 });
 
 
