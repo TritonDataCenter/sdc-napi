@@ -14,6 +14,7 @@
 
 var assert = require('assert-plus');
 var clone = require('clone');
+var common = require('../lib/common');
 var constants = require('../../lib/util/constants');
 var extend = require('xtend');
 var fmt = require('util').format;
@@ -2139,6 +2140,23 @@ test('primary uniqueness', function (t) {
     });
 });
 
+
+// --- Listing Tests
+
+test('Listing Nics failures', function (t) {
+    t.plan(common.badLimitOffTests.length);
+
+     for (var i = 0; i < common.badLimitOffTests.length; i++) {
+        var blot = common.badLimitOffTests[i];
+        t.test(blot.bc_name, function (t2) {
+            mod_nic.list(t2, {
+                params: blot.bc_params,
+                expCode: blot.bc_expcode,
+                expErr: blot.bc_experr
+            });
+        });
+    }
+});
 
 
 // XXX: More tests:

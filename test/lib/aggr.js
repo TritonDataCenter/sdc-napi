@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright (c) 2015, Joyent, Inc.
  */
 
 /*
@@ -123,19 +123,17 @@ function id(uuid, name) {
  */
 function list(t, opts, callback) {
     var client = opts.client || mod_client.get();
-    var desc = opts.desc ? (' ' + opts.desc) : '';
     var params = opts.params || {};
 
     assert.object(t, 't');
+    assert.optionalObject(opts.expErr, 'opts.expErr');
     log.debug({ params: params }, 'list aggrs');
 
-    client.listAggrs(params, function (err, obj, _, res) {
-        common.ifErr(t, err, 'list aggrs: ' + JSON.stringify(params) + desc);
-        t.equal(res.statusCode, 200,
-            'status code: ' + JSON.stringify(params) + desc);
+    opts.reqType = 'list';
+    opts.type = 'aggr';
 
-        return callback(err, obj);
-    });
+    client.listAggrs(params,
+        common.afterAPIcall.bind(null, t, opts, callback));
 }
 
 

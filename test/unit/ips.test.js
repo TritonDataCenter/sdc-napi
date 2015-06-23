@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright (c) 2015, Joyent, Inc.
  */
 
 /*
@@ -15,6 +15,7 @@
 var assert = require('assert-plus');
 var async = require('async');
 var clone = require('clone');
+var common = require('../lib/common');
 var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
 var mod_uuid = require('node-uuid');
@@ -94,7 +95,6 @@ test('Initial setup', function (t) {
         });
     });
 });
-
 
 
 // --- Get tests
@@ -696,6 +696,33 @@ test('Update IP - unassign (IP not in moray)', function (t) {
 
         return t.end();
     });
+});
+
+
+// --- List Tests
+
+function testIPList(t, opts, callback) {
+    assert.object(t, 't');
+    opts.type = 'ip';
+    opts.reqType = 'list';
+    NAPI.listIPs(NET.uuid, opts.params,
+        common.afterAPIcall.bind(null, t, opts, callback));
+}
+
+test('Listing IP failures', function (t) {
+    t.plan(common.badLimitOffTests.length);
+
+     for (var i = 0; i < common.badLimitOffTests.length; i++) {
+        var blot = common.badLimitOffTests[i];
+        t.test(blot.bc_name, function (t2) {
+            testIPList(t2, {
+                params: blot.bc_params,
+                expCode: blot.bc_expcode,
+                expErr: blot.bc_experr
+            });
+        });
+    }
+
 });
 
 

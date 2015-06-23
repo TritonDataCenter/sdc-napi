@@ -195,6 +195,7 @@ function lastCreated() {
 function listNets(t, opts, callback) {
     assert.object(t, 't');
     assert.object(opts, 'opts');
+    assert.optionalObject(opts.expErr, 'opts.expErr');
     assert.optionalBool(opts.deepEqual, 'opts.deepEqual');
     assert.optionalArrayOfObject(opts.present, 'opts.present');
 

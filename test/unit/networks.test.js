@@ -15,6 +15,7 @@
 var assert = require('assert-plus');
 var async = require('async');
 var clone = require('clone');
+var common = require('../lib/common');
 var constants = require('../../lib/util/constants');
 var fmt = require('util').format;
 var h = require('./helpers');
@@ -1387,6 +1388,23 @@ test('Update network - unset owner_uuids', function (t) {
     });
 });
 
+
+// --- List Networks
+
+test('Listing Network failures', function (t) {
+    t.plan(common.badLimitOffTests.length);
+
+    for (var i = 0; i < common.badLimitOffTests.length; i++) {
+        var blot = common.badLimitOffTests[i];
+        t.test(blot.bc_name, function (t2) {
+            mod_net.list(t2, {
+                params: blot.bc_params,
+                expCode: blot.bc_expcode,
+                expErr: blot.bc_experr
+            });
+        });
+    }
+});
 
 
 // XXX: can't remove an owner_uuid from a network if its parent network
