@@ -1378,6 +1378,14 @@ Searches IPs across all logical networks.
 | ----- | ---------- | ----------------------------------- |
 | ip    | IP address | IP address to search for (required) |
 
+The following are optional inputs which may be used to filter the search:
+
+| Field           | Type    | Description                                          |
+| --------------- | ------- | ---------------------------------------------------- |
+| belongs_to_type | String  | The type that this belongs to (eg: 'zone', 'server') |
+| belongs_to_uuid | UUID    | The UUID off what this IP belongs to                 |
+| fabric          | Boolean | Whether the network is on a fabric or not            |
+| owner_uuid      | UUID    | Returns IPs owned by the specified uuid              |
 
 ### Example
 
@@ -1586,14 +1594,20 @@ of the Compute Node that hosts them.**
 
 # Pagination
 
-The various listing endpoints, [ListNicTags](#ListNicTags),
-[ListNetworks](#ListNetworks), [ListIPs](#ListIPs),
-[ListFabricVLANs](#ListFabricVLANs), [ListFabricNetworks](#ListFabricNetworks),
-[ListNics](#ListNics), [ListNetworkPools](#ListNetworkPools), and
-[ListAggregations](#ListAggregations) are all paginated resources. Being
-paginated means that not all queries will be provided in a single call to these
-APIs. To control the pagination there are two different query parameters which
-may be specified:
+Each of the list endpoints is a paginated resource, i.e.:
+
+* [ListNicTags](#ListNicTags),
+* [ListNetworks](#ListNetworks)
+* [ListIPs](#ListIPs),
+* [ListFabricVLANs](#ListFabricVLANs)
+* [ListFabricNetworks](#ListFabricNetworks),
+* [ListNics](#ListNics)
+* [ListNetworkPools](#ListNetworkPools)
+* [ListAggregations](#ListAggregations)
+
+Being paginated means that not all queries will be provided in a single call to
+these APIs. To control the pagination there are two different query parameters
+which may be specified:
 
 * `limit`
 * `offset`
@@ -1620,7 +1634,8 @@ The general rule of thumb is that if you get a number of entries equal to your
 `offset`. Once a number of entries less than `limit` has been returned, then
 there is no more need to call the API.
 
-
+If an invalid limit or offset is specified, then a 400-series error will
+be generated with a detailed message describing the error.
 
 # Changelog
 

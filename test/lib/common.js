@@ -28,7 +28,7 @@ var CREATED = {};
 
 
 /**
- * This is a set of common errors that can be used for the expErr funciton for
+ * This is a set of common errors that can be used for the expErr function for
  * limit, offset, and friends.
  */
 var commonErrors = {
@@ -40,7 +40,7 @@ var commonErrors = {
             field: 'limit',
             message: 'invalid limit, must be an integer greater than 0 or ' +
                 'less than or equal to 1000'
-         } ]
+        } ]
     },
     ce_offset: {
         code: 'InvalidParameters',
@@ -49,7 +49,7 @@ var commonErrors = {
             code: 'InvalidParameter',
             field: 'offset',
             message: 'invalid value, offset must be an integer greater than ' +
-                'or equal to zero'
+                'or equal to 0'
         } ]
     }, ce_unknown: {
         code: 'InvalidParameters',
