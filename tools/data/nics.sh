@@ -50,7 +50,7 @@ cn_owner=$4
 cn_macbase="00:00:00:00"
 
 i=0
-while ((i < cn_count )); do
+while (( i < cn_count )); do
 	cn_mac5=$(printf %02x $(( $cn_num / 256 )))
 	cn_mac6=$(printf %02x $(( $cn_num % 256 )))
 	sdc-napi /nics -X POST -d "{ 
@@ -59,11 +59,10 @@ while ((i < cn_count )); do
 		\"belongs_to_type\": \"server\",
 		\"mac\": \"$cn_macbase:$cn_mac5:$cn_mac6\"
 	}"
-	echo \"mac\": \"$cn_macbase:$cn_mac5:$cn_mac6\"
 	if [[ $? -ne 0 ]]; then
 		echo 'failed to create nic tag'
 		exit 1
 	fi
-	((i++))
-	((cn_num++))
+	(( i++ ))
+	(( cn_num++ ))
 done

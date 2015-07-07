@@ -16,6 +16,7 @@ CC = gcc
 RM = rm -f
 CP = cp
 CHMOD = chmod
+MKDIR = mkdir
 RMDIR = rmdir
 LDLIBS = -lnsl
 CFLAGS = -Wall -Wextra -Werror
@@ -49,7 +50,7 @@ all: $(TARGETS)
 	echo $(TARGETS)
 
 $(PROTO):
-	mkdir $@
+	$(MKDIR) $@
 
 clobber:
 	$(RM) $(TARGETS)

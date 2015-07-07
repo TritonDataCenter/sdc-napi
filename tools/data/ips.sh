@@ -27,6 +27,20 @@ fi
 
 cn_start=$(echo $cn_net | json provision_start_ip)
 cn_end=$(echo $cn_net | json provision_end_ip)
+if [[ -z "$cn_start" ]]; then
+	echo "Missing provision_start_ip for network $cn_net"
+	exit 1
+fi
+
+if [[ -z "$cn_end" ]]; then
+	echo "Missing provision_end_ip for network $cn_net"
+	exit 1
+fi
+
+if ! cd $(dirname $0); then
+	echo "Failed to change directories"
+	exit 1
+fi
 
 ./ip_iter $cn_start $cn_end | while read ip; do
 	sdc-napi /networks/$cn_network/ips/$ip -X PUT -d "{

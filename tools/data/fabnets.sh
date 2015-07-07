@@ -38,19 +38,24 @@ if [[ -z "$5" ]]; then
 	exit 1
 fi
 
+cn_subnet=28
 cn_count=$1
 cn_num=$2
 cn_owner=$3
 cn_vlan=$4
 cn_ip=$5
 
+if ! cd $(dirname $0); then
+	echo "Failed to change directories"
+	exit 1
+fi
 
-./ip_sub $cn_ip 28 $cn_count | while read ip first last; do
+./ip_sub $cn_ip $cn_subnet $cn_count | while read ip first last; do
 	sdc-napi /fabrics/$cn_owner/vlans/$cn_vlan/networks -d "{
 		\"name\": \"bulkfab$cn_num\",
-		\"subnet\": \"$ip/28\",
+		\"subnet\": \"$ip/$cn_subnet \",
 		\"provision_start_ip\": \"$first\",
 		\"provision_end_ip\": \"$last\"
 	}"
-	((cn_num++))
+	(( cn_num++ ))
 done

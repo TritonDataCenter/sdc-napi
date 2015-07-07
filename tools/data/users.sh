@@ -28,6 +28,7 @@ cr_num=$2
 
 #
 # That blank line after the user password is really, really, really, necessary.
+# It's the inter-record separator for LDIF (RFC 2849).
 #
 
 i=0
@@ -55,8 +56,6 @@ userpassword: 12345ismyluggagepassword
 
 EOF
 
-	((i++))
-	((cr_num++))
+	(( i++ ))
+	(( cr_num++ ))
 done | sdc-ldap add
-
-

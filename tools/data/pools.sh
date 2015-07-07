@@ -33,7 +33,7 @@ cn_num=$2
 cn_net=$3
 
 i=0
-while ((i < cn_count )); do
+while (( i < cn_count )); do
 	sdc-napi /network_pools -X POST -d "{ 
 		\"name\": \"bulkpool$cn_num\",
 		\"networks\": [ \"$cn_net\" ]
@@ -42,6 +42,6 @@ while ((i < cn_count )); do
 		echo 'failed to create nic tag'
 		exit 1
 	fi
-	((i++))
-	((cn_num++))
+	(( i++ ))
+	(( cn_num++ ))
 done

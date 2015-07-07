@@ -39,7 +39,7 @@ cn_mac0=$3
 cn_mac1=$4
 
 i=0
-while ((i < cn_count )); do
+while (( i < cn_count )); do
 	sdc-napi /aggregations -X POST -d "{
 		\"name\": \"bulkaggr$cn_num\",
 		\"macs\": [ \"$cn_mac0\", \"$cn_mac1\" ]
@@ -48,6 +48,6 @@ while ((i < cn_count )); do
 		echo 'failed to create nic tag'
 		exit 1
 	fi
-	((i++))
-	((cn_num++))
+	(( i++ ))
+	(( cn_num++ ))
 done

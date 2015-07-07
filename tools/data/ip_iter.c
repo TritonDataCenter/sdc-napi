@@ -50,7 +50,7 @@ main(int argc, const char *argv[])
 
 	for (cur = first; cur <= last; cur++) {
 		struct in_addr i;
-		char buf[INET6_ADDRSTRLEN];
+		char buf[INET_ADDRSTRLEN];
 
 		i.s_addr = htonl(cur);
 		if (inet_ntop(AF_INET, &i, buf, sizeof (buf)) == NULL) {

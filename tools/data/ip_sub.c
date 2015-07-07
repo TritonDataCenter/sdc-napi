@@ -49,9 +49,9 @@ main(int argc, const char *argv[])
 
 	for (i = 0; i < count; i++, subnet += 1 << (32 - bits)) {
 		struct in_addr addr;
-		char buf[INET6_ADDRSTRLEN];
-		char first[INET6_ADDRSTRLEN];
-		char last[INET6_ADDRSTRLEN];
+		char buf[INET_ADDRSTRLEN];
+		char first[INET_ADDRSTRLEN];
+		char last[INET_ADDRSTRLEN];
 
 		/* addr.s_addr = htonl(subnet); */
 		addr.s_addr = htonl(subnet);

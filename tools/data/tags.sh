@@ -27,7 +27,7 @@ cn_count=$1
 cn_num=$2
 
 i=0
-while ((i < cn_count )); do
+while (( i < cn_count )); do
 	sdc-napi /nic_tags -X POST -d "{ 
 		\"name\": \"bulk$cn_num\"
 	}"
@@ -35,6 +35,6 @@ while ((i < cn_count )); do
 		echo 'failed to create nic tag'
 		exit 1
 	fi
-	((i++))
-	((cn_num++))
+	(( i++ ))
+	(( cn_num++ ))
 done
