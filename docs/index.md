@@ -1383,7 +1383,7 @@ The following are optional inputs which may be used to filter the search:
 | Field           | Type    | Description                                          |
 | --------------- | ------- | ---------------------------------------------------- |
 | belongs_to_type | String  | The type that this belongs to (eg: 'zone', 'server') |
-| belongs_to_uuid | UUID    | The UUID off what this IP belongs to                 |
+| belongs_to_uuid | UUID    | The UUID of what this IP belongs to                  |
 | fabric          | Boolean | Whether the network is on a fabric or not            |
 | owner_uuid      | UUID    | Returns IPs owned by the specified uuid              |
 
