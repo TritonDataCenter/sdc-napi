@@ -336,6 +336,83 @@ test('Create network - invalid parameters', function (t) {
     });
 });
 
+
+test('Create network - mixed networks', function (t) {
+    // NET_NUM will be the next network number used by h.validNetworkParams():
+    var num = h.NET_NUM.toString(16);
+    var baseParams = h.validIPv6NetworkParams();
+    var bad_dst = util.format('fc00:%s::2', num);
+
+    var invalid = [
+        ['gateway', '10.0.0.1',
+            util.format(constants.SUBNET_GATEWAY_MISMATCH, 'ipv6')],
+
+        ['resolvers', ['8.8.8.8', '8.8.4.4'], ['8.8.8.8', '8.8.4.4'],
+            util.format(constants.SUBNET_RESOLVER_MISMATCH, 'ipv6')],
+
+        ['resolvers', ['2001:4860:4860::8888', '8.8.4.4'], ['8.8.4.4'],
+            util.format(constants.SUBNET_RESOLVER_MISMATCH, 'ipv6')],
+
+        ['routes', { '10.0.1.0/24': bad_dst }, [ '10.0.1.0/24' ],
+            util.format(constants.SUBNET_ROUTE_DST_MISMATCH, 'ipv6')],
+
+        ['routes', { '10.0.1.0/24': '10.0.0.2' }, [ '10.0.1.0/24', '10.0.0.2' ],
+            util.format(constants.SUBNET_ROUTE_DST_MISMATCH, 'ipv6')],
+
+        ['routes', { '2001:db8::/32': '10.0.0.1' }, [ '10.0.0.1' ],
+            util.format(constants.SUBNET_ROUTE_DST_MISMATCH, 'ipv6')],
+
+        ['provision_start_ip', '10.0.0.3',
+            constants.msg.PROV_START_TYPE_MISMATCH ],
+
+        ['provision_end_ip', '10.0.0.253',
+            constants.msg.PROV_END_TYPE_MISMATCH ]
+    ];
+
+    vasync.forEachPipeline({
+        inputs: invalid,
+        func: function (data, cb) {
+            var toCreate = clone(baseParams);
+            toCreate[data[0]] = data[1];
+
+            NAPI.createNetwork(toCreate, function (err, res) {
+                t.ok(err, util.format('error returned: %s: %s',
+                    data[0], typeof (data[1]) === 'object' ?
+                    JSON.stringify(data[1]) : data[1]));
+                if (!err) {
+                    return cb();
+                }
+
+                t.equal(err.statusCode, 422,
+                    util.format('status code for: %s: %s',
+                    data[0], typeof (data[1]) === 'object' ?
+                    JSON.stringify(data[1]) : data[1]));
+                var invalidErr;
+
+                if (data.length === 3) {
+                    invalidErr = mod_err.invalidParam(data[0], data[2]);
+                } else {
+                    invalidErr = mod_err.invalidParam(data[0], data[3]);
+                    invalidErr.invalid = data[2];
+                }
+
+                t.deepEqual(err.body, h.invalidParamErr({
+                    errors: [ invalidErr ],
+                    message: 'Invalid parameters'
+                }), util.format('Error body for: %s: %s',
+                data[0], typeof (data[1]) === 'object' ?
+                JSON.stringify(data[1]) : data[1]));
+
+                return cb();
+            });
+        }
+    }, function () {
+        return t.end();
+    });
+});
+
+
+
 test('Create fabric network - automatic gateway assignment', function (t) {
     var gateway = fmt('10.0.%d.1', h.NET_NUM);
     NAPI.createNetwork(h.validNetworkParams({

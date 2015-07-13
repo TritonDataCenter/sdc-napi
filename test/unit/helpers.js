@@ -172,10 +172,10 @@ function validNicparams(override) {
 
 
 /**
- * Returns the parameters for a valid network, potentially overriding with any
- * values in override
+ * Returns the parameters for a valid IPv4 network, potentially overriding
+ * with any values in override
  */
-function validNetworkParams(override) {
+function validIPv4NetworkParams(override) {
     var newNet = {
         name: 'myname',
         nic_tag: 'nic_tag',
@@ -195,7 +195,30 @@ function validNetworkParams(override) {
     return newNet;
 }
 
+/**
+ * Returns the parameters for a valid IPv6 network, potentially overriding
+ * with any values in override
+ */
+function validIPv6NetworkParams(override) {
+    var NET_HEX = NET_NUM.toString(16);
+    var newNet = {
+        name: 'myname',
+        nic_tag: 'nic_tag',
+        provision_end_ip: util.format('fc00:%s::ffff:ffff:ffff:ffff', NET_HEX),
+        provision_start_ip: util.format('fc00:%s::1', NET_HEX),
+        resolvers: ['2001:4860:4860::8888', '2001:4860:4860::8844'],
+        subnet: util.format('fc00:%s::/64', NET_HEX),
+        vlan_id: 0,
+        mtu: constants.MTU_DEFAULT
+    };
 
+    for (var o in override) {
+        newNet[o] = override[o];
+    }
+    NET_NUM++;
+
+    return newNet;
+}
 
 module.exports = {
     copyParams: copyParams,
@@ -220,5 +243,6 @@ module.exports = {
     uuidSort: common.uuidSort,
     validIPparams: validIPparams,
     validNicparams: validNicparams,
-    validNetworkParams: validNetworkParams
+    validIPv6NetworkParams: validIPv6NetworkParams,
+    validNetworkParams: validIPv4NetworkParams
 };
