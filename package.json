@@ -13,6 +13,7 @@
     "effluent-logger": "git+https://github.com/joshwilsdon/effluent-logger.git#d662f161a07f94045ad2afb45442931511c40e51",
     "ipaddr.js": "0.1.8",
     "jsprim": "0.6.1",
+    "lomstream": "1.0.0",
     "moray": "git+ssh://git@github.com:joyent/node-moray.git#441fd44",
     "node-uuid": "1.2.0",
     "portolan-moray": "git+ssh://git@github.com:joyent/sdc-portolan-moray.git#14f5bd5",

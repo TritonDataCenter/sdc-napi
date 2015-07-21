@@ -345,6 +345,9 @@ FakeMoray.prototype.delObject = function delObject(bucket, key, callback) {
 FakeMoray.prototype.findObjects = function findObjects(bucket, filter, opts) {
     var res = new EventEmitter;
     var filterObj = ldapjs.parseFilter(filter);
+    var limit = opts.limit || 1000;
+    var offset = opts.offset || 0;
+    var i;
 
     function compareTo(a, b) {
         if (typeof (a) === 'number') {
@@ -370,10 +373,14 @@ FakeMoray.prototype.findObjects = function findObjects(bucket, filter, opts) {
         // Whenever we call findObjects, it's either unsorted or sorted by ASC,
         // so just sort them ASC every time
         var keys = Object.keys(BUCKET_VALUES[bucket]).sort(compareTo);
+        i = 0;
         keys.forEach(function (r) {
             var val = BUCKET_VALUES[bucket][r];
             if (matchObj(filterObj, val)) {
-                res.emit('record', clone(val));
+                if (i >= offset && i < offset + limit) {
+                    res.emit('record', clone(val));
+                }
+                i++;
             }
         });
 
