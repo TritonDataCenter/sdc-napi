@@ -886,6 +886,7 @@ test('provision zone nics', function (t) {
                 belongs_to_type: 'zone',
                 belongs_to_uuid: VMS[0],
                 fabric: true,
+                internet_nat: true,
                 nic_tag: nicTags[0],
                 owner_uuid: OWNERS[0]
             })
@@ -923,6 +924,7 @@ test('provision zone nics', function (t) {
                 belongs_to_uuid: VMS[0],
                 fabric: true,
                 ip: '10.2.1.40',
+                internet_nat: true,
                 nic_tag: nicTags[0],
                 owner_uuid: OWNERS[0]
             })
@@ -947,6 +949,7 @@ test('provision zone nics', function (t) {
                 belongs_to_type: 'zone',
                 belongs_to_uuid: VMS[1],
                 fabric: true,
+                internet_nat: true,
                 cn_uuid: SERVERS[0],
                 nic_tag: nicTags[0],
                 owner_uuid: OWNERS[0]
@@ -989,6 +992,7 @@ test('provision zone nics', function (t) {
                 belongs_to_type: 'zone',
                 belongs_to_uuid: VMS[2],
                 fabric: true,
+                internet_nat: false,
                 nic_tag: nicTags[1],
                 owner_uuid: OWNERS[1]
             })
@@ -1174,6 +1178,7 @@ test('provision gateway', function (t) {
                 belongs_to_type: 'zone',
                 belongs_to_uuid: gw,
                 fabric: true,
+                internet_nat: true,
                 gateway_provisioned: true,
                 nic_tag: nicTags[0],
                 owner_uuid: ADMIN_OWNER
@@ -1220,6 +1225,7 @@ test('provision gateway', function (t) {
                 belongs_to_type: 'zone',
                 belongs_to_uuid: VMS[2],
                 fabric: true,
+                internet_nat: true,
                 gateway_provisioned: true,
                 nic_tag: nicTags[0],
                 owner_uuid: OWNERS[0]
