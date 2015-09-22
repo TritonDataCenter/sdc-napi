@@ -572,7 +572,7 @@ Modifies a specific IP on a Logical Network.
 | belongs_to_uuid | UUID    | The UUID of what this IP belongs to                                                                 |
 | belongs_to_type | String  | The type that this belongs to (eg: 'zone', 'server')                                                |
 | reserved        | Boolean | Whether the IP address should be reserved                                                           |
-| unassign        | Boolean | When set, removes belongs_to_uuid and belongs_to_type, ignoring all other parameters in the request |
+| free            | Boolean | When set, removes belongs_to_uuid and belongs_to_type, ignoring all other parameters in the request |
 | check_owner     | Boolean | If set to false, skips network ownership checks (optional)                                          |
 
 ### Reserved IPs
