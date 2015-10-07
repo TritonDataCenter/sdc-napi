@@ -17,7 +17,7 @@ contribution guidelines, issues, and general documentation, visit the main
 The SDC Networking API (NAPI) manages networking-related data for SDC. This
 includes the provisioning of MAC addresses for new Virtual Nics (vnics) and
 IP addresses for subnets. For more information on the objects that NAPI
-manages, see [docs/index.restdown](https://github.com/joyent/sdc-napi/blob/master/docs/index.restdown).
+manages, see [docs/index.md](https://github.com/joyent/sdc-napi/blob/master/docs/index.md).
 
 The contents of this repo are bundled up into an image that is then provisioned
 as the napi zone in SDC.
