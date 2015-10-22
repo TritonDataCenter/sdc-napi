@@ -54,7 +54,7 @@ as the napi zone in SDC.
     git clone git@github.com:joyent/sdc-napi.git
     make
 
-To update the docs, edit "docs/index.restdown", then check that
+To update the docs, edit "docs/index.md", then check that
 "docs/index.html" gets updated properly by running:
 
     make docs
