@@ -311,7 +311,9 @@ test('Create nic - invalid params', function (t) {
             { ip: fmt('10.0.%d.1', NET.num + 1), belongs_to_type: type,
                 belongs_to_uuid: uuid, owner_uuid: owner,
                 network_uuid: NET.uuid },
-                [ mod_err.invalidParam('ip', 'ip cannot be outside subnet') ] ],
+                [ mod_err.invalidParam('ip', util.format(
+                    constants.fmt.IP_OUTSIDE, fmt('10.0.%d.1', NET.num + 1),
+                    NET.uuid)) ] ],
 
         [ 'IP specified, but not nic_tag or vlan_id',
             { ip: '10.0.2.2', belongs_to_type: type, belongs_to_uuid: uuid,
@@ -330,7 +332,9 @@ test('Create nic - invalid params', function (t) {
             { ip: fmt('10.0.%d.1', NET2.num + 1), belongs_to_type: type,
                 belongs_to_uuid: uuid, nic_tag: NET2.nic_tag,
                 owner_uuid: owner, vlan_id: NET2.vlan_id },
-                [ mod_err.invalidParam('ip', 'ip cannot be outside subnet') ] ],
+                [ mod_err.invalidParam('ip', util.format(
+                    constants.fmt.IP_NONET, NET2.nic_tag, NET2.vlan_id,
+                    fmt('10.0.%d.1', NET2.num + 1))) ] ],
 
         [ 'nic_tag and vlan_id do not match any networks',
             { ip: '10.0.2.3', belongs_to_type: type, belongs_to_uuid: uuid,
@@ -1549,7 +1553,8 @@ test('Update nic - invalid params', function (t) {
     var invalid = [
         [ 'IP address outside subnet',
             { ip: '10.0.3.1', network_uuid: NET.uuid },
-            [ mod_err.invalidParam('ip', constants.msg.IP_OUTSIDE) ] ],
+            [ mod_err.invalidParam('ip', util.format(
+                constants.fmt.IP_OUTSIDE, '10.0.3.1', NET.uuid)) ] ],
 
         [ 'IP specified, but not nic_tag or vlan_id',
             { ip: '10.0.2.2' },
@@ -1567,7 +1572,9 @@ test('Update nic - invalid params', function (t) {
         [ 'nic_tag and vlan_id present, IP outside subnet',
             { ip: fmt('10.0.%d.1', NET2.num + 1), nic_tag: NET2.nic_tag,
                 vlan_id: NET2.vlan_id },
-            [ mod_err.invalidParam('ip', constants.msg.IP_OUTSIDE) ] ],
+            [ mod_err.invalidParam('ip', util.format(
+                constants.fmt.IP_NONET, NET2.nic_tag, NET2.vlan_id,
+                fmt('10.0.%d.1', NET2.num + 1))) ] ],
 
         [ 'nic_tag and vlan_id do not match any networks',
             { ip: fmt('10.0.%d.3', NET.num), nic_tag: NET.nic_tag,
