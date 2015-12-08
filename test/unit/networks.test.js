@@ -1138,7 +1138,7 @@ test('Update provision range', function (t) {
                         return cb2(err2);
                     }
 
-                    ['provision_start_ip', 'provision_start_ip'].forEach(
+                    ['provision_start_ip', 'provision_end_ip'].forEach(
                         function (ip) {
                         t.equal(res2[ip], p[ip], u.desc + ': ' + ip);
                     });
