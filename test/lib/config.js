@@ -34,7 +34,8 @@ var NAPI_PORT = process.env.NAPI_PORT || 80;
 // XXX: Allow overriding these values with config.json!
 var CONFIG = {
     defaults: {
-        nic_tag_name: 'int_test_' + process.pid
+        // NIC tags max out at 31 chars.
+        nic_tag_name: 'sdcnapitest_' + process.pid
     },
     moray: {
         host: process.env.MORAY_HOST || '10.99.99.17',
