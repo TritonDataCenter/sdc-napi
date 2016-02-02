@@ -1242,7 +1242,6 @@ if it matches *all* of the input parameters.
 
 | Field            | Type    | Description                                                    |
 | ---------------- | ------- | -------------------------------------------------------------- |
-| name             | String  | Return network pools that match the pool name                  |
 | provisionable_by | UUID    | Return network pools that are provisionable by this owner_uuid |
 | offset           | Integer | Starting offset, see [Pagination](#pagination)                 |
 | limit            | Integer | Maximum number of responses, see [Pagination](#pagination)     |
