@@ -11,7 +11,7 @@
     "cmdln": "3.0.2",
     "dashdash": "1.7.3",
     "effluent-logger": "git+https://github.com/joshwilsdon/effluent-logger.git#d662f161a07f94045ad2afb45442931511c40e51",
-    "ipaddr.js": "0.1.8",
+    "ip6addr": "0.2.1",
     "jsprim": "1.2.2",
     "lomstream": "1.1.0",
     "moray": "git+https://github.com/joyent/node-moray.git#b84ef0e",

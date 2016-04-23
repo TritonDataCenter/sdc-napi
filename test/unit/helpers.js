@@ -111,11 +111,13 @@ function nextProvisionableIP(net) {
     assert.object(net, 'net');
     if (!NET_IPS.hasOwnProperty(net.uuid)) {
         assert.string(net.provision_start_ip, 'net.provision_start_ip');
-        NET_IPS[net.uuid] = util_ip.aton(net.provision_start_ip);
-        assert.number(NET_IPS[net.uuid], 'NET_IPS[net.uuid]');
+        NET_IPS[net.uuid] = util_ip.toIPAddr(net.provision_start_ip);
+        assert.ok(NET_IPS[net.uuid], 'NET_IPS[net.uuid]');
     }
 
-    return util_ip.ntoa(NET_IPS[net.uuid]++);
+    var curr = NET_IPS[net.uuid];
+    NET_IPS[net.uuid] = util_ip.ipAddrPlus(curr, 1);
+    return curr.toString();
 }
 
 

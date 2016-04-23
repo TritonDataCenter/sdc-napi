@@ -352,10 +352,22 @@ FakeMoray.prototype.findObjects = function findObjects(bucket, filter, opts) {
     var i;
 
     function compareTo(a, b) {
-        if (typeof (a) === 'number') {
-            return a - b;
-        } else {
+        /*
+         * Whenever NAPI sorts, it sorts on a field which is the same
+         * as its key. These fields are either IP addresses or strings,
+         * so we first attempt comparing it as an IP address and then
+         * as a string to mock what Moray does.
+         */
+        try {
             return util_ip.compareTo(a, b);
+        } catch (_) {
+            if (a < b) {
+                return -1;
+            } else if (a > b) {
+                return 1;
+            } else {
+                return 0;
+            }
         }
     }
 

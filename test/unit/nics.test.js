@@ -134,7 +134,7 @@ test('Initial setup', function (t) {
 
     t.test('create mac provision network', function (t2) {
         num = h.NET_NUM;
-        var params = h.validNetworkParams({ name: 'admin' });
+        var params = h.validNetworkParams();
         mod_net.create(t2, {
             params: params,
             partialExp: params

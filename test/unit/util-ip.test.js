@@ -55,6 +55,9 @@ test('addressToNumber - invalid', function (t) {
 
 test('bitsToNetmask / netmaskToBits', function (t) {
     var bits = {
+        '0': '0.0.0.0',
+        '1': '128.0.0.0',
+        '2': '192.0.0.0',
         '8': '255.0.0.0',
         '16': '255.255.0.0',
         '24': '255.255.255.0',
@@ -172,8 +175,23 @@ test('ipAddrPlus / ipAddrMinus', function (t) {
 
 
 test('ipAddrPlus / ipAddrMinus - overflow, underflow', function (t) {
-    var over = [
+    var largeOffsets = [
         ['0.0.0.0', 4294967296],
+        ['0.0.0.0', -4294967296],
+        ['255.255.255.255', 4294967296],
+        ['255.255.255.255', -4294967296]
+    ];
+
+    largeOffsets.forEach(function (terms) {
+        var ip = IP.toIPAddr(terms[0]);
+        var scalar = terms[1];
+        t.throws(function () {
+            IP.ipAddrPlus(ip, scalar);
+        }, /offsets should be between -4294967295 and 4294967295/,
+        util.format('%s + %d overflows', ip, scalar));
+    });
+
+    var over = [
         ['255.255.255.255', 1],
         ['ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff', 1]
     ];
@@ -187,7 +205,6 @@ test('ipAddrPlus / ipAddrMinus - overflow, underflow', function (t) {
     });
 
     var under = [
-        ['255.255.255.255', 4294967296],
         ['0.0.0.0', 1],
         ['::0', 1]
     ];

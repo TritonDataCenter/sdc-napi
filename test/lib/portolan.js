@@ -73,7 +73,7 @@ function afterMoray(t, opts, callback, err, realObj) {
     if (opts.exp) {
         exp = clone(opts.exp);
         if (exp.ip) {
-            exp.ip = util_ip.toIP6Addr(exp.ip).toString();
+            exp.ip = util_ip.toIPAddr(exp.ip).toString({ format: 'v6' });
         }
 
         t.deepEqual(obj, exp, 'expected object');
@@ -189,7 +189,7 @@ function overlayMapping(t, opts, callback) {
                 log: log,
                 moray: client,
                 noCache: true,
-                vl3_ip: util_ip.toIP6Addr(nic.ip).toString(),
+                vl3_ip: util_ip.toIPAddr(nic.ip).toString({ format: 'v6' }),
                 vl3_vnet_id: vnetID
             };
 
