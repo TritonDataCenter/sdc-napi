@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 /*
@@ -15,6 +15,7 @@
 'use strict';
 
 var constants = require('../../lib/util/constants');
+var h = require('./helpers');
 var mod_ip = require('../lib/ip');
 var mod_jsprim = require('jsprim');
 var mod_migr = require('../lib/migration');
@@ -32,6 +33,7 @@ var extend = mod_jsprim.mergeObjects;
 
 
 
+var NAPI;
 var BUCKETS = {
     adminIPs: ipsBucketV1('napi_ips_07eef409_c6eb_42cb_8712_bb0deaab8108'),
 
@@ -84,8 +86,8 @@ var BUCKETS = {
 };
 
 var VERSIONS = {
-    networks: 3,
-    nics: 2,
+    networks: 4,
+    nics: 3,
     nictags: 1
 };
 
@@ -326,6 +328,7 @@ var EXP = {
             mtu: constants.MTU_DEFAULT,
             name: 'external',
             vlan_id: 0,
+            family: 'ipv4',
             subnet: '10.88.88.0/24',
             netmask: '255.255.255.0',
             provision_start_ip: '10.88.88.3',
@@ -339,6 +342,7 @@ var EXP = {
             mtu: constants.MTU_DEFAULT,
             name: 'admin',
             vlan_id: 0,
+            family: 'ipv4',
             subnet: '10.99.99.0/24',
             netmask: '255.255.255.0',
             provision_start_ip: '10.99.99.38',
@@ -512,13 +516,9 @@ function ipsBucketV1(name) {
 // --- Tests
 
 
-
 test('setup', function (t) {
-    t.test('delete previous test buckets', mod_migr.delAllPrevious);
-});
+    h.reset();
 
-
-test('migrate', function (t) {
     t.test('load initial data: networks', function (t2) {
         mod_migr.initBucket(t2, {
             bucket: BUCKETS.networks,
@@ -551,11 +551,24 @@ test('migrate', function (t) {
     });
 
 
-    t.test('create server', mod_server.create);
+    t.test('create server', function (t2) {
+        mod_migr.getMorayClient(function (err, client) {
+            if (h.ifErr(t2, err, 'got Moray sandbox client')) {
+                t2.end();
+                return;
+            }
 
-
-    t.test('run migrations', mod_migr.run);
-
+            mod_server._create({ moray: client }, function (err2, res) {
+                if (h.ifErr(t2, err2, 'started NAPI server')) {
+                    t.end();
+                    return;
+                }
+                NAPI = res;
+                t2.ok(NAPI, 'have NAPI client object');
+                t2.end();
+            });
+        });
+    });
 });
 
 test('networks', function (t) {
@@ -656,6 +669,8 @@ test('nics', function (t) {
             key: NICS.serverNoIP,
             exp: extend(INITIAL.nics[0].value, {
                 nic_tags_provided_arr: [ 'external' ],
+                modified_timestamp: 0,
+                created_timestamp: 0,
                 v: VERSIONS.nics
             })
         });
@@ -666,6 +681,8 @@ test('nics', function (t) {
         var exp = extend(INITIAL.nics[1].value, {
             ipaddr: '10.99.99.7',
             nic_tags_provided_arr: [ 'admin' ],
+            modified_timestamp: 0,
+            created_timestamp: 0,
             v: VERSIONS.nics
         });
         delete exp.free;
@@ -681,6 +698,8 @@ test('nics', function (t) {
     t.test('moray: zone nic with IP', function (t2) {
         var exp = extend(INITIAL.nics[2].value, {
             ipaddr: '10.99.99.8',
+            modified_timestamp: 0,
+            created_timestamp: 0,
             v: VERSIONS.nics
         });
         delete exp.free;
@@ -745,10 +764,6 @@ test('nic tags', function (t) {
 });
 
 
-test('teardown', function (t) {
-    t.test('shutdown server', mod_server.close);
+test('delete nics', mod_nic.delAllCreated);
 
-    t.test('delete test buckets', mod_migr.delAllCreated);
-
-    t.test('close moray client', mod_migr.closeClient);
-});
+test('teardown', mod_server.close);

@@ -118,7 +118,7 @@ if [[ -n "$opt_test_pattern" ]]; then
 else
     # Otherwise the default set we want to skip know *hanging*
     # test cases.
-    hangers="migration-1.2.0-networks.test.js"
+    hangers=""
     for hanger in $hangers; do
         echo "# Excluding hanger test file: $hanger"
         test_files=$(echo "$test_files" | grep -v $hanger)

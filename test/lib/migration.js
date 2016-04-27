@@ -15,10 +15,8 @@
 'use strict';
 
 var assert = require('assert-plus');
-var config = require('./config');
 var fmt = require('util').format;
 var log = require('./log');
-var mod_moray = require('moray');
 var mod_server = require('./server');
 var mod_vasync = require('vasync');
 var napi_moray = require('../../lib/apis/moray');
@@ -49,100 +47,33 @@ function closeClient(t) {
 
 
 function getMorayClient(callback) {
-    if (MORAY_CLIENT) {
-        return callback(null, MORAY_CLIENT);
-    }
-
-    assert.object(config, 'config');
-    assert.object(config.moray, 'config.moray');
     assert.func(callback, 'callback');
 
-    MORAY_CLIENT = mod_moray.createClient({
-        host: config.moray.host,
-        log: log.child({
-            component: 'moray-migrate',
-            level: process.env.LOG_LEVEL || 'fatal'
-        }),
-        port: config.moray.port
+    if (MORAY_CLIENT) {
+        callback(null, MORAY_CLIENT);
+        return;
+    }
+
+    var log_child = log.child({
+        component: 'moray-migrate',
+        level: process.env.LOG_LEVEL || 'fatal'
     });
 
-    MORAY_CLIENT.once('connect', function _afterConnect() {
-        return callback(null, MORAY_CLIENT);
+    mod_server.setupMoray(log_child, function (err, moray) {
+        if (err) {
+            callback(err);
+            return;
+        }
+
+        MORAY_CLIENT = moray;
+
+        callback(null, moray);
     });
 }
 
 
 
 // --- Exports
-
-
-
-/**
- * Delete all test buckets created
- */
-function delAllCreatedBuckets(t) {
-    var created = napi_moray.bucketsCreated();
-    if (created.length === 0) {
-        t.ok(true, 'No buckets created');
-        return t.end();
-    }
-
-    getMorayClient(function (_, client) {
-        mod_vasync.forEachParallel({
-            inputs: created,
-            func: function _delBucket(bucketName, cb) {
-                client.delBucket(bucketName, function (delErr) {
-                    t.ifErr(delErr, 'delete bucket ' + bucketName);
-                    return cb();
-                });
-            }
-        }, function () {
-            return t.end();
-        });
-    });
-}
-
-
-function delAllPreviousTestBuckets(t) {
-    var opts = {
-        noBucketCache: true
-    };
-
-    getMorayClient(function (_, client) {
-        client.listBuckets(opts, function _afterBucketList(lErr, buckets) {
-            var matching = [];
-
-            t.ifErr(lErr, 'list buckets');
-            if (lErr) {
-                return t.end();
-            }
-
-            buckets.forEach(function (bucket) {
-                if (bucket.name.match(/^test_napi/) ||
-                    bucket.name.match(/^test_portolan/)) {
-                    matching.push(bucket.name);
-                }
-            });
-
-            if (matching.length === 0) {
-                t.ok(true, 'No previous test buckets found');
-                return t.end();
-            }
-
-            mod_vasync.forEachParallel({
-                inputs: matching,
-                func: function _delBucket(bucketName, cb) {
-                    client.delBucket(bucketName, function (delErr) {
-                        t.ifErr(delErr, 'delete bucket ' + bucketName);
-                        return cb();
-                    });
-                }
-            }, function () {
-                return t.end();
-            });
-        });
-    });
-}
 
 
 /**
@@ -182,12 +113,8 @@ function initTestBucket(t, opts) {
     assert.string(opts.bucket.name, 'opts.bucket.name');
     assert.optionalArrayOfObject(opts.records, 'opts.records');
 
-    napi_moray.setTestPrefix();
     var bucketName = napi_moray.bucketName(opts.bucket.name);
     var client;
-    var origName = opts.bucket.name;
-
-    assert.equal(bucketName, 'test_' + origName, 'bucket has test prefix');
 
     if (opts.records && opts.records.length !== 0) {
         for (var r in opts.records) {
@@ -222,10 +149,7 @@ function initTestBucket(t, opts) {
             napi_moray.initBucket(client, opts.bucket,
                     function _afterInit(initErr) {
                 t.ifErr(initErr, 'initialize bucket ' + bucketName);
-                t.equal(opts.bucket.name, 'test_' + origName,
-                    'prefix added to bucket name');
-
-                return cb(initErr);
+                cb(initErr);
             });
         },
 
@@ -265,33 +189,9 @@ function initTestBucket(t, opts) {
 }
 
 
-function runMigrations(t) {
-    var server = mod_server.get();
-    t.ok(server, 'server');
-
-    if (!server) {
-        return t.end();
-    }
-
-    server.loadInitialData(function () {
-        // We don't really need to do this, but the real NAPI server does
-        // it, so we do to be consistent
-        log.debug('Initial data loaded');
-
-        server.doMigrations(function _afterMigrations(mErr) {
-            t.ifErr(mErr, 'migration err');
-            return t.end();
-        });
-    });
-}
-
-
-
 module.exports = {
     closeClient: closeClient,
-    delAllCreated: delAllCreatedBuckets,
-    delAllPrevious: delAllPreviousTestBuckets,
+    getMorayClient: getMorayClient,
     getMorayObj: getMorayObject,
-    initBucket: initTestBucket,
-    run: runMigrations
+    initBucket: initTestBucket
 };
