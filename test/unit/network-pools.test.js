@@ -12,8 +12,9 @@
  * Unit tests for nic endpoints
  */
 
+'use strict';
+
 var assert = require('assert-plus');
-var async = require('async');
 var clone = require('clone');
 var common = require('../lib/common');
 var constants = require('../../lib/util/constants');
@@ -25,6 +26,7 @@ var mod_nic = require('../lib/nic');
 var mod_tag = require('../lib/nic-tag');
 var mod_pool = require('../lib/pool');
 var mod_uuid = require('node-uuid');
+var repeat = require('../../lib/util/common').repeat;
 var test = require('tape');
 var util = require('util');
 
@@ -561,7 +563,7 @@ test('Provision nic - on network pool with IP', function (t) {
         belongs_to_type: 'zone',
         belongs_to_uuid: mod_uuid.v4(),
         ip: NETS[1].provision_start_ip,
-        owner_uuid:  mod_uuid.v4()
+        owner_uuid: mod_uuid.v4()
     };
 
     NAPI.provisionNic(POOLS[0].uuid, params, function (err, res) {
@@ -581,8 +583,6 @@ test('Provision nic - on network pool with IP', function (t) {
 
 
 test('Provision nic - on network pool', function (t) {
-    var earlyOutErr;
-
     // The "Update pool" test above changes POOLS[0] to have NETS[0] and
     // NETS[1] as its networks:
     var ipNums = [
@@ -592,64 +592,61 @@ test('Provision nic - on network pool', function (t) {
         '9', '10', '11', '12'
     ];
 
-    async.whilst(
-        function () { return (!earlyOutErr && ipNums.length !== 0); },
-        function (cb) {
-            var client = h.createClient();
-            var params = {
-                belongs_to_type: 'zone',
-                belongs_to_uuid: mod_uuid.v4(),
-                owner_uuid:  mod_uuid.v4()
-            };
-            var nextIPnum = ipNums.shift();
-            var nextIP = util.format('10.0.%d.%d',
-                nextIPnum < 6 ? 0 : 1,
-                nextIPnum);
-            var desc = util.format(' %s (req_id=%s)', nextIP, client.req_id);
+    repeat(function (cb) {
+        var client = h.createClient();
+        var params = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            owner_uuid: mod_uuid.v4()
+        };
+        var nextIPnum = ipNums.shift();
+        var nextIP = util.format('10.0.%d.%d',
+            nextIPnum < 6 ? 0 : 1,
+            nextIPnum);
+        var desc = util.format(' %s (req_id=%s)', nextIP, client.req_id);
 
-            client.provisionNic(POOLS[0].uuid, params, function (err, res) {
-                if (h.ifErr(t, err, 'provisioning' + desc)) {
-                    earlyOutErr = err;
-                    return cb();
-                }
+        client.provisionNic(POOLS[0].uuid, params, function (err, res) {
+            if (h.ifErr(t, err, 'provisioning' + desc)) {
+                return cb(null, null, true);
+            }
 
-                var net = nextIPnum < 6 ? NETS[0] : NETS[1];
-                t.deepEqual(res, mod_nic.addDefaultParams({
-                    belongs_to_type: params.belongs_to_type,
-                    belongs_to_uuid: params.belongs_to_uuid,
-                    ip: nextIP,
-                    mac: res.mac,
-                    owner_uuid: params.owner_uuid
-                }, net), 'result for' + desc);
+            var net = nextIPnum < 6 ? NETS[0] : NETS[1];
+            t.deepEqual(res, mod_nic.addDefaultParams({
+                belongs_to_type: params.belongs_to_type,
+                belongs_to_uuid: params.belongs_to_uuid,
+                ip: nextIP,
+                mac: res.mac,
+                owner_uuid: params.owner_uuid
+            }, net), 'result for' + desc);
 
-                return cb();
-            });
-        },
-        function () {
-            // Both networks should now be exhausted of IPs and should return
-            // an error accordingly
-
-            var params = {
-                belongs_to_type: 'zone',
-                belongs_to_uuid: mod_uuid.v4(),
-                owner_uuid:  mod_uuid.v4()
-            };
-
-            NAPI.provisionNic(POOLS[0].uuid, params, function (err, res) {
-                t.ok(err);
-                if (!err) {
-                    return t.end();
-                }
-
-                t.equal(err.statusCode, 422, 'status code');
-                t.deepEqual(err.body, h.invalidParamErr({
-                    errors: [ mod_err.invalidParam('network_uuid',
-                                        constants.POOL_FULL_MSG) ]
-                }), 'error body');
-
-                return t.end();
-            });
+            var keepGoing = ipNums.length !== 0;
+            return cb(null, null, keepGoing);
         });
+    }, function () {
+        // Both networks should now be exhausted of IPs and should return
+        // an error accordingly
+
+        var params = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            owner_uuid: mod_uuid.v4()
+        };
+
+        NAPI.provisionNic(POOLS[0].uuid, params, function (err, res) {
+            t.ok(err);
+            if (!err) {
+                return t.end();
+            }
+
+            t.equal(err.statusCode, 422, 'status code');
+            t.deepEqual(err.body, h.invalidParamErr({
+                errors: [ mod_err.invalidParam('network_uuid',
+                                    constants.POOL_FULL_MSG) ]
+            }), 'error body');
+
+            return t.end();
+        });
+    });
 });
 
 

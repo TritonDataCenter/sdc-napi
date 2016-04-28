@@ -12,6 +12,8 @@
  * Fabric tests: invalid input
  */
 
+'use strict';
+
 var common = require('../lib/common');
 var extend = require('xtend');
 var fmt = require('util').format;
@@ -161,7 +163,7 @@ test('invalid vlan_id and owner_uuid: create and update', function (tt) {
         };
         var path = fmt('/fabrics/%s/vlans', OWNERS[0]);
 
-        NAPI.client.post(path, params, function (err, req, res, obj) {
+        NAPI.client.post(path, params, function (err, req, res, _obj) {
             t.ok(err, 'error returned');
             if (err) {
                 t.equal(err.statusCode, 422, 'status code');
@@ -180,7 +182,7 @@ test('invalid vlan_id and owner_uuid: create and update', function (tt) {
         };
         var path = fmt('/fabrics/%s/vlans/asdf', OWNERS[0]);
 
-        NAPI.client.put(path, params, function (err, req, res, obj) {
+        NAPI.client.put(path, params, function (err, req, res, _obj) {
             t.ok(err, 'error returned');
             if (err) {
                 t.equal(err.statusCode, 422, 'status code');
@@ -199,7 +201,7 @@ test('invalid vlan_id and owner_uuid: create and update', function (tt) {
         };
         var path = fmt('/fabrics/%s/vlans/500', OWNERS[0]);
 
-        NAPI.client.put(path, params, function (err, req, res, obj) {
+        NAPI.client.put(path, params, function (err, req, res, _obj) {
             t.ok(err, 'error returned');
             if (err) {
                 t.equal(err.statusCode, 404, 'status code');
@@ -217,7 +219,7 @@ test('invalid vlan_id and owner_uuid: create and update', function (tt) {
         };
         var path = fmt('/fabrics/%s/vlans/%d', OWNERS[0], VLANS[0].vlan_id);
 
-        NAPI.client.put(path, params, function (err, req, res, obj) {
+        NAPI.client.put(path, params, function (err, req, res, _obj) {
             common.ifErr(t, err, 'after PUT');
             return t.end();
         });
@@ -235,7 +237,7 @@ test('invalid vlan_id and owner_uuid: create and update', function (tt) {
         };
         var path = fmt('/fabrics/%s/vlans/%d', OWNERS[0], VLANS[0].vlan_id);
 
-        NAPI.client.put(path, params, function (err, req, res, obj) {
+        NAPI.client.put(path, params, function (err, req, res, _obj) {
             common.ifErr(t, err, 'after PUT');
             return t.end();
         });
@@ -252,7 +254,7 @@ test('invalid vlan_id and owner_uuid: create and update', function (tt) {
         };
         var path = fmt('/fabrics/%s/vlans/%d', OWNERS[0], VLANS[0].vlan_id);
 
-        NAPI.client.put(path, params, function (err, req, res, obj) {
+        NAPI.client.put(path, params, function (err, req, res, _obj) {
             common.ifErr(t, err, 'after PUT');
             return t.end();
         });
@@ -327,7 +329,7 @@ test('create invalid networks', function (t) {
 
         // resolvers
         [ { resolvers: {} },
-            mod_err.invalidParam('resolvers', mod_err.msg.str) ],
+            mod_err.invalidParam('resolvers', mod_err.msg.strArray) ],
         [ { resolvers: 'asdf' }, resolverErr ],
         [ { resolvers: [ 'asdf' ] }, resolverErr ],
 

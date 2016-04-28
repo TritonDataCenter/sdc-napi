@@ -13,6 +13,8 @@
  * Convert an IP number into an address
  */
 
+'use strict';
+
 var path = require('path');
 var util_ip = require('../lib/util/ip');
 

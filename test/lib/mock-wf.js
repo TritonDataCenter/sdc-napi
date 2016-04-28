@@ -12,6 +12,8 @@
  * Mock workflow client
  */
 
+'use strict';
+
 var assert = require('assert-plus');
 var mod_uuid = require('node-uuid');
 

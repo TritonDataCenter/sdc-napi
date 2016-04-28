@@ -12,10 +12,11 @@
  * Integration tests for /nic-tags endpoints
  */
 
+'use strict';
+
 var h = require('./helpers');
 var mod_nic_tag = require('../lib/nic-tag');
 var test = require('tape');
-var util = require('util');
 var vasync = require('vasync');
 
 
@@ -57,8 +58,9 @@ test('POST /nic_tags', function (t) {
     vasync.forEachParallel({
         inputs: tagNames,
         func: createNicTag
-    }, function (err, res) {
-        return t.end();
+    }, function (err) {
+        t.ifError(err, 'creating NIC tags should succeed');
+        t.end();
     });
 });
 
@@ -111,7 +113,8 @@ test('DELETE /nic_tags', function (t) {
                 cb(err);
             });
         }
-    }, function (err, res) {
-        return t.end();
+    }, function (err) {
+        t.ifError(err, 'deleting NIC tags should succeed');
+        t.end();
     });
 });

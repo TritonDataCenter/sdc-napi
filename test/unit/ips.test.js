@@ -12,14 +12,14 @@
  * Unit tests for IP endpoints
  */
 
+'use strict';
+
 var assert = require('assert-plus');
-var async = require('async');
 var clone = require('clone');
 var common = require('../lib/common');
 var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
 var mod_uuid = require('node-uuid');
-var restify = require('restify');
 var test = require('tape');
 var util = require('util');
 var vasync = require('vasync');
@@ -30,7 +30,6 @@ var vasync = require('vasync');
 
 
 
-var d = {};
 var MORAY_IP = '10.0.2.15';
 var NON_MORAY_IP = '10.0.2.115';
 var NAPI;
@@ -523,26 +522,29 @@ test('Update IP - valid param combinations (IP in moray)', function (t) {
         updateList.push({ reserved: false });
         updateList.push({ owner_uuid: mod_uuid.v4() });
 
-        async.forEachSeries(updateList, function (params, cb) {
-            NAPI.updateIP(NET.uuid, '10.0.2.25', params,
-                function (err2, obj, req, res) {
-                t.ifError(err2);
-                if (err2) {
-                    return cb();
-                }
+        vasync.forEachPipeline({
+            'inputs': updateList,
+            'func': function (params, cb) {
+                NAPI.updateIP(NET.uuid, '10.0.2.25', params,
+                    function (err2, obj, req, res) {
+                    if (h.ifErr(t, err2, 'update IP')) {
+                        cb();
+                        return;
+                    }
 
-                t.equal(res.statusCode, 200, 'status code: ' +
-                    JSON.stringify(params));
-                for (var p in params) {
-                    ipParams[p] = params[p];
-                }
+                    t.equal(res.statusCode, 200, 'status code: ' +
+                        JSON.stringify(params));
+                    for (var p in params) {
+                        ipParams[p] = params[p];
+                    }
 
-                t.deepEqual(obj, ipParams, 'response');
+                    t.deepEqual(obj, ipParams, 'response');
 
-                return cb();
-            });
+                    cb();
+                });
+            }
         }, function () {
-            return t.end();
+            t.end();
         });
     });
 });
@@ -559,31 +561,34 @@ test('Update IP - valid param combinations (IP not in moray)', function (t) {
             owner_uuid: mod_uuid.v4() }
     ];
 
-    async.forEachSeries(updateList, function (updateData, cb) {
-        var ip = '10.0.2.22' + i;
+    vasync.forEachPipeline({
+        'inputs': updateList,
+        'func': function (updateData, cb) {
+            var ip = '10.0.2.22' + i;
 
-        NAPI.updateIP(NET.uuid, ip, updateData,
-            function (err, obj, req, res) {
-            t.ifError(err);
-            if (err) {
-                t.deepEqual(err.body, {}, 'error body: ' +
+            NAPI.updateIP(NET.uuid, ip, updateData,
+                function (err, obj, req, res) {
+                if (h.ifErr(t, err, 'update IP')) {
+                    t.deepEqual(err.body, {}, 'error body: ' +
+                        JSON.stringify(updateData));
+                    cb();
+                    return;
+                }
+
+                t.equal(res.statusCode, 200, 'status code: ' +
                     JSON.stringify(updateData));
-                return cb();
-            }
+                updateData.free =
+                    updateData.hasOwnProperty('reserved') ? true : false;
+                updateData.reserved = false;
+                updateData.network_uuid = NET.uuid;
+                updateData.ip = ip;
+                t.deepEqual(obj, updateData, 'Response');
 
-            t.equal(res.statusCode, 200, 'status code: ' +
-                JSON.stringify(updateData));
-            updateData.free =
-                updateData.hasOwnProperty('reserved') ? true : false;
-            updateData.reserved = false;
-            updateData.network_uuid = NET.uuid;
-            updateData.ip = ip;
-            t.deepEqual(obj, updateData, 'Response');
-
-            return cb();
-        });
+                cb();
+            });
+        }
     }, function () {
-        return t.end();
+        t.end();
     });
 });
 

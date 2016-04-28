@@ -12,6 +12,8 @@
  * IP address utility unit tests
  */
 
+'use strict';
+
 var IP = require('../../lib/util/ip');
 var test = require('tape');
 var util = require('util');

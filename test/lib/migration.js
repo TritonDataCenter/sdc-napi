@@ -12,8 +12,9 @@
  * Test helpers for accessing mock moray data
  */
 
+'use strict';
+
 var assert = require('assert-plus');
-var clone = require('clone');
 var config = require('./config');
 var fmt = require('util').format;
 var log = require('./log');
@@ -199,7 +200,7 @@ function initTestBucket(t, opts) {
         function _getClient(_, cb) {
             getMorayClient(function (clErr, cl) {
                 client = cl;
-                return cb();
+                return cb(clErr);
             });
         },
 
@@ -255,7 +256,8 @@ function initTestBucket(t, opts) {
             });
         }
 
-    ] }, function () {
+    ] }, function (err) {
+        t.ifError(err, 'successfully initialized test buckets');
         return t.end();
     });
 }

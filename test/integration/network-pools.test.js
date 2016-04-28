@@ -12,6 +12,8 @@
  * Integration tests for /network-pools endpoints
  */
 
+'use strict';
+
 var clone = require('clone');
 var h = require('./helpers');
 var mod_pool = require('../lib/pool');
@@ -43,7 +45,7 @@ function poolInList(t, pool, list) {
     var found = 0;
     for (var i = 0; i < list.length; i++) {
         var cur = list[i];
-        if (cur.uuid == pool.uuid) {
+        if (cur.uuid === pool.uuid) {
             t.deepEqual(cur, pool, util.format('pool %s in list', pool.name));
             found++;
         }
@@ -151,7 +153,7 @@ test('PUT /network_pools/:uuid', function (t) {
         t.deepEqual(res, params, 'update params');
 
         return napi.getNetworkPool(res.uuid, function (err2, res2) {
-            t.ifError(err, 'get network pool: ' + params.uuid);
+            t.ifError(err2, 'get network pool: ' + params.uuid);
             if (err) {
                 return t.end();
             }
@@ -173,7 +175,8 @@ test('DELETE /network-pools/:uuid', function (t) {
             });
         }
     }, function (err, res) {
-        return t.end();
+        t.ifError(err, 'deleting pools should succeed');
+        t.end();
     });
 });
 

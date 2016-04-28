@@ -27,10 +27,13 @@ EXTRA_DOC_DEPS	= deps/restdown-brand-remora/.git
 DOC_FILES	 = index.md
 JS_FILES	:= $(shell ls *.js) $(shell find lib test -name '*.js') \
 	bin/ip2num bin/num2ip bin/mac2num bin/num2mac
-JSL_CONF_NODE	 = tools/jsl.node.conf
-JSL_FILES_NODE   = $(JS_FILES)
-JSSTYLE_FILES	 = $(JS_FILES)
-JSSTYLE_FLAGS    = -o indent=4,doxygen,unparenthesized-return=0
+JSL_CONF_NODE	= tools/jsl.node.conf
+JSL_FILES_NODE	= $(JS_FILES)
+JSSTYLE_FILES	= $(JS_FILES)
+JSSTYLE_FLAGS	= -o indent=4,doxygen,unparenthesized-return=0
+ESLINT		= ./node_modules/.bin/eslint
+ESLINT_CONF	= tools/eslint.node.conf
+ESLINT_FILES	= $(JS_FILES)
 SMF_MANIFESTS_IN = smf/manifests/napi.xml.in
 BASH_FILES	:= sbin/napid bin/napictl
 JSON_FILES  := package.json config.json.sample
@@ -62,6 +65,9 @@ INSTDIR         := $(PKGDIR)/root/opt/smartdc/napi
 
 .PHONY: all
 all: $(SMF_MANIFESTS) | $(TAPE) $(REPO_DEPS) sdc-scripts
+	$(NPM) install
+
+$(ESLINT): | $(NPM_EXEC)
 	$(NPM) install
 
 $(TAPE): | $(NPM_EXEC)
@@ -130,6 +136,10 @@ publish: release
   fi
 	mkdir -p $(BITS_DIR)/napi
 	cp $(TOP)/$(RELEASE_TARBALL) $(BITS_DIR)/napi/$(RELEASE_TARBALL)
+
+.PHONY: check
+check:: $(ESLINT)
+	$(ESLINT) -c $(ESLINT_CONF) $(ESLINT_FILES)
 
 #
 # Includes

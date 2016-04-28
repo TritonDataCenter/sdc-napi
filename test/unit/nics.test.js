@@ -12,8 +12,8 @@
  * Unit tests for nic endpoints
  */
 
-var assert = require('assert-plus');
-var clone = require('clone');
+'use strict';
+
 var common = require('../lib/common');
 var constants = require('../../lib/util/constants');
 var extend = require('xtend');
@@ -27,9 +27,6 @@ var mod_net = require('../lib/net');
 var mod_nic = require('../lib/nic');
 var mod_nicTag = require('../lib/nic-tag');
 var mod_uuid = require('node-uuid');
-var Network = require('../../lib/models/network').Network;
-var NicTag = require('../../lib/models/nic-tag').NicTag;
-var restify = require('restify');
 var test = require('tape');
 var util = require('util');
 var util_ip = require('../../lib/util/ip');
@@ -61,11 +58,11 @@ test('Initial setup', function (t) {
 
     t.test('create client and server', function (t2) {
         h.createClientAndServer(function (err, res) {
-            t.ifError(err, 'server creation');
-            t.ok(res, 'client');
+            t2.ifError(err, 'server creation');
+            t2.ok(res, 'client');
             NAPI = res;
 
-            return t.end();
+            t2.end();
         });
     });
 
@@ -505,7 +502,7 @@ test('Create nic with resolver IP', function (t) {
             belongs_to_uuid: mod_uuid.v4(),
             ip: net.resolvers[0],
             network_uuid: net.uuid,
-            owner_uuid:  mod_uuid.v4()
+            owner_uuid: mod_uuid.v4()
         };
 
         d.mac = h.randomMAC();
@@ -527,7 +524,7 @@ test('Provision nic', function (t) {
     var params = {
         belongs_to_type: 'zone',
         belongs_to_uuid: mod_uuid.v4(),
-        owner_uuid:  mod_uuid.v4()
+        owner_uuid: mod_uuid.v4()
     };
 
     NAPI.provisionNic(NET2.uuid, params, function (err, res) {
@@ -574,7 +571,7 @@ test('Provision nic: exceed MAC retries', function (t) {
     var params = {
         belongs_to_type: 'zone',
         belongs_to_uuid: mod_uuid.v4(),
-        owner_uuid:  mod_uuid.v4()
+        owner_uuid: mod_uuid.v4()
     };
     var numNicsBefore = mod_moray.getNics().length;
 
@@ -629,7 +626,7 @@ test('Provision nic: exceed IP retries', function (t) {
     var params = {
         belongs_to_type: 'zone',
         belongs_to_uuid: mod_uuid.v4(),
-        owner_uuid:  mod_uuid.v4()
+        owner_uuid: mod_uuid.v4()
     };
     var numNicsBefore = mod_moray.getNics().length;
 
@@ -688,7 +685,7 @@ test('Provision nic: MAC retry', function (t) {
         var params = {
             belongs_to_type: 'zone',
             belongs_to_uuid: mod_uuid.v4(),
-            owner_uuid:  mod_uuid.v4()
+            owner_uuid: mod_uuid.v4()
         };
 
         var fakeErr = new Error('Already exists');
@@ -741,7 +738,7 @@ test('Provision nic: MAC retry', function (t) {
             belongs_to_type: 'zone',
             belongs_to_uuid: mod_uuid.v4(),
             network_uuid: PROV_MAC_NET.uuid,
-            owner_uuid:  mod_uuid.v4()
+            owner_uuid: mod_uuid.v4()
         };
 
         var fakeErr = new Error('Already exists');
@@ -792,7 +789,7 @@ test('Provision nic: IP retry', function (t) {
         var params = {
             belongs_to_type: 'zone',
             belongs_to_uuid: mod_uuid.v4(),
-            owner_uuid:  mod_uuid.v4()
+            owner_uuid: mod_uuid.v4()
         };
 
         var fakeErr = new Error('Already exists');
@@ -847,7 +844,7 @@ test('Provision nic: IP retry', function (t) {
             belongs_to_type: 'zone',
             belongs_to_uuid: mod_uuid.v4(),
             network_uuid: PROV_MAC_NET.uuid,
-            owner_uuid:  mod_uuid.v4()
+            owner_uuid: mod_uuid.v4()
         };
 
         var fakeErr = new Error('Already exists');
@@ -968,7 +965,7 @@ test('Provision nic - with IP', function (t) {
         d.params = {
             belongs_to_type: 'zone',
             belongs_to_uuid: mod_uuid.v4(),
-            owner_uuid:  mod_uuid.v4()
+            owner_uuid: mod_uuid.v4()
         };
 
         mod_nic.create(t2, {
@@ -1000,7 +997,7 @@ test('Provision nic - with IP', function (t) {
         d.params = {
             belongs_to_type: 'zone',
             belongs_to_uuid: mod_uuid.v4(),
-            owner_uuid:  mod_uuid.v4()
+            owner_uuid: mod_uuid.v4()
         };
 
         d.exp3 = {
@@ -1040,7 +1037,7 @@ test('(PNDS) Provision nic - with different state', function (t) {
     var params = {
         belongs_to_type: 'zone',
         belongs_to_uuid: mod_uuid.v4(),
-        owner_uuid:  mod_uuid.v4(),
+        owner_uuid: mod_uuid.v4(),
         state: 'stopped'
     };
     var exp = mod_nic.addDefaultParams({
@@ -1095,7 +1092,7 @@ test('Update nic - provision IP', function (t) {
         d.params = {
             belongs_to_type: 'zone',
             belongs_to_uuid: mod_uuid.v4(),
-            owner_uuid:  mod_uuid.v4()
+            owner_uuid: mod_uuid.v4()
         };
 
         mod_nic.create(t2, {
@@ -1159,7 +1156,7 @@ test('Update nic - IP parameters updated', function (t) {
             belongs_to_uuid: mod_uuid.v4(),
             ip: '10.0.2.188',
             network_uuid: NET.uuid,
-            owner_uuid:  mod_uuid.v4()
+            owner_uuid: mod_uuid.v4()
         };
         d.mac = h.randomMAC();
         d.exp = mod_nic.addDefaultParams({
@@ -1188,7 +1185,7 @@ test('Update nic - IP parameters updated', function (t) {
         var updateParams = {
             belongs_to_type: 'other',
             belongs_to_uuid: mod_uuid.v4(),
-            owner_uuid:  mod_uuid.v4()
+            owner_uuid: mod_uuid.v4()
         };
 
         h.copyParams(updateParams, d.exp);
@@ -1250,7 +1247,7 @@ test('Update nic - change IP', function (t) {
             belongs_to_uuid: mod_uuid.v4(),
             ip: d.ips[0],
             network_uuid: NET.uuid,
-            owner_uuid:  mod_uuid.v4()
+            owner_uuid: mod_uuid.v4()
         };
 
         d.mac = h.randomMAC();
@@ -1454,7 +1451,7 @@ test('Update nic - add resolver IP', function (t) {
         d.partialExp = {
             belongs_to_type: 'zone',
             belongs_to_uuid: mod_uuid.v4(),
-            owner_uuid:  mod_uuid.v4()
+            owner_uuid: mod_uuid.v4()
         };
 
         d.mac = h.randomMAC();
@@ -1490,7 +1487,7 @@ test('Update nic - all invalid params', function (t) {
     var goodParams = {
         belongs_to_type: 'server',
         belongs_to_uuid: mod_uuid.v4(),
-        owner_uuid:  mod_uuid.v4()
+        owner_uuid: mod_uuid.v4()
     };
 
     var badParams = {
@@ -1552,7 +1549,7 @@ test('Update nic - invalid params', function (t) {
     var goodParams = {
         belongs_to_type: 'server',
         belongs_to_uuid: mod_uuid.v4(),
-        owner_uuid:  mod_uuid.v4()
+        owner_uuid: mod_uuid.v4()
     };
 
     var invalid = [
@@ -1636,7 +1633,7 @@ test('Update nic - no changes', function (t) {
         var params = {
             belongs_to_type: 'zone',
             belongs_to_uuid: mod_uuid.v4(),
-            owner_uuid:  mod_uuid.v4()
+            owner_uuid: mod_uuid.v4()
         };
 
         var partialExp = {
@@ -1726,7 +1723,7 @@ test('Update nic - change state', function (t) {
     var params = {
         belongs_to_type: 'zone',
         belongs_to_uuid: mod_uuid.v4(),
-        owner_uuid:  mod_uuid.v4()
+        owner_uuid: mod_uuid.v4()
     };
 
     t.test('provision', function (t2) {
@@ -1759,7 +1756,7 @@ test('Update nic moray failure getting IP / network', function (t) {
     var params = {
         belongs_to_type: 'zone',
         belongs_to_uuid: mod_uuid.v4(),
-        owner_uuid:  mod_uuid.v4()
+        owner_uuid: mod_uuid.v4()
     };
 
 
@@ -1797,16 +1794,17 @@ test('Update nic moray failure getting IP / network', function (t) {
 
     t.test('check error', function (t2) {
         // Make sure we made it to the correct error
-        t.deepEqual(mod_moray.getErrors().getObject, [], 'no errors remaining');
+        t2.deepEqual(mod_moray.getErrors().getObject, [],
+            'no errors remaining');
 
-        t.deepEqual(mod_moray.getLastError(), {
+        t2.deepEqual(mod_moray.getLastError(), {
             bucket: ip_common.bucketName(NET2.uuid),
             key: mod_nic.lastCreated().ip,
             op: 'getObject',
             msg: 'Oh no!'
         }, 'last error');
 
-        return t.end();
+        t2.end();
     });
 
 
@@ -1834,7 +1832,7 @@ test('Delete nic - IP ownership changed underneath', function (t) {
     var params = {
         belongs_to_type: 'zone',
         belongs_to_uuid: mod_uuid.v4(),
-        owner_uuid:  mod_uuid.v4()
+        owner_uuid: mod_uuid.v4()
     };
 
     t.test('provision', function (t2) {
@@ -1942,7 +1940,7 @@ test('antispoof options', function (t) {
             allow_unfiltered_promisc: true,
             belongs_to_type: 'zone',
             belongs_to_uuid: mod_uuid.v4(),
-            owner_uuid:  mod_uuid.v4()
+            owner_uuid: mod_uuid.v4()
         };
 
         mod_nic.provision(t2, {

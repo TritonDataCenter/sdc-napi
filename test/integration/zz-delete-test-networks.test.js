@@ -13,6 +13,8 @@
  * tests that crash half-way through
  */
 
+'use strict';
+
 var common = require('../lib/common');
 var fmt = require('util').format;
 var h = require('./helpers');
@@ -28,19 +30,15 @@ var vasync = require('vasync');
 var NAPI = h.createNAPIclient();
 // Regexes that match the network name:
 var NET_REs = [
-    /* jsl:ignore (for "regular expressions should be preceded ..." warning) */
     /^test-fabric-net\d-\d+$/,
     /^test-overlap-net\d-\d+$/,
     /^network-integration-\d+-\d$/,
     /^integration-overlap-testing/,
     /^test-net\d-\d+$/
-    /* jsl:end */
 ];
 var POOL_REs = [
-    /* jsl:ignore (for "regular expressions should be preceded ..." warning) */
     /^pool\d-\d+$/,
     /^test-pool\d-\d+$/
-    /* jsl:end */
 ];
 
 

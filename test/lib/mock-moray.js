@@ -12,6 +12,8 @@
  * Mock moray object for unit tests
  */
 
+'use strict';
+
 var assert = require('assert-plus');
 var crc = require('crc');
 var clone = require('clone');
@@ -98,7 +100,7 @@ function checkEtag(opts, bucket, key, batch) {
         }
 
         var obj = BUCKET_VALUES[bucket][key];
-        if (opts.etag != obj._etag) {
+        if (opts.etag !== obj._etag) {
             throw etagConflictErr(
                 util.format('wanted to put etag "%s", but object has etag "%s"',
                     opts.etag, obj._etag), errOpts);
@@ -248,7 +250,7 @@ FakeMoray.prototype.batch = function _batch(data, callback) {
 
         var knownOp = false;
         ['delete', 'put', 'update'].forEach(function (opt) {
-            if (item.operation == opt) {
+            if (item.operation === opt) {
                 knownOp = true;
             }
         });
@@ -454,7 +456,7 @@ FakeMoray.prototype.putObject =
 
 
 FakeMoray.prototype.reindexObjects =
-        function reindexObjects(bucket, count, opts, callback) {
+        function reindexObjects(_bucket, _count, _opts, callback) {
     return callback(null, { processed: 0 });
 };
 
@@ -594,7 +596,8 @@ FakeMoray.prototype._gapNumber = function _gapNumber(opts) {
         }
 
         var bucketKeys = Object.keys(BUCKET_VALUES[bucket]).map(function (k) {
-            return Number(k); }).sort();
+            return Number(k);
+        }).sort();
         var found = 0;
         var last = bucketKeys[0];
         for (var i in bucketKeys) {
@@ -659,7 +662,8 @@ FakeMoray.prototype._gapIP = function _gapIP(opts) {
         }
 
         var bucketKeys = Object.keys(BUCKET_VALUES[bucket]).map(function (k) {
-            return util_ip.toIPAddr(k); }).sort(util_ip.compareTo);
+            return util_ip.toIPAddr(k);
+        }).sort(util_ip.compareTo);
         var found = 0;
         var last = bucketKeys[0];
         for (var i in bucketKeys) {

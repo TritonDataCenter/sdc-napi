@@ -12,15 +12,13 @@
  * Test helpers for NAPI integration tests
  */
 
-var assert = require('assert');
-var bunyan = require('bunyan');
+'use strict';
+
 var common = require('../lib/common');
 var config = require('../lib/config');
 var fmt = require('util').format;
-var fs = require('fs');
 var mod_client = require('../lib/client');
 var mod_net = require('../lib/net');
-var path = require('path');
 var util = require('util');
 var util_ip = require('../../lib/util/ip');
 var vasync = require('vasync');
@@ -159,7 +157,7 @@ function deleteNicTag(t, napi, state, name, callback) {
 /**
  * Deletes all nic tags in state.nic_tags
  */
-function deleteNicTags(t, napi, state) {
+function deleteNicTags(t, napi, state, callback) {
     if (!state.hasOwnProperty('nic_tags') || state.nic_tags.length === 0) {
         return t.end();
     }
@@ -176,6 +174,11 @@ function deleteNicTags(t, napi, state) {
             });
         }
     }, function (err) {
+        t.ifError(err, 'delete test nic tags');
+        if (callback) {
+            return callback(err);
+        }
+
         return t.end();
     });
 }
@@ -214,7 +217,7 @@ function deletePreviousNetworks(t) {
             inputs: matching,
             func: function _delOne(net, cb) {
                 napi.deleteNetwork(net.uuid, { force: true }, function (dErr) {
-                    common.ifErr(t, err, fmt('delete network %s (%s)',
+                    common.ifErr(t, dErr, fmt('delete network %s (%s)',
                         net.uuid, net.name));
 
                     return cb();
@@ -345,7 +348,7 @@ function loadUFDSadminUUID(t, callback) {
  * similar() (that's a little test humour for you).
  */
 function similar(t, str, substr, message) {
-    t.ok((str.indexOf(substr) !== -1) || (str == substr), message);
+    t.ok((str.indexOf(substr) !== -1) || (str === substr), message);
 }
 
 

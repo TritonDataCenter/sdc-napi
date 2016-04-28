@@ -12,10 +12,11 @@
  * Error helpers
  */
 
+'use strict';
+
 var constants = require('../../lib/util/constants');
 var errors = require('../../lib/util/errors');
 var util = require('util');
-var util_mac = require('../../lib/util/mac');
 
 
 

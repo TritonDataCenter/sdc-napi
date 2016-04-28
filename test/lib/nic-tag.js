@@ -12,8 +12,9 @@
  * Test helpers for dealing with nic tags
  */
 
+'use strict';
+
 var assert = require('assert-plus');
-var clone = require('clone');
 var common = require('./common');
 var config = require('./config');
 var log = require('./log');
@@ -21,7 +22,6 @@ var mod_client = require('./client');
 var mod_vasync = require('vasync');
 var util = require('util');
 
-var doneRes = common.doneRes;
 var doneErr = common.doneErr;
 
 
@@ -68,7 +68,7 @@ function createTag(t, opts, callback) {
 
     var name = opts.name;
     var params = opts.params || {};
-    if (name == '<generate>') {
+    if (name === '<generate>') {
         name = util.format('test_tag%d_%d', NUM++, process.pid);
     }
 

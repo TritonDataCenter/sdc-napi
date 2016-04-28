@@ -12,6 +12,7 @@
  * Test helpers for dealing with the NAPI client
  */
 
+'use strict';
 
 
 // --- Globals

@@ -12,6 +12,8 @@
  * Test helpers for dealing with networks
  */
 
+'use strict';
+
 var assert = require('assert-plus');
 var clone = require('clone');
 var common = require('./common');
@@ -19,10 +21,8 @@ var fmt = require('util').format;
 var log = require('./log');
 var mod_client = require('./client');
 var mod_vasync = require('vasync');
-var util = require('util');
 var util_ip = require('../../lib/util/ip');
 
-var doneRes = common.doneRes;
 var doneErr = common.doneErr;
 
 
@@ -73,7 +73,7 @@ function createNet(t, opts, callback) {
     var client = opts.client || mod_client.get();
     var params = clone(opts.params);
 
-    if (params.name == '<generate>') {
+    if (params.name === '<generate>') {
         params.name = netName();
     }
 

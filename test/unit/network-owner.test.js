@@ -12,14 +12,14 @@
  * Unit tests for network endpoints
  */
 
-var assert = require('assert-plus');
+'use strict';
+
 var constants = require('../../lib/util/constants');
 var helpers = require('./helpers');
 var mod_err = require('../../lib/util/errors');
 var mod_nic = require('../lib/nic');
 var mod_uuid = require('node-uuid');
 var test = require('tape');
-var util = require('util');
 var util_ip = require('../../lib/util/ip');
 
 
@@ -325,9 +325,10 @@ test('setup', function (t) {
     t.test('create nic tag', function (t2) {
         // Match the name of the nic tag in helpers.validNetworkParams()
         NAPI.createNicTag('nic_tag', function (err2, res2) {
-            t2.ifError(err2);
             TAG = res2;
-            return t2.end();
+            t2.ifError(err2, 'no error creating NIC tag');
+            t2.ok(TAG, 'created NIC tag');
+            t2.end();
         });
     });
 

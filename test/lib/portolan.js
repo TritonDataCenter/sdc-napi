@@ -12,6 +12,8 @@
  * Test helpers for dealing with overlays
  */
 
+'use strict';
+
 var assert = require('assert-plus');
 var clone = require('clone');
 var config = require('./config');

@@ -12,6 +12,8 @@
  * Test helpers for dealing with fabric VLANs
  */
 
+'use strict';
+
 var assert = require('assert-plus');
 var clone = require('clone');
 var common = require('./common');
@@ -19,7 +21,6 @@ var fmt = require('util').format;
 var log = require('./log');
 var mod_client = require('./client');
 var mod_vasync = require('vasync');
-var util = require('util');
 
 var doneErr = common.doneErr;
 

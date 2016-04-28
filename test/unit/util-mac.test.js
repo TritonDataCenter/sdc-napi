@@ -12,6 +12,8 @@
  * MAC address utility unit tests
  */
 
+'use strict';
+
 var MAC = require('../../lib/util/mac');
 var test = require('tape');
 
@@ -26,7 +28,7 @@ test('macOUItoNumber - valid', function (t) {
         t.equal(MAC.macOUItoNumber(macs[m][0]), macs[m][1],
             'MAC number for "' + macs[m][0] + '" is valid');
         t.equal(MAC.macNumberToAddress(macs[m][1]), macs[m][2],
-            'MAC address "' +macs[m][2] + '" is valid');
+            'MAC address "' + macs[m][2] + '" is valid');
     }
 
     return t.end();

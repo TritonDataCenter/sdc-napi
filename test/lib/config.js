@@ -12,6 +12,8 @@
  * Test configuration
  */
 
+'use strict';
+
 var clone = require('clone');
 var fmt = require('util').format;
 var fs = require('fs');

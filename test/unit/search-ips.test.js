@@ -12,9 +12,8 @@
  * Unit tests for /search/ips endpoints
  */
 
-var assert = require('assert-plus');
-var async = require('async');
-var clone = require('clone');
+'use strict';
+
 var constants = require('../../lib/util/constants');
 var fmt = require('util').format;
 var h = require('./helpers');
@@ -22,10 +21,7 @@ var mod_err = require('../../lib/util/errors');
 var mod_net = require('../lib/net');
 var mod_nicTag = require('../lib/nic-tag');
 var mod_uuid = require('node-uuid');
-var restify = require('restify');
 var test = require('tape');
-var util = require('util');
-var vasync = require('vasync');
 
 
 
@@ -71,9 +67,10 @@ test('Initial setup', function (t) {
             params: params,
             partialExp: params
         }, function (err, res) {
+            t2.ifError(err, 'creating network should succeed');
             if (res) {
                 NETS.push(res);
-                t.ok(res.uuid, 'network uuid: ' + res.uuid);
+                t2.ok(res.uuid, 'network uuid: ' + res.uuid);
             }
 
             return t2.end();
@@ -82,7 +79,8 @@ test('Initial setup', function (t) {
 
     t.test('create client and server', function (t2) {
         h.createClientAndServer(function (err, res) {
-            t.ok(res, 'client');
+            t2.ifError(err, 'creating client and server should succeed');
+            t2.ok(res, 'client');
             NAPI = res;
             return t2.end();
         });

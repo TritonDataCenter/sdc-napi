@@ -12,6 +12,8 @@
  * Test helpers for dealing with nics
  */
 
+'use strict';
+
 var assert = require('assert-plus');
 var clone = require('clone');
 var common = require('./common');
@@ -76,7 +78,7 @@ function createNic(t, opts, callback) {
     assert.object(opts.params, 'opts.params');
 
     var mac = opts.mac;
-    if (mac == 'generate') {
+    if (mac === 'generate') {
         mac = common.randomMAC();
     }
     opts.idKey = 'mac';
@@ -133,7 +135,7 @@ function createNumNics(t, opts, callback) {
             nics.push(nic);
         }
 
-        if (++done == opts.num) {
+        if (++done === opts.num) {
             if (errs.length !== 0) {
                 return doneErr(new verror.MultiError(errs), t, callback);
             }

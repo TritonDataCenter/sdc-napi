@@ -12,6 +12,8 @@
  * Integration tests for /nics and /networks/:uuid/nics endpoints
  */
 
+'use strict';
+
 var constants = require('../../lib/util/constants');
 var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
@@ -20,8 +22,6 @@ var mod_nic = require('../lib/nic');
 var mod_uuid = require('node-uuid');
 var test = require('tape');
 var util = require('util');
-var util_ip = require('../../lib/util/ip');
-var util_mac = require('../../lib/util/mac');
 var vasync = require('vasync');
 
 
@@ -305,7 +305,7 @@ test('POST /nics (with IP already reserved)', function (t) {
                 free: false
             };
             t2.deepEqual(res2, exp,
-                'IP params correct: '+ d.params.ip + d.desc);
+                'IP params correct: ' + d.params.ip + d.desc);
 
             return t2.end();
         });
@@ -452,7 +452,8 @@ test('Check IPs are created along with nics', function (t) {
         func: checkIP,
         inputs: ips
     }, function (err) {
-        return t.end();
+        t.ifError(err, 'getting IPs should succeed');
+        t.end();
     });
 });
 
@@ -647,7 +648,8 @@ test('DELETE /nics/:mac (with reserved IP)', function (t) {
         func: delNic,
         inputs: ['resNic1', 'resNic2']
     }, function (err) {
-        return t.end();
+        t.ifError(err, 'deleting NICs should succeed');
+        t.end();
     });
 });
 
@@ -672,7 +674,8 @@ test('GET /nics/:mac', function (t) {
         func: checkNic,
         inputs: nics
     }, function (err) {
-        return t.end();
+        t.ifError(err, 'getting NICs should succeed');
+        t.end();
     });
 });
 
@@ -712,7 +715,8 @@ test('PUT /nics/:mac', function (t) {
         func: updateNic,
         inputs: nics
     }, function (err) {
-        return t.end();
+        t.ifError(err, 'updating NICs should succeed');
+        t.end();
     });
 });
 
@@ -748,7 +752,8 @@ test('Check IPs are updated along with nics', function (t) {
         func: checkIP,
         inputs: ips
     }, function (err) {
-        return t.end();
+        t.ifError(err, 'getting IPs should succeed');
+        t.end();
     });
 });
 
@@ -1058,7 +1063,7 @@ test('GET /nics (filtered)', function (t) {
             for (var i = 0; i < res.length; i++) {
                 var cur = res[i];
                 for (var f in filter) {
-                    if (cur[f] != filter[f]) {
+                    if (cur[f] !== filter[f]) {
                         t.equal(cur[f], filter[f], util.format('nic "%s" ' +
                             'does not match filter %s=%s: %j',
                             cur.mac, f, filter[f], cur));
@@ -1075,7 +1080,8 @@ test('GET /nics (filtered)', function (t) {
         func: listNics,
         inputs: filters
     }, function (err) {
-        return t.end();
+        t.ifError(err, 'listing nics should succeed');
+        t.end();
     });
 });
 
@@ -1234,7 +1240,7 @@ test('DELETE /nics/:mac', function (t) {
     vasync.forEachParallel({
         func: delNic,
         inputs: nics
-    }, function (err) {
+    }, function (_err) {
         return t.end();
     });
 });
@@ -1247,7 +1253,7 @@ test('Check IPs are freed along with nics', function (t) {
         var ip = state.ip[ipDesc];
         var net = state.networks[0];
 
-        if (ipDesc == 'putIPwithName') {
+        if (ipDesc === 'putIPwithName') {
             net = state.adminNet;
         }
 
@@ -1280,7 +1286,7 @@ test('Check IPs are freed along with nics', function (t) {
     vasync.forEachParallel({
         func: checkIP,
         inputs: ips
-    }, function (err) {
+    }, function (_err) {
         return t.end();
     });
 });

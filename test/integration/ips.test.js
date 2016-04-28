@@ -12,6 +12,8 @@
  * Integration tests for /networks/:uuid/ips endpoints
  */
 
+'use strict';
+
 var common = require('../lib/common');
 var h = require('./helpers');
 var mod_ip = require('../lib/ip');
@@ -231,7 +233,8 @@ test('PUT /networks/:uuid/ips/:ip (free an IP)', function (t) {
             doUpdate
         ]
     }, function (err) {
-        return t.end();
+        t.ifError(err, 'both updates should succeed');
+        t.end();
     });
 });
 
@@ -259,7 +262,7 @@ test('GET /networks/:uuid/ips: reserved IP', function (t) {
 
             var found = false;
             for (var i in ips) {
-                if (ips[i].ip == params.ip) {
+                if (ips[i].ip === params.ip) {
                     found = true;
                     t.deepEqual(ips[i], params, 'IP in list is correct');
                     break;

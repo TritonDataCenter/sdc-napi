@@ -12,6 +12,8 @@
  * Test helpers for dealing with IPs
  */
 
+'use strict';
+
 var assert = require('assert-plus');
 var clone = require('clone');
 var common = require('./common');

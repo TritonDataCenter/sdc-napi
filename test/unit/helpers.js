@@ -12,20 +12,14 @@
  * Test helpers for NAPI unit tests
  */
 
+'use strict';
+
 var assert = require('assert-plus');
-var bunyan = require('bunyan');
-var clone = require('clone');
 var common = require('../lib/common');
 var constants = require('../../lib/util/constants');
-var fs = require('fs');
-var EventEmitter = require('events').EventEmitter;
-var ldapjs = require('ldapjs');
-var mod_client = require('../lib/client');
 var mod_server = require('../lib/server');
-var restify = require('restify');
 var util = require('util');
 var util_ip = require('../../lib/util/ip');
-var verror = require('verror');
 
 
 
@@ -69,6 +63,10 @@ function createClientAndServer(callback) {
     mod_server._create({
         unitTest: true
     }, function (err, res) {
+        if (err) {
+            return callback(err);
+        }
+
         SERVER = res.server;
         return callback(null, res.client);
     });

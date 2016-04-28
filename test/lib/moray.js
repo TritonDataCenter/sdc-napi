@@ -12,6 +12,8 @@
  * Test helpers for accessing mock moray data
  */
 
+'use strict';
+
 var assert = require('assert-plus');
 var mock_moray = require('./mock-moray');
 var mod_ip = require('../../lib/models/ip');
@@ -109,7 +111,7 @@ function getLastError() {
 /**
  * Gets all nic records from fake moray, sorted by MAC address
  */
-function getNic(mac, ip) {
+function getNic(mac) {
     var macNum = util_mac.aton(mac);
     assert.number(macNum, 'Not a valid MAC address');
 
@@ -119,7 +121,7 @@ function getNic(mac, ip) {
 /**
  * Gets all nic records from fake moray, sorted by MAC address
  */
-function getNics(network, ip) {
+function getNics() {
     var bucket = mock_moray._buckets.napi_nics;
     assert.object(bucket, 'bucket');
 

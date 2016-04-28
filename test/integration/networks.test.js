@@ -12,11 +12,12 @@
  * Integration tests for /networks endpoints
  */
 
+'use strict';
+
 var constants = require('../../lib/util/constants');
 var extend = require('xtend');
 var fmt = require('util').format;
 var h = require('./helpers');
-var mod_err = require('../../lib/util/errors');
 var mod_net = require('../lib/net');
 var mod_uuid = require('node-uuid');
 var mod_vasync = require('vasync');
@@ -179,7 +180,8 @@ test('validate IPs created with network', function (t) {
         func: checkIP,
         inputs: ips
     }, function (err) {
-        return t.end();
+        t.ifError(err, 'getting all IPs should succeed');
+        t.end();
     });
 });
 
@@ -402,7 +404,6 @@ test('network update: resolvers and name', function (tt) {
         updateParams.uuid = params.uuid;
 
         mod_net.update(t, {
-            fillIn: [ 'job_uuid' ],
             params: updateParams,
             exp: params
         });
@@ -410,8 +411,6 @@ test('network update: resolvers and name', function (tt) {
 
 
     tt.test('get network', function (t) {
-        delete params.job_uuid;
-
         mod_net.get(t, {
             params: {
                 uuid: params.uuid
@@ -447,7 +446,7 @@ test('teardown', function (t) {
         mod_vasync.forEachParallel({
             func: deleteNet,
             inputs: names
-        }, function (err) {
+        }, function () {
             return t2.end();
         });
     });

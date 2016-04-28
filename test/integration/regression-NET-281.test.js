@@ -22,6 +22,8 @@
  * JSON.
  */
 
+'use strict';
+
 var config = require('../lib/config');
 var mod_restify = require('restify');
 var test = require('tape');

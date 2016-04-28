@@ -12,6 +12,8 @@
  * Integration tests for provisioning IPs
  */
 
+'use strict';
+
 var assert = require('assert-plus');
 var clone = require('clone');
 var constants = require('../../lib/util/constants');
@@ -25,7 +27,6 @@ var mod_uuid = require('node-uuid');
 var test = require('tape');
 var util = require('util');
 var util_ip = require('../../lib/util/ip');
-var util_mac = require('../../lib/util/mac');
 var vasync = require('vasync');
 
 
@@ -438,7 +439,7 @@ function deleteTwoNics(t) {
                 }
 
                 napi.getIP(nic.network_uuid, nic.ip, function (err2, ip) {
-                    if (h.ifErr(t, err, 'get IP ' + nic.ip)) {
+                    if (h.ifErr(t, err2, 'get IP ' + nic.ip)) {
                         return cb(err);
                     }
 
@@ -475,7 +476,7 @@ function reprovisionDeleted(t, opts) {
 
     vasync.forEachParallel({
         inputs: state.deleted,
-        func: function _delOne(nic, cb) {
+        func: function _delOne(_, cb) {
             var client = h.createNAPIclient();
             var desc = util.format(' (req_id=%s)', client.req_id);
             var params = clone(NIC_PARAMS);
@@ -495,7 +496,8 @@ function reprovisionDeleted(t, opts) {
                 return cb();
             });
         }
-    }, function () {
+    }, function (err) {
+        t.ifError(err, 'reprovisioning all NICs should succeed');
         t.deepEqual(provisioned.sort(ipSort), state.deleted.map(function (n) {
             return n.ip;
         }).sort(ipSort), 'IPs reprovisioned');
@@ -529,7 +531,7 @@ function deleteAll(t) {
                     }
 
                     napi.getIP(nic.network_uuid, nic.ip, function (err2, ip) {
-                        if (h.ifErr(t2, err, 'get IP ' + nic.ip)) {
+                        if (h.ifErr(t2, err2, 'get IP ' + nic.ip)) {
                             return cb(err);
                         }
 
@@ -749,6 +751,7 @@ test('delete: in order', function (t) {
             delNext
         ]
     }, function (err) {
+        t.ifError(err, 'successful deletes');
         return t.end();
     });
 });
@@ -783,6 +786,7 @@ test('reprovision: by modification time', function (t) {
             provisionNext
         ]
     }, function (err) {
+        t.ifError(err, 'successful provisions');
         t.deepEqual(state.delayed.map(function (n) {
             return n.ip;
         }), provisioned, 'IPs reprovisioned in modification order');

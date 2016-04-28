@@ -12,6 +12,8 @@
  * Test helpers for testing fabrics
  */
 
+'use strict';
+
 var h = require('../integration/helpers');
 var test = require('tape');
 

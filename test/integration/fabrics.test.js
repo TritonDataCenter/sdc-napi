@@ -12,6 +12,8 @@
  * Fabric tests
  */
 
+'use strict';
+
 var clone = require('clone');
 var config = require('../lib/config');
 var constants = require('../../lib/util/constants');
@@ -35,8 +37,6 @@ var test = require('../lib/fabrics').testIfEnabled;
 
 var ADMIN_OWNER;    // Loaded in setup below
 var CREATED = {};
-// XXX: shouldn't have to do this!
-var NAPI = h.createNAPIclient();
 var OWNERS = [
     mod_uuid.v4(),
     mod_uuid.v4(),
@@ -973,6 +973,7 @@ test('provision zone nics', function (t) {
                 deleted: false,
                 ip: CREATED.updateNic.ip,
                 mac: CREATED.updateNic.mac,
+                version: 1,
                 vnet_id: mod_portolan.nicVnetID(t, CREATED.updateNic)
             }
         });
@@ -1023,6 +1024,7 @@ test('provision zone nics', function (t) {
                 deleted: false,
                 ip: updateNic.ip,
                 mac: updateNic.mac,
+                version: 1,
                 vnet_id: mod_portolan.nicVnetID(t, updateNic)
             }
         });
@@ -1052,6 +1054,7 @@ test('provision zone nics', function (t) {
                 deleted: false,
                 ip: updateNic.ip,
                 mac: updateNic.mac,
+                version: 1,
                 vnet_id: mod_portolan.nicVnetID(t, updateNic)
             }
         });

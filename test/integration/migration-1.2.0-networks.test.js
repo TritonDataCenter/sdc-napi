@@ -12,20 +12,18 @@
  * Network migration tests
  */
 
+'use strict';
+
 var constants = require('../../lib/util/constants');
 var extend = require('xtend');
-var fmt = require('util').format;
-var h = require('./helpers');
 var mod_ip = require('../lib/ip');
 var mod_migr = require('../lib/migration');
-var mod_moray = require('../lib/moray');
 var mod_net = require('../lib/net');
 var mod_nic = require('../lib/nic');
 var mod_nictag = require('../lib/nic-tag');
 var mod_server = require('../lib/server');
 var mod_uuid = require('node-uuid');
 var test = require('tape');
-var util = require('util');
 
 
 
@@ -33,7 +31,6 @@ var util = require('util');
 
 
 
-var NAPI;
 var BUCKETS = {
     adminIPs: ipsBucketV1('napi_ips_07eef409_c6eb_42cb_8712_bb0deaab8108'),
 

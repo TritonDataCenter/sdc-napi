@@ -12,6 +12,8 @@
  * Unit tests for nic tag endpoints
  */
 
+'use strict';
+
 var assert = require('assert-plus');
 var common = require('../lib/common');
 var h = require('./helpers');
@@ -19,7 +21,6 @@ var mod_err = require('../../lib/util/errors');
 var mod_moray = require('../lib/moray');
 var constants = require('../../lib/util/constants');
 var test = require('tape');
-var util = require('util');
 
 
 
@@ -139,6 +140,7 @@ test('Create nic tag - missing all parameters', function (t) {
     // specified
     NAPI.post('/nic_tags', {}, function (err, obj, req, res) {
         t.ok(err, 'error returned');
+        t.deepEqual(obj, null, 'no value returned');
         if (!err) {
             return t.end();
         }
@@ -176,7 +178,7 @@ test('Create nic tag - duplicate name', function (t) {
 
 
 test('Create nic tag - with MTU', function (t) {
-    NAPI.createNicTag('newtagnamemtu', { mtu : constants.MTU_MAX },
+    NAPI.createNicTag('newtagnamemtu', { mtu: constants.MTU_MAX },
         function (err, obj, req, res) {
         if (h.ifErr(t, err, 'nic tag create - MTU')) {
             return t.end();
@@ -187,7 +189,7 @@ test('Create nic tag - with MTU', function (t) {
         var expObj = {
             name: 'newtagnamemtu',
             uuid: added.uuid,
-            mtu : constants.MTU_MAX
+            mtu: constants.MTU_MAX
         };
         t.deepEqual(obj, expObj, 'create response - MTU');
 
@@ -263,7 +265,7 @@ test('Create nic tag - with MTU > max', function (t) {
 
 
 test('Create admin nic tag - with default MTU', function (t) {
-    NAPI.createNicTag('admin', { mtu : constants.MTU_DEFAULT },
+    NAPI.createNicTag('admin', { mtu: constants.MTU_DEFAULT },
         function (err, obj, req, res) {
         if (h.ifErr(t, err, 'nic tag create ')) {
             return t.end();
@@ -274,7 +276,7 @@ test('Create admin nic tag - with default MTU', function (t) {
         var expObj = {
             name: 'admin',
             uuid: added.uuid,
-            mtu : constants.MTU_DEFAULT
+            mtu: constants.MTU_DEFAULT
         };
         t.deepEqual(obj, expObj, 'create response');
 
@@ -295,10 +297,11 @@ test('Create admin nic tag - with default MTU', function (t) {
 });
 
 test('Create admin nic tag - with wrong MTU', function (t) {
-    NAPI.createNicTag('admin', { mtu : constants.MTU_DEFAULT + 10 },
+    NAPI.createNicTag('admin', { mtu: constants.MTU_DEFAULT + 10 },
         function (err, obj, req, res) {
 
         t.ok(err, 'error returned');
+        t.deepEqual(obj, null, 'no value returned');
         if (!err) {
             return t.end();
         }
@@ -317,6 +320,11 @@ test('Create admin nic tag - with wrong MTU', function (t) {
 
 test('Delete nic tag in use', function (t) {
     newTag(t, function (tErr, curTag) {
+        if (h.ifErr(t, tErr, 'created new NIC tag')) {
+            t.end();
+            return;
+        }
+
         var netParams = h.validNetworkParams({
             nic_tag: curTag.name
         });
@@ -354,6 +362,11 @@ test('Delete nic tag in use', function (t) {
 
 test('Update nic tag - successful', function (t) {
     newTag(t, function (tErr, curTag) {
+        if (h.ifErr(t, tErr, 'created new NIC tag')) {
+            t.end();
+            return;
+        }
+
         NAPI.updateNicTag(curTag.name, { name: 'bar2' },
             function (err, obj, req, res) {
             t.ifError(err, 'error returned');
@@ -376,8 +389,14 @@ test('Update nic tag - successful', function (t) {
 
 test('Update nic tag - missing name', function (t) {
     newTag(t, function (tErr, curTag) {
+        if (h.ifErr(t, tErr, 'created new NIC tag')) {
+            t.end();
+            return;
+        }
+
         NAPI.updateNicTag(curTag.name, { }, function (err, obj, req, res) {
             t.ok(err, 'error returned');
+            t.deepEqual(obj, null, 'no value returned');
             if (!err) {
                 return t.end();
             }
@@ -396,6 +415,11 @@ test('Update nic tag - missing name', function (t) {
 
 test('Update nic tag - nic tag in use by network', function (t) {
     newTag(t, function (tErr, curTag) {
+        if (h.ifErr(t, tErr, 'created new NIC tag')) {
+            t.end();
+            return;
+        }
+
         var netParams = h.validNetworkParams({
             nic_tag: curTag.name
         });
@@ -428,6 +452,11 @@ test('Update nic tag - nic tag in use by network', function (t) {
 
 test('Update nic tag - already used name', function (t) {
     newTag(t, function (tErr, curTag) {
+        if (h.ifErr(t, tErr, 'created new NIC tag')) {
+            t.end();
+            return;
+        }
+
         NAPI.createNicTag('somenewtag1', function (err, res) {
             t.ifError(err);
 
@@ -451,6 +480,11 @@ test('Update nic tag - already used name', function (t) {
 
 test('Update nic tag - MTU only', function (t) {
     newTag(t, function (tErr, curTag) {
+        if (h.ifErr(t, tErr, 'created new NIC tag')) {
+            t.end();
+            return;
+        }
+
         NAPI.updateNicTag(curTag.name,
             { mtu: constants.MTU_NICTAG_MIN + 10 },
             function (err, obj, req, res) {
@@ -473,6 +507,11 @@ test('Update nic tag - MTU only', function (t) {
 
 test('Update nic tag - MTU and name', function (t) {
     newTag(t, function (tErr, curTag) {
+        if (h.ifErr(t, tErr, 'created new NIC tag')) {
+            t.end();
+            return;
+        }
+
         NAPI.updateNicTag(curTag.name,
             { name: 'newname', mtu: constants.MTU_NICTAG_MIN + 10 },
             function (err, obj, req, res) {
@@ -494,84 +533,88 @@ test('Update nic tag - MTU and name', function (t) {
 });
 
 test('update admin nictag - name', function (t) {
-    NAPI.createNicTag('admin', { name: 'admin' }, function (err, nictag) {
-        if (h.ifErr(t, err, 'nic tag creation')) {
+    NAPI.createNicTag('admin', { name: 'admin' }, function (tErr, nictag) {
+        if (h.ifErr(t, tErr, 'nic tag creation')) {
             return t.end();
         }
 
+        t.ok(nictag, 'nictag object returned');
+
         NAPI.updateNicTag('admin', { name: 'notadmin' },
-            function (_err, obj, req, res) {
-            t.ok(_err, 'err returned');
-            if (!_err) {
+            function (err, obj, req, res) {
+            t.ok(err, 'err returned');
+            t.deepEqual(obj, null, 'no value returned');
+            if (!err) {
                 return t.end();
             }
 
-            t.equal(_err.statusCode, 422, 'status code');
-            t.deepEqual(_err.body, h.invalidParamErr({
+            t.equal(err.statusCode, 422, 'status code');
+            t.deepEqual(err.body, h.invalidParamErr({
                 errors: [
                     mod_err.invalidParam('name', constants.ADMIN_UPDATE_MSG)
                 ]
             }), 'Error body');
 
             // clean up 'admin' nictag, tested elsewhere.
-            return NAPI.deleteNicTag('admin', function (__err) {
-                t.ifError(__err, 'err cleaning up admin nic tag');
-                if (__err) {
-                    return t.end();
-                }
-                return t.end();
+            return NAPI.deleteNicTag('admin', function (err2) {
+                t.ifError(err2, 'err cleaning up admin nic tag');
+                t.end();
             });
         });
     });
 });
 
 test('update admin nictag - MTU', function (t) {
-    NAPI.createNicTag('admin', { name: 'admin' }, function (err, nictag) {
-        if (h.ifErr(t, err, 'nic tag creation')) {
+    NAPI.createNicTag('admin', { name: 'admin' }, function (tErr, nictag) {
+        if (h.ifErr(t, tErr, 'nic tag creation')) {
             return t.end();
         }
 
+        t.ok(nictag, 'nictag object returned');
+
         NAPI.updateNicTag('admin', { mtu: constants.MTU_NICTAG_MIN },
-            function (_err, obj, req, res) {
-            t.error(err, 'err returned');
-            if (!_err) {
+            function (err, obj, req, res) {
+            t.ok(err, 'err returned');
+            t.deepEqual(obj, null, 'no value returned');
+            if (!err) {
                 return t.end();
             }
 
-            t.equal(_err.statusCode, 422, 'status code');
-            t.deepEqual(_err.body, h.invalidParamErr({
+            t.equal(err.statusCode, 422, 'status code');
+            t.deepEqual(err.body, h.invalidParamErr({
                 errors: [
                     mod_err.invalidParam('name', constants.ADMIN_UPDATE_MSG)
                 ]
             }), 'Error body');
 
             // clean up 'admin' nictag, tested elsewhere.
-            return NAPI.deleteNicTag('admin', function (__err) {
-                t.ifError(__err, 'err cleaning up admin nic tag');
-                if (__err) {
-                    return t.end();
-                }
-                return t.end();
+            return NAPI.deleteNicTag('admin', function (err2) {
+                t.ifError(err2, 'err cleaning up admin nic tag');
+                t.end();
             });
         });
     });
 });
 
 test('update external nictag - name', function (t) {
-    NAPI.createNicTag('external', { name: 'external' }, function (err, nictag) {
-        if (h.ifErr(t, err, 'nic tag creation')) {
+    NAPI.createNicTag('external', { name: 'external' },
+        function (tErr, nictag) {
+        if (h.ifErr(t, tErr, 'nic tag creation')) {
             return t.end();
         }
 
+        t.ok(nictag, 'nictag object returned');
+
         NAPI.updateNicTag('external', { name: 'mobile' },
-            function (_err, obj, req, res) {
-            t.ok(_err, 'err returned');
-            if (!_err) {
+            function (err, obj, req, res) {
+            t.ok(err, 'err returned');
+            t.deepEqual(obj, null, 'no value returned');
+            if (!err) {
                 return t.end();
             }
 
-            t.equal(_err.statusCode, 422, 'status code');
-            t.deepEqual(_err.body, h.invalidParamErr({
+            t.equal(err.statusCode, 422, 'status code');
+            t.deepEqual(err.body, h.invalidParamErr({
                 errors: [
                     mod_err.invalidParam('name', constants.EXTERNAL_RENAME_MSG)
                 ]
@@ -585,11 +628,17 @@ test('update external nictag - name', function (t) {
 
 test('Update nic tag - bogus MTU', function (t) {
     newTag(t, function (tErr, curTag) {
+        if (h.ifErr(t, tErr, 'created new NIC tag')) {
+            t.end();
+            return;
+        }
+
         NAPI.updateNicTag(curTag.name,
             { name: curTag.name, mtu: 'foobar' },
             function (err, obj, req, res) {
 
             t.ok(err, 'error returned');
+            t.deepEqual(obj, null, 'no value returned');
             if (!err) {
                 return t.end();
             }
@@ -607,11 +656,17 @@ test('Update nic tag - bogus MTU', function (t) {
 
 test('Update nic tag - with MTU < min', function (t) {
     newTag(t, function (tErr, curTag) {
+        if (h.ifErr(t, tErr, 'created new NIC tag')) {
+            t.end();
+            return;
+        }
+
         NAPI.updateNicTag(curTag.name,
             { name: curTag.name, mtu: constants.MTU_NICTAG_MIN - 10 },
             function (err, obj, req, res) {
             // XXX do tests.
             t.ok(err, 'error returned');
+            t.deepEqual(obj, null, 'no value returned');
             if (!err) {
                 return t.end();
             }
@@ -629,11 +684,17 @@ test('Update nic tag - with MTU < min', function (t) {
 
 test('Update nic tag - with MTU > max', function (t) {
     newTag(t, function (tErr, curTag) {
+        if (h.ifErr(t, tErr, 'created new NIC tag')) {
+            t.end();
+            return;
+        }
+
         NAPI.updateNicTag(curTag.name,
             { name: curTag.name, mtu: constants.MTU_MAX + 10 },
             function (err, obj, req, res) {
             // XXX do tests.
             t.ok(err, 'error returned');
+            t.deepEqual(obj, null, 'no value returned');
             if (!err) {
                 return t.end();
             }
@@ -656,6 +717,9 @@ test('Update nic tag - MTU < networks', function (t) {
         if (h.ifErr(t, err, 'nic tag create')) {
             return t.end();
         }
+
+        t.ok(obj, 'created NIC tag');
+
         var netParams = h.validNetworkParams({
             nic_tag: tagName,
             mtu: constants.MTU_MAX

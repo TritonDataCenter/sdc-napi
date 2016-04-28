@@ -12,13 +12,14 @@
  * Test helpers for dealing with network pools
  */
 
+'use strict';
+
 var assert = require('assert-plus');
 var clone = require('clone');
 var common = require('./common');
 var log = require('./log');
 var mod_client = require('./client');
 var util = require('util');
-var verror = require('verror');
 
 var doneRes = common.doneRes;
 var doneErr = common.doneErr;
@@ -52,14 +53,14 @@ function create(t, opts, callback) {
     assert.object(opts.params, 'opts.params');
 
     var name = opts.name;
-    if (name == '<generate>') {
+    if (name === '<generate>') {
         name = util.format('test-pool%d-%d', NUM++, process.pid);
     }
     opts.reqType = 'create';
     opts.type = 'pool';
     opts.idKey = 'uuid';
 
-    if (opts.exp && opts.name == '<generate>') {
+    if (opts.exp && opts.name === '<generate>') {
         opts.exp.name = name;
     }
 
@@ -131,7 +132,7 @@ function delAll(t, opts, callback) {
 
         function _afterDel() {
             done++;
-            if (done == res.length) {
+            if (done === res.length) {
                 doneRes(res, t, callback);
             }
         }

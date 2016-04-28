@@ -12,8 +12,9 @@
  * Test helpers for dealing with aggregations
  */
 
+'use strict';
+
 var assert = require('assert-plus');
-var clone = require('clone');
 var common = require('./common');
 var log = require('./log');
 var mod_client = require('./client');

@@ -12,6 +12,8 @@
  * Test helpers for dealing with fabric networks
  */
 
+'use strict';
+
 var assert = require('assert-plus');
 var clone = require('clone');
 var common = require('./common');
@@ -20,11 +22,9 @@ var fmt = require('util').format;
 var log = require('./log');
 var mod_client = require('./client');
 var mod_vasync = require('vasync');
-var util = require('util');
 var util_ip = require('../../lib/util/ip');
 
 var doneErr = common.doneErr;
-var doneRes = common.doneRes;
 
 
 
@@ -67,7 +67,7 @@ function createFabricNet(t, opts, callback) {
     var owner = params.owner_uuid;
     var vlan = params.vlan_id;
 
-    if (params.name == '<generate>') {
+    if (params.name === '<generate>') {
         params.name = generateNetworkName();
     }
 

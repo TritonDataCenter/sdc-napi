@@ -12,6 +12,8 @@
  * Main entry-point for the Networking API.
  */
 
+'use strict';
+
 var bunyan = require('bunyan');
 var napi = require('./lib/napi');
 var restify = require('restify');

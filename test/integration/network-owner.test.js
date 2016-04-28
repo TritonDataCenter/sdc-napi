@@ -12,16 +12,16 @@
  * Integration tests for /networks endpoints with owner_uuids specified
  */
 
+'use strict';
+
 var common = require('../lib/common');
 var constants = require('../../lib/util/constants');
 var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
 var mod_uuid = require('node-uuid');
 var mod_net = require('../lib/net');
-var mod_nic = require('../lib/nic');
 var mod_pool = require('../lib/pool');
 var test = require('tape');
-var util = require('util');
 var util_ip = require('../../lib/util/ip');
 var vasync = require('vasync');
 
@@ -579,10 +579,10 @@ test('teardown', function (t) {
             h.deleteNetwork(t, napi, state, 'noOwner2', cb);
 
         }, function (_, cb) {
-            h.deleteNicTags(t, napi, state);
+            h.deleteNicTags(t, napi, state, cb);
         }
     ] }, function (err) {
-        h.ifError(t, err, 'teardown pipeline');
-        return t.end();
+        t.ifError(err, 'teardown pipeline');
+        t.end();
     });
 });

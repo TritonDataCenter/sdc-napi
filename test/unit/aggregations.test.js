@@ -12,6 +12,8 @@
  * Unit tests for aggregation endpoints
  */
 
+'use strict';
+
 var h = require('./helpers');
 var common = require('../lib/common');
 var clone = require('clone');
@@ -23,7 +25,6 @@ var mod_nic = require('../lib/nic');
 var mod_nic_tag = require('../lib/nic-tag');
 var mod_uuid = require('node-uuid');
 var test = require('tape');
-var util = require('util');
 var util_mac = require('../../lib/util/mac');
 var vasync = require('vasync');
 
@@ -156,11 +157,10 @@ test('setup', function (t) {
 
     t.test('create client and server', function (t2) {
         h.createClientAndServer(function (err, res) {
-            t2.ifError(err, 'server creation');
-            t2.ok(res, 'client');
             NAPI = res;
-
-            return t2.end();
+            t2.ifError(err, 'server creation');
+            t2.ok(NAPI, 'client');
+            t2.end();
         });
     });
 
@@ -627,12 +627,11 @@ test('delete', function (t) {
         vasync.forEachParallel({
             inputs: state.aggrs,
             func: function _del(aggr, cb) {
-                mod_aggr.del(t2, aggr, function (err, res) {
-                    return cb();
-                });
+                mod_aggr.del(t2, aggr, cb);
             }
-        }, function () {
-            return t2.end();
+        }, function (err) {
+            t2.ifError(err, 'deleting aggrs should succeed');
+            t2.end();
         });
     });
 

@@ -12,6 +12,8 @@
  * Common test helpers shared between integration and unit tests
  */
 
+'use strict';
+
 var assert = require('assert-plus');
 var fmt = require('util').format;
 var clone = require('clone');
@@ -287,7 +289,7 @@ function afterAPIcall(t, opts, callback, err, obj, _, res) {
             type + 'partial result' + desc);
     }
 
-    if (opts.reqType == 'create') {
+    if (opts.reqType === 'create') {
         addToState(opts, opts.type + 's', obj);
     }
 
@@ -567,7 +569,7 @@ function randomMAC() {
     var data = [(Math.floor(Math.random() * 15) + 1).toString(16) + 2];
     for (var i = 0; i < 5; i++) {
          var oct = (Math.floor(Math.random() * 255)).toString(16);
-         if (oct.length == 1) {
+         if (oct.length === 1) {
                 oct = '0' + oct;
          }
          data.push(oct);
