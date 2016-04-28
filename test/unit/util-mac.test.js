@@ -47,6 +47,8 @@ test('macNumberToAddress - valid', function (t) {
             'MAC address "' + macs[m] + '" is valid');
         t.equal(MAC.macAddressToNumber(macs[m]), Number(m),
             'MAC number "' + m + '" is valid');
+        t.equal(MAC.macAddressToNumber(macs[m].replace(/:/g, '')), Number(m),
+            'MAC number "' + m + '" is valid (without colons)');
         t.equal(MAC.macAddressToNumber(macs[m].replace(/:/g, '-')), Number(m),
             'MAC number "' + m + '" is valid (with dashes)');
     }

@@ -559,7 +559,12 @@ test('Provision nic', function (t) {
             }
 
             t.deepEqual(res2, exp, 'get result');
-            return t.end();
+
+            NAPI.get({ path: '/nics/' + res.mac }, function (err3, res3) {
+                t.ifError(err3, 'get NIC with colons in MAC address');
+                t.deepEqual(res3, exp, 'get result');
+                t.end();
+            });
         });
     });
 });
