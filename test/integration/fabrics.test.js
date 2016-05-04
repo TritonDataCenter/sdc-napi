@@ -1200,6 +1200,43 @@ test('provision gateway', function (t) {
     });
 
 
+    t.test('updating gateway should be disallowed', function (t2) {
+        mod_net.update(t2, {
+            params: {
+                uuid: NETS[0].uuid,
+                gateway: NETS[0].gateway
+            },
+            expErr: mod_err.invalidParam('gateway',
+                'Fabric network updates for this field are not supported')
+        });
+    });
+
+
+    t.test('updating gateway_provisioned should be disallowed', function (t2) {
+        mod_net.update(t2, {
+            params: {
+                uuid: NETS[0].uuid,
+                gateway_provisioned: false
+            },
+            expErr: mod_err.invalidParam('gateway_provisioned',
+                'Fabric network updates for this field are not supported: ' +
+                'delete the gateway NIC instead')
+        });
+    });
+
+
+    t.test('updating internet_nat should be disallowed', function (t2) {
+        mod_net.update(t2, {
+            params: {
+                uuid: NETS[0].uuid,
+                internet_nat: false
+            },
+            expErr: mod_err.invalidParam('internet_nat',
+                'Fabric network updates for this field are not supported')
+        });
+    });
+
+
     // Now that we have a gateway provisioned, the nic should indicate that
     // the gateway is provisioned
     t.test('NETS[0]: nic has gateway_provisioned=true', function (t2) {
