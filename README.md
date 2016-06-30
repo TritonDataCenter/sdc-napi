@@ -81,7 +81,6 @@ The general areas are:
 - `endpoints`: All restify handlers go here
 - `models`: Modules that handle persistence of all of the various NAPI objects
 - `util`: Utility functions
-- `workflows`: Workflows to be loaded into WFAPI.
 
 
 ### models

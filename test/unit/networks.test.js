@@ -624,7 +624,6 @@ test('Create fabric network - non-private subnet', function (t) {
 test('Update network', function (t) {
     var before;
     var expected;
-    var nets;
     var num = h.NET_NUM;
     var p;
     var updateParams;
@@ -645,7 +644,6 @@ test('Update network', function (t) {
                 return t2.end();
             }
 
-            nets = res;
             return t2.end();
         });
     });
@@ -684,33 +682,8 @@ test('Update network', function (t) {
                 return t2.end();
             }
 
-            t2.ok(res2.job_uuid, 'job_uuid present');
-            expected.job_uuid = res2.job_uuid;
-
             t2.deepEqual(res2, expected, 'params updated');
-            delete expected.job_uuid;
 
-            var jobs = mod_wf.jobs;
-            jobs[0].params.networks.sort(h.uuidSort);
-            t2.deepEqual(jobs, [ {
-                name: 'net-update',
-                params: {
-                    original_network: before,
-                    target: 'net-update-' + before.uuid,
-                    task: 'update',
-                    networks:
-                        [ expected ].concat(nets).sort(h.uuidSort),
-                    update_params: {
-                        gateway: updateParams.gateway,
-                        resolvers: updateParams.resolvers,
-                        routes: updateParams.routes
-                    }
-                },
-                uuid: res2.job_uuid
-            } ], 'params updated');
-            mod_wf.jobs = [];
-            before = res2;
-            delete before.job_uuid;
 
             return t2.end();
         });
@@ -743,31 +716,7 @@ test('Update network', function (t) {
                 return t2.end();
             }
 
-            t2.ok(res3.job_uuid, 'job_uuid present');
-            expected.job_uuid = res3.job_uuid;
-
             t2.deepEqual(res3, expected, 'params updated');
-            delete expected.job_uuid;
-
-            var jobs = mod_wf.jobs;
-            jobs[0].params.networks.sort(h.uuidSort);
-            t2.deepEqual(jobs, [ {
-                name: 'net-update',
-                params: {
-                    original_network: before,
-                    target: 'net-update-' + before.uuid,
-                    task: 'update',
-                    networks:
-                        [ expected ].concat(nets).sort(h.uuidSort),
-                    update_params: {
-                        gateway: updateParams.gateway,
-                        resolvers: updateParams.resolvers,
-                        routes: updateParams.routes
-                    }
-                },
-                uuid: res3.job_uuid
-            } ], 'params updated');
-            mod_wf.jobs = [];
 
             return t2.end();
         });
