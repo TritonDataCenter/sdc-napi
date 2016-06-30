@@ -644,7 +644,6 @@ test('Update network', function (t) {
                 return t2.end();
             }
 
-            nets = res;
             return t2.end();
         });
     });
