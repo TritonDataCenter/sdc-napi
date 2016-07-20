@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright 2016, Joyent, Inc.
  */
 
 /*
@@ -29,6 +29,12 @@ var util_ip = require('../../lib/util/ip');
 
 var NET_NUM = 2;
 var NET_IPS = {};
+var NON_OBJECT_PARAMS = [
+    new Number(5), // eslint-disable-line
+    new String('hello'), // eslint-disable-line
+    new Boolean(true), // eslint-disable-line
+    [ 5 ]
+];
 var SERVER;
 
 
@@ -231,6 +237,7 @@ module.exports = {
     missingParamErr: common.missingParamErr,
     missingParam: missingParam,
     nextProvisionableIP: nextProvisionableIP,
+    NON_OBJECT_PARAMS: NON_OBJECT_PARAMS,
     get NET_NUM() {
         return NET_NUM;
     },

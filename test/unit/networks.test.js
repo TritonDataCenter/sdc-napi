@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright 2016, Joyent, Inc.
  */
 
 /*
@@ -231,6 +231,37 @@ test('Create network - all invalid parameters', function (t) {
             message: 'Invalid parameters'
         }), 'Error body');
 
+        return t.end();
+    });
+});
+
+
+test('Create network - invalid parameters (non-objects)', function (t) {
+    vasync.forEachParallel({
+        inputs: h.NON_OBJECT_PARAMS,
+        func: function (data, cb) {
+            NAPI.post({ path: '/networks' }, data, function (err) {
+                t.ok(err, util.format('error returned: %s',
+                    JSON.stringify(data)));
+                if (!err) {
+                    cb();
+                    return;
+                }
+
+                t.equal(err.statusCode, 422, 'status code');
+                t.deepEqual(err.body, {
+                    code: 'InvalidParameters',
+                    message: 'Invalid parameters',
+                    errors: [
+                        mod_err.invalidParam('parameters',
+                            constants.msg.PARAMETERS_ARE_OBJECTS)
+                    ]
+                }, 'Error body');
+
+                cb();
+            });
+        }
+    }, function () {
         return t.end();
     });
 });

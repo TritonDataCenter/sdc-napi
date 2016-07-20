@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright 2016, Joyent, Inc.
  */
 
 /*
@@ -46,6 +46,9 @@ var NET2;
 var NET3;
 var PROV_MAC_NET;
 
+
+var BAD_STATE_ERRMSG = 'must be one of: "provisioning", "stopped", "running"';
+var BAD_TYPE_ERRMSG = 'must be one of: "other", "server", "zone"';
 
 
 // --- Setup
@@ -239,7 +242,7 @@ test('Create nic - all invalid params', function (t) {
                     'must be a boolean value'),
                 mod_err.invalidParam('allow_unfiltered_promisc',
                     'must be a boolean value'),
-                mod_err.invalidParam('belongs_to_type', 'must not be empty'),
+                mod_err.invalidParam('belongs_to_type', BAD_TYPE_ERRMSG),
                 mod_err.invalidParam('belongs_to_uuid', 'invalid UUID'),
                 mod_err.invalidParam('cn_uuid', 'invalid UUID'),
                 mod_err.invalidParam('ip', 'invalid IP address'),
@@ -256,7 +259,7 @@ test('Create nic - all invalid params', function (t) {
                 mod_err.invalidParam('owner_uuid', 'invalid UUID'),
                 mod_err.invalidParam('primary', 'must be a boolean value'),
                 mod_err.invalidParam('reserved', 'must be a boolean value'),
-                mod_err.invalidParam('state', 'must be a valid state'),
+                mod_err.invalidParam('state', BAD_STATE_ERRMSG),
                 mod_err.invalidParam('vlan_id', constants.VLAN_MSG)
             ]
         }), 'Error body');
@@ -294,6 +297,37 @@ test('Create nic on network_uuid=admin', function (t) {
             return t.end();
         });
 
+    });
+});
+
+
+test('Create nic - invalid params (non-objects)', function (t) {
+    vasync.forEachParallel({
+        inputs: h.NON_OBJECT_PARAMS,
+        func: function (data, cb) {
+            NAPI.post({ path: '/nics' }, data, function (err) {
+                t.ok(err, util.format('error returned: %s',
+                    JSON.stringify(data)));
+                if (!err) {
+                    cb();
+                    return;
+                }
+
+                t.equal(err.statusCode, 422, 'status code');
+                t.deepEqual(err.body, {
+                    code: 'InvalidParameters',
+                    message: 'Invalid parameters',
+                    errors: [
+                        mod_err.invalidParam('parameters',
+                            constants.msg.PARAMETERS_ARE_OBJECTS)
+                    ]
+                }, 'Error body');
+
+                cb();
+            });
+        }
+    }, function () {
+        return t.end();
     });
 });
 
@@ -341,12 +375,25 @@ test('Create nic - invalid params', function (t) {
                 mod_err.invalidParam('vlan_id',
                     'No networks found matching parameters') ] ],
 
+        [ 'belongs_to_type must be a valid value',
+            { ip: '10.0.2.3', belongs_to_type: 'router', belongs_to_uuid: uuid,
+                owner_uuid: owner, network_uuid: NET.uuid, state: 'running' },
+                [ mod_err.invalidParam('belongs_to_type', BAD_TYPE_ERRMSG) ] ],
+
+        [ 'belongs_to_type must be a string',
+            { ip: '10.0.2.3', belongs_to_type: true, belongs_to_uuid: uuid,
+                owner_uuid: owner, network_uuid: NET.uuid, state: 'running' },
+                [ mod_err.invalidParam('belongs_to_type', BAD_TYPE_ERRMSG) ] ],
+
+        [ 'state must be a valid value',
+            { ip: '10.0.2.3', belongs_to_type: type, belongs_to_uuid: uuid,
+                owner_uuid: owner, network_uuid: NET.uuid, state: 'deleted' },
+                [ mod_err.invalidParam('state', BAD_STATE_ERRMSG) ] ],
+
         [ 'state must be a string',
             { ip: '10.0.2.3', belongs_to_type: type, belongs_to_uuid: uuid,
                 owner_uuid: owner, network_uuid: NET.uuid, state: true },
-                [ mod_err.invalidParam('state', 'must be a string') ] ]
-
-        // XXX: belongs_to_type must be zone, server, other
+                [ mod_err.invalidParam('state', BAD_STATE_ERRMSG) ] ]
     ];
 
     vasync.forEachParallel({
@@ -1516,8 +1563,7 @@ test('Update nic - all invalid params', function (t) {
             t.equal(err2.statusCode, 422, 'status code');
             t.deepEqual(err2.body, h.invalidParamErr({
                 errors: [
-                    mod_err.invalidParam('belongs_to_type',
-                        'must not be empty'),
+                    mod_err.invalidParam('belongs_to_type', BAD_TYPE_ERRMSG),
                     mod_err.invalidParam('belongs_to_uuid', 'invalid UUID'),
                     mod_err.invalidParam('ip', 'invalid IP address'),
                     mod_err.invalidParam('model', 'must not be empty'),
@@ -1532,7 +1578,7 @@ test('Update nic - all invalid params', function (t) {
                     mod_err.invalidParam('owner_uuid', 'invalid UUID'),
                     mod_err.invalidParam('primary', 'must be a boolean value'),
                     mod_err.invalidParam('reserved', 'must be a boolean value'),
-                    mod_err.invalidParam('state', 'must be a valid state'),
+                    mod_err.invalidParam('state', BAD_STATE_ERRMSG),
                     mod_err.invalidParam('vlan_id', constants.VLAN_MSG)
                 ]
             }), 'Error body');
@@ -1589,8 +1635,7 @@ test('Update nic - invalid params', function (t) {
         [ 'state must be a valid state',
             { ip: fmt('10.0.%d.2', NET.num), network_uuid: NET.uuid,
                 state: 'oogabooga' },
-            [ mod_err.invalidParam('state',
-                'must be a valid state') ] ]
+            [ mod_err.invalidParam('state', BAD_STATE_ERRMSG) ] ]
     ];
 
     NAPI.createNic(mac, goodParams, function (err, res) {

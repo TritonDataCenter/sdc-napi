@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright 2016, Joyent, Inc.
  */
 
 /*
@@ -25,6 +25,7 @@ var mod_nic = require('../lib/nic');
 var mod_nic_tag = require('../lib/nic-tag');
 var mod_uuid = require('node-uuid');
 var test = require('tape');
+var util = require('util');
 var util_mac = require('../../lib/util/mac');
 var vasync = require('vasync');
 
@@ -415,6 +416,38 @@ test('create', function (t) {
     // XXX: nic in use by another aggr
     // XXX: nic tag in use by another aggr
 });
+
+
+test('create - invalid params (non-objects)', function (t) {
+    vasync.forEachParallel({
+        inputs: h.NON_OBJECT_PARAMS,
+        func: function (data, cb) {
+            NAPI.post({ path: '/aggregations' }, data, function (err) {
+                t.ok(err, util.format('error returned: %s',
+                    JSON.stringify(data)));
+                if (!err) {
+                    cb();
+                    return;
+                }
+
+                t.equal(err.statusCode, 422, 'status code');
+                t.deepEqual(err.body, {
+                    code: 'InvalidParameters',
+                    message: 'Invalid parameters',
+                    errors: [
+                        mod_err.invalidParam('parameters',
+                            constants.msg.PARAMETERS_ARE_OBJECTS)
+                    ]
+                }, 'Error body');
+
+                cb();
+            });
+        }
+    }, function () {
+        return t.end();
+    });
+});
+
 
 
 

@@ -499,9 +499,7 @@ test('Update IP - both missing and invalid params (IP not in moray)',
         t.equal(err.statusCode, 422, 'status code');
         t.deepEqual(err.body, h.invalidParamErr({
             errors: [
-                h.missingParam('belongs_to_type', 'Missing parameter'),
-                mod_err.invalidParam('belongs_to_uuid', 'invalid UUID'),
-                h.missingParam('owner_uuid', 'Missing parameter')
+                mod_err.invalidParam('belongs_to_uuid', 'invalid UUID')
             ]
         }), 'Error body');
 
