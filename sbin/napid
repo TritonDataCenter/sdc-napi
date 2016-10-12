@@ -6,7 +6,7 @@
 #
 
 #
-# Copyright 2015 Joyent, Inc.
+# Copyright 2017 Joyent, Inc.
 #
 
 TOP=$(unset CDPATH; cd $(dirname $0)/../; pwd)
@@ -18,10 +18,11 @@ if [[ ! -d "${NODE_INSTALL}" && -d "${TOP}/build/node" ]]; then
 fi
 
 NODE=${NODE_INSTALL}/bin/node
+NODE_FLAGS=(--expose-gc --abort-on-uncaught-exception)
 
 if [[ -z "${SMF_FMRI}" ]]; then
-        ${NODE} --abort-on-uncaught-exception ${TOP}/server.js "$@" \
+        ${NODE} ${NODE_FLAGS[@]} ${TOP}/server.js "$@" \
             | ${NODE} ${TOP}/node_modules/.bin/bunyan
 else
-        ${NODE} --abort-on-uncaught-exception ${TOP}/server.js "$@"
+        ${NODE} ${NODE_FLAGS[@]} ${TOP}/server.js "$@"
 fi
