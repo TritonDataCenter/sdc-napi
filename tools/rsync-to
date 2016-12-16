@@ -19,11 +19,12 @@ set -o errexit
 TOP=$(cd $(dirname $0)/../; pwd)
 NODE=root@$1
 
-if [[ -z "$NAPI_ZONE" ]]; then
-    NAPI_ZONE=$(ssh $NODE "/opt/smartdc/bin/sdc-vmapi /vms" 2>/dev/null \
+while [[ -z "$NAPI_ZONE" ]]; do
+    echo "Trying to get NAPI zone"
+    NAPI_ZONE=$(ssh $NODE "/opt/smartdc/bin/sdc-vmapi /vms?alias=napi0" 2>/dev/null \
         | json -H -c 'this.tags && this.tags.smartdc_role === "napi"' \
             -c 'this.state === "running"' 0.uuid)
-fi
+done
 echo "NAPI_ZONE: $NAPI_ZONE"
 
 extraOpts=
