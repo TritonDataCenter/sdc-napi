@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright 2017, Joyent, Inc.
  */
 
 /*
@@ -15,16 +15,17 @@
 'use strict';
 
 var common = require('../lib/common');
-var extend = require('xtend');
 var fmt = require('util').format;
 var h = require('./helpers');
 var mod_err = require('../lib/err');
+var mod_jsprim = require('jsprim');
 var mod_uuid = require('node-uuid');
 var mod_fabric_net = require('../lib/fabric-net');
 var mod_vasync = require('vasync');
 var mod_vlan = require('../lib/vlan');
 var test = require('../lib/fabrics').testIfEnabled;
 
+var extend = mod_jsprim.mergeObjects;
 
 
 // --- Globals

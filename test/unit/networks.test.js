@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright 2016, Joyent, Inc.
+ * Copyright 2017, Joyent, Inc.
  */
 
 /*
@@ -23,6 +23,7 @@ var mod_err = require('../../lib/util/errors');
 var mod_ip = require('../../lib/models/ip');
 var mod_moray = require('../lib/moray');
 var mod_net = require('../lib/net');
+var mod_server = require('../lib/server');
 var mod_test_err = require('../lib/err');
 var mod_uuid = require('node-uuid');
 var test = require('tape');
@@ -39,6 +40,7 @@ var CONF = require('../config.json');
 // 65 character string:
 var LONG_STR =
     'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
+var MORAY;
 var NAPI;
 var TAG;
 var MSG = {
@@ -58,10 +60,14 @@ var USE_STRINGS = true;
 
 
 test('Initial setup', function (t) {
-    h.createClientAndServer(function (err, res) {
+    h.reset();
+
+    h.createClientAndServer(function (err, res, moray) {
         t.ifError(err, 'server creation');
         t.ok(res, 'client');
+        t.ok(moray, 'moray');
         NAPI = res;
+        MORAY = moray;
         if (!NAPI) {
             t.end();
         }
@@ -904,14 +910,16 @@ test('Update provision range', function (t) {
             });
 
         }, function (_, cb) {
-            t.deepEqual(mod_moray.getIPs(net.uuid), [
-                placeholderRec('10.1.2.9'),
-                placeholderRec('10.1.2.251'),
-                adminOtherRec('10.1.2.255')
-            ], 'moray IPs');
+            mod_moray.getIPs(MORAY, net.uuid, function (err, ips) {
+                t.ifError(err, 'Getting IPs shouldn\'t fail');
+                t.deepEqual(ips, [
+                    placeholderRec('10.1.2.9'),
+                    placeholderRec('10.1.2.251'),
+                    adminOtherRec('10.1.2.255')
+                ], 'Moray IPs');
 
-            return cb();
-
+                cb();
+            });
         }, function (_, cb) {
             var ip = '10.1.2.19';
             var params = {
@@ -971,17 +979,18 @@ test('Update provision range', function (t) {
             });
 
         }, function (_, cb) {
-            t.deepEqual(mod_moray.getIPs(net.uuid), [
-                placeholderRec('10.1.2.9'),
-                zoneRec('10.1.2.19'),
-                zoneRec('10.1.2.241'),
-                placeholderRec('10.1.2.251'),
-                adminOtherRec('10.1.2.255')
-            ], 'moray list after first update');
+            mod_moray.getIPs(MORAY, net.uuid, function (err, ips) {
+                t.ifError(err, 'Getting IPs shouldn\'t fail');
+                t.deepEqual(ips, [
+                    placeholderRec('10.1.2.9'),
+                    zoneRec('10.1.2.19'),
+                    zoneRec('10.1.2.241'),
+                    placeholderRec('10.1.2.251'),
+                    adminOtherRec('10.1.2.255')
+                ], 'moray list after first update');
 
-            return cb();
-
-
+                cb();
+            });
         }, function (_, cb) {
             var updates = [
                 {
@@ -1134,16 +1143,19 @@ test('Update provision range', function (t) {
                         t.equal(res2[ip], p[ip], u.desc + ': ' + ip);
                     });
 
-                    t.deepEqual(mod_moray.getIPs(net.uuid), u.morayAfter,
-                        u.desc + ': moray');
+                    mod_moray.getIPs(MORAY, net.uuid, function (mErr, ipObjs) {
+                        t.ifError(mErr, 'Getting IPs shouldn\'t fail');
+                        t.deepEqual(ipObjs, u.morayAfter, u.desc + ': moray');
 
-                    NAPI.listIPs(net.uuid, function (err3, ips) {
-                        if (h.ifErr(t, err3, u.desc + ': listing IPs')) {
-                            return cb2(err3);
-                        }
+                        NAPI.listIPs(net.uuid, function (lErr, ips) {
+                            if (h.ifErr(t, lErr, u.desc + ': listing IPs')) {
+                                cb2(lErr);
+                                return;
+                            }
 
-                        t.deepEqual(ips, u.ipList, u.desc + ': IP list');
-                        return cb2();
+                            t.deepEqual(ips, u.ipList, u.desc + ': IP list');
+                            cb2();
+                        });
                     });
                 });
             }
@@ -1282,7 +1294,7 @@ test('Update network - invalid parameters', function (t) {
 
 
 test('Update network - unset owner_uuids', function (t) {
-    t.plan(14);
+    t.plan(16);
 
     var exp;
     var networks = [];
@@ -1304,16 +1316,19 @@ test('Update network - unset owner_uuids', function (t) {
 
     t.test('moray state after create', function (t2) {
         exp = networks[0];
-        var obj = mod_moray.getObj('napi_networks', exp.uuid);
-        t2.ok(obj, 'Have moray obj');
+        MORAY.getObject('napi_networks', exp.uuid, function (err, obj) {
+            t2.ifError(err, 'Getting network shouldn\'t fail');
+            t2.ok(obj, 'Have Moray obj');
 
-        if (obj) {
-            t2.equal(obj.owner_uuids, ',' + owners.join(',') + ',',
-                'owner_uuids');
-            t2.deepEqual(obj.owner_uuids_arr, owners, 'owner_uuids_arr');
-        }
+            if (obj) {
+                obj = obj.value;
+                t2.equal(obj.owner_uuids, ',' + owners.join(',') + ',',
+                    'owner_uuids');
+                t2.deepEqual(obj.owner_uuids_arr, owners, 'owner_uuids_arr');
+            }
 
-        return t2.end();
+            t2.end();
+        });
     });
 
     t.test('list after create', function (t2) {
@@ -1352,17 +1367,20 @@ test('Update network - unset owner_uuids', function (t) {
 
     t.test('moray state after update', function (t2) {
         exp = networks[0];
-        var obj = mod_moray.getObj('napi_networks', exp.uuid);
-        t2.ok(obj, 'Have moray obj');
+        MORAY.getObject('napi_networks', exp.uuid, function (err, obj) {
+            t2.ifError(err, 'Getting network shouldn\'t fail');
+            t2.ok(obj, 'Have Moray obj');
 
-        if (obj) {
-            t2.ok(!obj.hasOwnProperty('owner_uuids'),
-                'no owner_uuids property');
-            t2.ok(!obj.hasOwnProperty('owner_uuids_arr'),
-                'no owner_uuids property');
-        }
+            if (obj) {
+                obj = obj.value;
+                t2.ok(!obj.hasOwnProperty('owner_uuids'),
+                    'no owner_uuids property');
+                t2.ok(!obj.hasOwnProperty('owner_uuids_arr'),
+                    'no owner_uuids property');
+            }
 
-        return t2.end();
+            t2.end();
+        });
     });
 
     t.test('list after update', function (t2) {
@@ -1404,26 +1422,28 @@ test('Update network - unset owner_uuids', function (t) {
 
     t.test('moray state after empty array create', function (t2) {
         exp = networks[1];
-        var obj = mod_moray.getObj('napi_networks', exp.uuid);
-        t2.ok(obj, 'Have moray obj');
+        MORAY.getObject('napi_networks', exp.uuid, function (err, obj) {
+            t2.ifError(err, 'Getting network shouldn\'t fail');
+            t2.ok(obj, 'Have Moray obj');
 
-        if (obj) {
-            t2.ok(!obj.hasOwnProperty('owner_uuids'),
-                'no owner_uuids property');
-            t2.ok(!obj.hasOwnProperty('owner_uuids_arr'),
-                'no owner_uuids_arr property');
-        }
+            if (obj) {
+                obj = obj.value;
+                t2.ok(!obj.hasOwnProperty('owner_uuids'),
+                    'no owner_uuids property');
+                t2.ok(!obj.hasOwnProperty('owner_uuids_arr'),
+                    'no owner_uuids_arr property');
+            }
 
-        return t2.end();
+            t2.end();
+        });
     });
 
     t.test('list after empty create', function (t2) {
-        mod_net.get(t2, {
+        mod_net.list(t2, {
             params: {
-                provisionable_by: owners[1],
-                uuid: exp.uuid
+                provisionable_by: owners[1]
             },
-            exp: exp
+            present: [ exp ]
         });
     });
 
@@ -1437,16 +1457,29 @@ test('Update network - unset owner_uuids', function (t) {
         });
     });
 
-    t.test('get after moray object change', function (t2) {
-        var obj = mod_moray.getObj('napi_networks', exp.uuid);
-        obj.owner_uuids = ',,';
+    t.test('NAPI-186: owner_uuids=",," should be okay', function (t2) {
+        // The string ',,' should be okay to return from Moray.
+        MORAY.getObject('napi_networks', exp.uuid, function (gErr, res) {
+            if (h.ifErr(t2, gErr, 'getObject() error')) {
+                t2.end();
+                return;
+            }
 
-        mod_net.get(t2, {
-            params: {
-                provisionable_by: owners[1],
-                uuid: exp.uuid
-            },
-            exp: exp
+            delete res.value.owner_uuids_arr;
+            res.value.owner_uuids = ',,';
+
+            MORAY.putObject('napi_networks', exp.uuid, res.value,
+                function (pErr) {
+                t2.ifError(pErr, 'Putting new network object should succeed');
+
+                mod_net.get(t2, {
+                    params: {
+                        provisionable_by: owners[1],
+                        uuid: exp.uuid
+                    },
+                    exp: exp
+                });
+            });
         });
     });
 
@@ -1455,6 +1488,41 @@ test('Update network - unset owner_uuids', function (t) {
             present: [ {
                 uuid: exp.uuid,
                 owner_uuids: undefined
+            } ]
+        });
+    });
+
+    t.test('owner_uuids_arr=[] should be okay', function (t2) {
+        // An empty array should be okay to return from Moray.
+        MORAY.getObject('napi_networks', exp.uuid, function (gErr, res) {
+            if (h.ifErr(t2, gErr, 'getObject() error')) {
+                t2.end();
+                return;
+            }
+
+            res.value.owner_uuids_arr = [];
+            exp.owner_uuids = [];
+
+            MORAY.putObject('napi_networks', exp.uuid, res.value,
+                function (pErr) {
+                t2.ifError(pErr, 'Putting new network object should succeed');
+
+                mod_net.get(t2, {
+                    params: {
+                        provisionable_by: owners[1],
+                        uuid: exp.uuid
+                    },
+                    exp: exp
+                });
+            });
+        });
+    });
+
+    t.test('list after moray object change', function (t2) {
+        mod_net.list(t2, {
+            present: [ {
+                uuid: exp.uuid,
+                owner_uuids: []
             } ]
         });
     });
@@ -1488,9 +1556,4 @@ test('Listing Network failures', function (t) {
 
 
 
-test('Stop server', function (t) {
-    h.stopServer(function (err) {
-        t.ifError(err, 'server stop');
-        t.end();
-    });
-});
+test('Stop server', mod_server.close);

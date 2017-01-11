@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright 2017, Joyent, Inc.
  */
 
 /*
@@ -18,6 +18,7 @@ var constants = require('../../lib/util/constants');
 var helpers = require('./helpers');
 var mod_err = require('../../lib/util/errors');
 var mod_nic = require('../lib/nic');
+var mod_server = require('../lib/server');
 var mod_uuid = require('node-uuid');
 var test = require('tape');
 var util_ip = require('../../lib/util/ip');
@@ -311,6 +312,8 @@ function updatePoolFailure(uuid, params, invalidNets, t) {
 
 
 test('setup', function (t) {
+    helpers.reset();
+
     t.plan(7);
 
     t.test('create client and server', function (t2) {
@@ -547,7 +550,7 @@ test('pool update', function (t) {
 
 
 test('nic provision', function (t) {
-    t.plan(7);
+    t.plan(8);
 
     t.test('on network pool with same owner_uuid', function (t2) {
         return provisionNic(pools[0].uuid, { owner_uuid: owner }, t2,
@@ -565,25 +568,42 @@ test('nic provision', function (t) {
 
 
     t.test('with a different owner_uuid', function (t2) {
-        NAPI.provisionNic(nets[0].uuid, {
+        mod_nic.provision(t2, {
+            net: nets[0].uuid,
+            params: {
                 belongs_to_type: 'zone',
                 belongs_to_uuid: mod_uuid.v4(),
                 owner_uuid: mod_uuid.v4()
-        }, function (err, res) {
-            t2.ok(err, 'error returned');
-            if (!err) {
-                return t2.end();
-            }
-
-            t2.equal(err.statusCode, 422, 'status code');
-            t2.deepEqual(err.body, helpers.invalidParamErr({
+            },
+            expCode: 422,
+            expErr: helpers.invalidParamErr({
                 errors: [
                     mod_err.invalidParam('owner_uuid',
                         constants.OWNER_MATCH_MSG)
                 ]
-            }), 'Error body');
+            })
+        });
+    });
 
-            return t2.end();
+
+    t.test('with a different owner_uuid and no network_uuid', function (t2) {
+        mod_nic.create(t2, {
+            mac: helpers.randomMAC(),
+            params: {
+                belongs_to_type: 'zone',
+                belongs_to_uuid: mod_uuid.v4(),
+                owner_uuid: mod_uuid.v4(),
+                vlan_id: nets[0].vlan_id,
+                nic_tag: nets[0].nic_tag,
+                ip: helpers.nextProvisionableIP(nets[0], true)
+            },
+            expCode: 422,
+            expErr: helpers.invalidParamErr({
+                errors: [
+                    mod_err.invalidParam('owner_uuid',
+                        constants.OWNER_MATCH_MSG)
+                ]
+            })
         });
     });
 
@@ -901,9 +921,4 @@ test('reserve', function (t) {
 
 
 
-test('Stop server', function (t) {
-    helpers.stopServer(function (err) {
-        t.ifError(err, 'server stop');
-        t.end();
-    });
-});
+test('Stop server', mod_server.close);

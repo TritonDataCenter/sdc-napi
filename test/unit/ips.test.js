@@ -20,6 +20,7 @@ var common = require('../lib/common');
 var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
 var mod_uuid = require('node-uuid');
+var mod_server = require('../lib/server');
 var test = require('tape');
 var util = require('util');
 var vasync = require('vasync');
@@ -766,9 +767,4 @@ test('Listing IPv4 failures', function (t) {
 
 
 
-test('Stop server', function (t) {
-    h.stopServer(function (err) {
-        t.ifError(err, 'server stop');
-        t.end();
-    });
-});
+test('Stop server', mod_server.close);

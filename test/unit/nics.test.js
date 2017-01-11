@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright 2016, Joyent, Inc.
+ * Copyright 2017, Joyent, Inc.
  */
 
 /*
@@ -16,16 +16,17 @@
 
 var common = require('../lib/common');
 var constants = require('../../lib/util/constants');
-var extend = require('xtend');
 var fmt = require('util').format;
 var h = require('./helpers');
 var ip_common = require('../../lib/models/ip/common');
 var mod_err = require('../../lib/util/errors');
 var mod_ip = require('../lib/ip');
+var mod_jsprim = require('jsprim');
 var mod_moray = require('../lib/moray');
 var mod_net = require('../lib/net');
 var mod_nic = require('../lib/nic');
 var mod_nicTag = require('../lib/nic-tag');
+var mod_server = require('../lib/server');
 var mod_uuid = require('node-uuid');
 var test = require('tape');
 var util = require('util');
@@ -33,6 +34,7 @@ var util_ip = require('../../lib/util/ip');
 var util_mac = require('../../lib/util/mac');
 var vasync = require('vasync');
 
+var extend = mod_jsprim.mergeObjects;
 
 
 // --- Globals
@@ -40,10 +42,12 @@ var vasync = require('vasync');
 
 
 var ADMIN_NET;
+var MORAY;
 var NAPI;
 var NET;
 var NET2;
 var NET3;
+var NET4;
 var PROV_MAC_NET;
 
 
@@ -56,14 +60,18 @@ var BAD_TYPE_ERRMSG = 'must be one of: "other", "server", "zone"';
 
 
 test('Initial setup', function (t) {
+    h.reset();
+
     var num = h.NET_NUM;
     var netParams = h.validNetworkParams();
 
     t.test('create client and server', function (t2) {
-        h.createClientAndServer(function (err, res) {
+        h.createClientAndServer(function (err, res, moray) {
             t2.ifError(err, 'server creation');
             t2.ok(res, 'client');
+            t2.ok(moray, 'moray');
             NAPI = res;
+            MORAY = moray;
 
             t2.end();
         });
@@ -72,6 +80,12 @@ test('Initial setup', function (t) {
     t.test('create nic tag', function (t2) {
         mod_nicTag.create(t2, {
             name: netParams.nic_tag
+        });
+    });
+
+    t.test('create nic_tag2', function (t2) {
+        mod_nicTag.create(t2, {
+            name: 'nic_tag2'
         });
     });
 
@@ -118,6 +132,26 @@ test('Initial setup', function (t) {
             NET3.num = num;
 
             return t2.end();
+        });
+    });
+
+    t.test('create net4', function (t2) {
+        num = h.NET_NUM;
+        var params = h.validNetworkParams({
+            vlan_id: NET2.vlan_id,
+            nic_tag: NET2.nic_tag,
+            subnet: NET2.subnet,
+            provision_start_ip: NET2.provision_start_ip,
+            provision_end_ip: NET2.provision_end_ip
+        });
+        mod_net.create(t2, {
+            params: params,
+            partialExp: params
+        }, function (_, res) {
+            NET4 = res;
+            NET4.num = num;
+
+            t2.end();
         });
     });
 
@@ -370,10 +404,28 @@ test('Create nic - invalid params', function (t) {
         [ 'nic_tag and vlan_id do not match any networks',
             { ip: '10.0.2.3', belongs_to_type: type, belongs_to_uuid: uuid,
                 nic_tag: NET.nic_tag, owner_uuid: owner, vlan_id: 656 },
-                [ mod_err.invalidParam('nic_tag',
-                    'No networks found matching parameters'),
-                mod_err.invalidParam('vlan_id',
-                    'No networks found matching parameters') ] ],
+                [ mod_err.invalidParam('ip', util.format(
+                    constants.fmt.IP_NONET, NET.nic_tag, 656, '10.0.2.3')) ] ],
+
+        [ 'nic_tag and vlan_id present, IP matches multiple subnets',
+            { ip: h.nextProvisionableIP(NET2, true), belongs_to_type: type,
+                belongs_to_uuid: uuid, nic_tag: NET2.nic_tag,
+                owner_uuid: owner, vlan_id: NET2.vlan_id },
+                [ mod_err.invalidParam('ip', util.format(constants.fmt.IP_MULTI,
+                    [ NET2.uuid, NET4.uuid ].sort().join(', '),
+                    h.nextProvisionableIP(NET2, true))) ] ],
+
+        [ 'vlan_id different between NIC parameters and network',
+            { belongs_to_type: type, belongs_to_uuid: uuid, owner_uuid: owner,
+                network_uuid: NET.uuid, vlan_id: 47 },
+                [ mod_err.invalidParam('network_uuid', util.format(
+                    constants.fmt.VLAN_IDS_DIFFER, 47, 0)) ] ],
+
+        [ 'nic_tag different between NIC parameters and network',
+            { belongs_to_type: type, belongs_to_uuid: uuid, owner_uuid: owner,
+                network_uuid: NET.uuid, nic_tag: 'nic_tag2' },
+                [ mod_err.invalidParam('network_uuid', util.format(
+                    constants.fmt.NIC_TAGS_DIFFER, 'nic_tag2', 'nic_tag')) ] ],
 
         [ 'belongs_to_type must be a valid value',
             { ip: '10.0.2.3', belongs_to_type: 'router', belongs_to_uuid: uuid,
@@ -470,7 +522,7 @@ test('Create nic - invalid params', function (t) {
 
 
 test('Create nic - empty nic_tags_provided', function (t) {
-    t.plan(8);
+    t.plan(9);
     var d = {};
 
     t.test('create', function (t2) {
@@ -527,6 +579,16 @@ test('Create nic - empty nic_tags_provided', function (t) {
         });
     });
 
+    t.test('search for nic_tags_provided=tag52', function (t2) {
+        mod_nic.list(t2, {
+            params: {
+                nic_tags_provided: [ 'tag52' ]
+            },
+            deepEqual: true,
+            present: [ d.exp ]
+        });
+    });
+
     t.test('unset nic_tags_provided', function (t2) {
         delete d.exp.nic_tags_provided;
 
@@ -540,11 +602,12 @@ test('Create nic - empty nic_tags_provided', function (t) {
     });
 
     t.test('moray: after update', function (t2) {
-        var mNic = mod_moray.getNic(d.exp.mac);
-        t2.ok(!mNic.hasOwnProperty('nic_tags_provided'),
-            'nic_tags_provided unset on moray object');
-
-        return t2.end();
+        mod_moray.getNic(MORAY, d.exp.mac, function (err, mNic) {
+            t2.ifError(err, 'Should get the NIC successfully');
+            t2.ok(!mNic.hasOwnProperty('nic_tags_provided'),
+                'nic_tags_provided unset on moray object');
+            t2.end();
+        });
     });
 
     t.test('set nic_tags_provided again', function (t2) {
@@ -670,105 +733,227 @@ test('Provision nic: exceed MAC retries', function (t) {
         belongs_to_uuid: mod_uuid.v4(),
         owner_uuid: mod_uuid.v4()
     };
-    var numNicsBefore = mod_moray.getNics().length;
+    var numNicsBefore;
 
-    var errs = [ ];
-    for (var i = 0; i < constants.MAC_RETRIES + 1; i++) {
-        var fakeErr = new Error('Already exists');
-        fakeErr.name = 'EtagConflictError';
-        fakeErr.context = { bucket: 'napi_nics' };
-        errs.push(fakeErr);
-    }
-    mod_moray.setErrors({ batch: errs });
+    t.test('Get count of NICs before', function (t2) {
+        mod_moray.countNics(MORAY, function (err, count) {
+            t2.ifError(err, 'Count should succeed');
+            numNicsBefore = count;
+            t2.end();
+        });
+    });
 
-    NAPI.provisionNic(PROV_MAC_NET.uuid, params, function (err) {
-        t.ok(err, 'error returned');
-        if (!err) {
-            return t.end();
+    t.test('Provision new NIC', function (t2) {
+        var errs = [ ];
+        for (var i = 0; i < constants.MAC_RETRIES + 1; i++) {
+            var fakeErr = new Error('Already exists');
+            fakeErr.name = 'EtagConflictError';
+            fakeErr.context = { bucket: 'napi_nics' };
+            errs.push(fakeErr);
         }
+        MORAY.setMockErrors({ batch: errs });
 
-        t.equal(err.statusCode, 500, 'status code');
-        t.deepEqual(err.body, {
-            code: 'InternalError',
-            message: 'no more free MAC addresses'
-        }, 'Error body');
-
-        // Confirm that the IP was freed
-        NAPI.getIP(PROV_MAC_NET.uuid, PROV_MAC_NET.provision_start_ip,
-            function (err2, res) {
-            if (h.ifErr(t, err2, 'getIP error')) {
-                return t.end();
+        NAPI.provisionNic(PROV_MAC_NET.uuid, params, function (err) {
+            t2.ok(err, 'error returned');
+            if (!err) {
+                t2.end();
+                return;
             }
 
-            t.equal(res.free, true, 'IP has been freed');
-            var ipRec = mod_moray.getIP(PROV_MAC_NET.uuid,
-                PROV_MAC_NET.provision_start_ip);
-            t.ok(!ipRec, 'IP record does not exist in moray');
+            t2.equal(err.statusCode, 500, 'status code');
+            t2.deepEqual(err.body, {
+                code: 'InternalError',
+                message: 'no more free MAC addresses'
+            }, 'Error body');
 
-            t.equal(mod_moray.getNics().length, numNicsBefore,
-                'no new nic records added');
+            t2.end();
+        });
+    });
 
-            // Make sure we actually hit all of the errors:
-            t.deepEqual(mod_moray.getErrors(), {
-                batch: [ ]
-            }, 'no more batch errors left');
+    t.test('Confirm that the IP is free', function (t2) {
+        NAPI.getIP(PROV_MAC_NET.uuid, PROV_MAC_NET.provision_start_ip,
+            function (err2, res) {
+            if (h.ifErr(t2, err2, 'getIP error')) {
+                t2.end();
+                return;
+            }
 
-            return t.end();
+            t2.equal(res.free, true, 'IP has been freed');
+            mod_moray.getIP(MORAY, PROV_MAC_NET.uuid,
+                PROV_MAC_NET.provision_start_ip, function (err3, ipRec) {
+                t2.ok(err3, 'Getting IP should fail');
+                t2.ok(!ipRec, 'IP record does not exist in moray');
+
+                mod_moray.countNics(MORAY, function (err4, numNicsAfter) {
+                    t2.ifError(err4, 'Count should succeed');
+                    t2.equal(numNicsAfter, numNicsBefore,
+                        'no new nic records added');
+
+                    // Make sure we actually hit all of the errors:
+                    t2.deepEqual(MORAY.getMockErrors(), {
+                        batch: [ ]
+                    }, 'no more batch errors left');
+
+                    t2.end();
+                });
+            });
         });
     });
 });
 
 
 test('Provision nic: exceed IP retries', function (t) {
+    var numNicsBefore;
     var params = {
         belongs_to_type: 'zone',
         belongs_to_uuid: mod_uuid.v4(),
         owner_uuid: mod_uuid.v4()
     };
-    var numNicsBefore = mod_moray.getNics().length;
 
-    var errs = [ ];
+    var startIP = h.nextProvisionableIP(PROV_MAC_NET, true);
+    var ips = [];
     for (var i = 0; i < constants.IP_PROVISION_RETRIES + 2; i++) {
+        ips.push(util_ip.ipAddrPlus(util_ip.toIPAddr(startIP), i).toString());
+    }
+
+    t.test('Count NICs before provision attempt', function (t2) {
+        mod_moray.countNics(MORAY, function (err, count) {
+            t2.ifError(err, 'Count should succeed');
+            numNicsBefore = count;
+            t2.end();
+        });
+    });
+
+    t.test('Attempt NIC provision', function (t2) {
+        var errs = ips.map(function (curr) {
+            var fakeErr = new Error('Already exists');
+            fakeErr.name = 'EtagConflictError';
+            fakeErr.context = {
+                bucket: ip_common.bucketName(PROV_MAC_NET.uuid),
+                key: curr
+            };
+            return fakeErr;
+        });
+        MORAY.setMockErrors({ batch: errs });
+
+        mod_nic.provision(t2, {
+            net: PROV_MAC_NET.uuid,
+            params: params,
+            expCode: 507,
+            expErr: {
+                code: 'SubnetFull',
+                message: constants.SUBNET_FULL_MSG,
+                network_uuid: PROV_MAC_NET.uuid
+            }
+        });
+    });
+
+    t.test('No new NICs created', function (t2) {
+        // Make sure we actually hit all of the errors:
+        t2.deepEqual(MORAY.getMockErrors(), {
+            batch: [ ]
+        }, 'no more batch errors left');
+
+        mod_moray.countNics(MORAY, function (err4, numNicsAfter) {
+            t2.ifError(err4, 'Counting NICs should succeed');
+            t2.equal(numNicsAfter, numNicsBefore,
+                'no new nic records added');
+            t2.end();
+        });
+    });
+
+    ips.forEach(function (ip) {
+        t.test('Confirm that the IP is free: ' + ip, function (t2) {
+            NAPI.getIP(PROV_MAC_NET.uuid, ip, function (err2, res) {
+                if (h.ifErr(t2, err2, 'getIP error')) {
+                    t2.end();
+                    return;
+                }
+
+                t2.equal(res.free, true, 'IP has been freed');
+                mod_moray.getIP(MORAY, PROV_MAC_NET.uuid,
+                    PROV_MAC_NET.provision_start_ip, function (err3, ipRec) {
+                    t2.ok(err3, 'Getting IP should fail');
+                    t2.ok(!ipRec, 'IP record does not exist in moray');
+                    t2.end();
+                });
+            });
+        });
+    });
+});
+
+
+test('Provision NIC w/ IP: IP taken during provision', function (t) {
+    var params = {
+        belongs_to_type: 'zone',
+        belongs_to_uuid: mod_uuid.v4(),
+        owner_uuid: mod_uuid.v4(),
+        ip: h.nextProvisionableIP(PROV_MAC_NET, true)
+    };
+    var numNicsBefore;
+
+    t.test('Count NICs before provision attempt', function (t2) {
+        mod_moray.countNics(MORAY, function (err, count) {
+            t2.ifError(err, 'Count should succeed');
+            numNicsBefore = count;
+            t2.end();
+        });
+    });
+
+    t.test('Attempt NIC provision', function (t2) {
         var fakeErr = new Error('Already exists');
         fakeErr.name = 'EtagConflictError';
-        fakeErr.context = { bucket: ip_common.bucketName(PROV_MAC_NET.uuid) };
-        errs.push(fakeErr);
-    }
-    mod_moray.setErrors({ batch: errs });
+        fakeErr.context = {
+            bucket: ip_common.bucketName(PROV_MAC_NET.uuid),
+            key: params.ip
+        };
+        MORAY.setMockErrors({ batch: [ fakeErr ] });
 
-    NAPI.provisionNic(PROV_MAC_NET.uuid, params, function (err) {
-        t.ok(err, 'error returned');
-        if (!err) {
-            return t.end();
-        }
+        mod_nic.provision(t2, {
+            net: PROV_MAC_NET.uuid,
+            params: params,
+            expCode: 422,
+            expErr: h.invalidParamErr({
+                errors: [
+                    mod_err.duplicateParam('ip', fmt(constants.fmt.IP_EXISTS,
+                        params.ip, PROV_MAC_NET.uuid))
+                ]
+            })
+        });
+    });
 
-        t.equal(err.statusCode, 507, 'status code');
-        t.deepEqual(err.body, {
-            code: 'SubnetFull',
-            message: constants.SUBNET_FULL_MSG
-        }, 'Error body');
+    t.test('Confirm that the IP is free', function (t2) {
+        // Make sure we actually hit all of the errors:
+        t2.deepEqual(MORAY.getMockErrors(), {
+            batch: [ ]
+        }, 'no more batch errors left');
 
-        // Confirm that the IP was freed
-        NAPI.getIP(PROV_MAC_NET.uuid, PROV_MAC_NET.provision_start_ip,
-            function (err2, res) {
-            if (h.ifErr(t, err2, 'getIP error')) {
-                return t.end();
+        mod_ip.get(t2, {
+            net: PROV_MAC_NET.uuid,
+            ip: params.ip,
+            exp: {
+                free: true,
+                ip: params.ip,
+                network_uuid: PROV_MAC_NET.uuid,
+                reserved: false
             }
+        });
+    });
 
-            t.equal(res.free, true, 'IP has been freed');
-            var ipRec = mod_moray.getIP(PROV_MAC_NET.uuid,
-                PROV_MAC_NET.provision_start_ip);
-            t.ok(!ipRec, 'IP record does not exist in moray');
+    t.test('Confirm no new records created', function (t2) {
+        mod_moray.getIP(MORAY, PROV_MAC_NET.uuid, params.ip,
+            function (err3, ipRec) {
+            t2.ok(err3, 'Getting IP should fail');
+            t2.ok(!ipRec, 'IP record does not exist in moray');
 
-            t.equal(mod_moray.getNics().length, numNicsBefore,
-                'no new nic records added');
+            mod_moray.countNics(MORAY, function (err4, numNicsAfter) {
+                t2.ifError(err4, 'Counting NICs should succeed');
+                t2.equal(numNicsAfter, numNicsBefore,
+                    'no new nic records added');
 
-            // Make sure we actually hit all of the errors:
-            t.deepEqual(mod_moray.getErrors(), {
-                batch: [ ]
-            }, 'no more batch errors left');
+                t2.end();
+            });
 
-            return t.end();
         });
     });
 });
@@ -789,7 +974,7 @@ test('Provision nic: MAC retry', function (t) {
         fakeErr.name = 'EtagConflictError';
         fakeErr.context = { bucket: 'napi_nics' };
 
-        mod_moray.setErrors({ batch: [ fakeErr, fakeErr ] });
+        MORAY.setMockErrors({ batch: [ fakeErr, fakeErr ] });
 
         NAPI.provisionNic(PROV_MAC_NET.uuid, params, function (err, res) {
             if (h.ifErr(t2, err, 'provision nic with retry')) {
@@ -799,22 +984,24 @@ test('Provision nic: MAC retry', function (t) {
             d.mac = res.mac;
             t2.ok(res.mac, 'MAC address');
 
-            var morayObj = mod_moray.getNic(res.mac);
-            t2.ok(morayObj, 'found moray object');
-            if (morayObj) {
-                t2.equal(morayObj.mac, util_mac.aton(res.mac),
-                    'correct mac in moray object');
-            }
+            mod_moray.getNic(MORAY, res.mac, function (err2, morayObj) {
+                t2.ifError(err2, 'Should get NIC successfully');
+                t2.ok(morayObj, 'found moray object');
+                if (morayObj) {
+                    t2.equal(morayObj.mac, util_mac.aton(res.mac),
+                        'correct mac in moray object');
+                }
 
-            t2.equal(res.network_uuid, PROV_MAC_NET.uuid,
-                'network_uuid correct');
+                t2.equal(res.network_uuid, PROV_MAC_NET.uuid,
+                    'network_uuid correct');
 
-            // Make sure we actually hit those errors:
-            t2.deepEqual(mod_moray.getErrors(), {
-                batch: [ ]
-            }, 'no more batch errors left');
+                // Make sure we actually hit those errors:
+                t2.deepEqual(MORAY.getMockErrors(), {
+                    batch: [ ]
+                }, 'no more batch errors left');
 
-            return t2.end();
+                t2.end();
+            });
         });
     });
 
@@ -842,7 +1029,7 @@ test('Provision nic: MAC retry', function (t) {
         fakeErr.name = 'EtagConflictError';
         fakeErr.context = { bucket: 'napi_nics' };
 
-        mod_moray.setErrors({ batch: [ fakeErr, fakeErr ] });
+        MORAY.setMockErrors({ batch: [ fakeErr, fakeErr ] });
 
         mod_nic.create(t2, {
             mac: d.mac,
@@ -851,17 +1038,19 @@ test('Provision nic: MAC retry', function (t) {
                     errors: [ mod_err.duplicateParam('mac') ]
                 })
         }, function () {
-            var morayObj = mod_moray.getNic(d.mac);
-            t2.equal(morayObj, null, 'moray object does not exist');
+            mod_moray.getNic(MORAY, d.mac, function (err, morayObj) {
+                t2.ok(err, 'Get should fail');
+                t2.equal(morayObj, undefined, 'moray object does not exist');
 
-            // We should have bailed after the first iteration of the loop:
-            t2.equal(mod_moray.getErrors().batch.length, 1,
-                'one error left');
+                // We should have bailed after the first iteration of the loop:
+                t2.equal(MORAY.getMockErrors().batch.length, 1,
+                    'one error left');
 
-            // Reset moray errors
-            mod_moray.setErrors({ });
+                // Reset moray errors
+                MORAY.setMockErrors({ });
 
-            return t2.end();
+                t2.end();
+            });
         });
     });
 
@@ -893,7 +1082,7 @@ test('Provision nic: IP retry', function (t) {
         fakeErr.name = 'EtagConflictError';
         fakeErr.context = { bucket: ip_common.bucketName(PROV_MAC_NET.uuid) };
 
-        mod_moray.setErrors({ batch: [ fakeErr, fakeErr ] });
+        MORAY.setMockErrors({ batch: [ fakeErr, fakeErr ] });
 
         NAPI.provisionNic(PROV_MAC_NET.uuid, params, function (err, res) {
             if (h.ifErr(t2, err, 'provision nic with retry')) {
@@ -903,22 +1092,24 @@ test('Provision nic: IP retry', function (t) {
             d.mac = res.mac;
             t2.ok(res.mac, 'MAC address');
 
-            var morayObj = mod_moray.getNic(res.mac);
-            t2.ok(morayObj, 'found moray object');
-            if (morayObj) {
-                t2.equal(morayObj.mac, util_mac.aton(res.mac),
-                    'correct mac in moray object');
-            }
+            mod_moray.getNic(MORAY, res.mac, function (err2, morayObj) {
+                t2.ifError(err2, 'Get should succeed');
+                t2.ok(morayObj, 'found moray object');
+                if (morayObj) {
+                    t2.equal(morayObj.mac, util_mac.aton(res.mac),
+                        'correct mac in moray object');
+                }
 
-            t2.equal(res.network_uuid, PROV_MAC_NET.uuid,
-                'network_uuid correct');
+                t2.equal(res.network_uuid, PROV_MAC_NET.uuid,
+                    'network_uuid correct');
 
-            // Make sure we actually hit those errors:
-            t2.deepEqual(mod_moray.getErrors(), {
-                batch: [ ]
-            }, 'no more batch errors left');
+                // Make sure we actually hit those errors:
+                t2.deepEqual(MORAY.getMockErrors(), {
+                    batch: [ ]
+                }, 'no more batch errors left');
 
-            return t2.end();
+                t2.end();
+            });
         });
     });
 
@@ -948,34 +1139,37 @@ test('Provision nic: IP retry', function (t) {
         fakeErr.name = 'EtagConflictError';
         fakeErr.context = { bucket: ip_common.bucketName(PROV_MAC_NET.uuid) };
 
-        mod_moray.setErrors({ batch: [ fakeErr, fakeErr ] });
+        MORAY.setMockErrors({ batch: [ fakeErr, fakeErr ] });
 
         mod_nic.create(t2, {
             mac: d.mac,
             params: params,
             partialExp: params
         }, function (err, res) {
-            if (err) {
-                return t2.end();
+            if (h.ifErr(t2, err, 'Create should succeed')) {
+                t2.end();
+                return;
             }
 
             t2.ok(res.mac, 'MAC address');
-            var morayObj = mod_moray.getNic(res.mac);
-            t2.ok(morayObj, 'found moray object');
-            if (morayObj) {
-                t2.equal(morayObj.mac, util_mac.aton(res.mac),
-                    'correct mac in moray object');
-            }
+            mod_moray.getNic(MORAY, res.mac, function (err2, morayObj) {
+                t2.ifError(err2, 'Get should succeed');
+                t2.ok(morayObj, 'found moray object');
+                if (morayObj) {
+                    t2.equal(morayObj.mac, util_mac.aton(res.mac),
+                        'correct mac in moray object');
+                }
 
-            t2.equal(res.network_uuid, PROV_MAC_NET.uuid,
-                'network_uuid correct');
+                t2.equal(res.network_uuid, PROV_MAC_NET.uuid,
+                    'network_uuid correct');
 
-            // Make sure we actually hit those errors:
-            t2.deepEqual(mod_moray.getErrors(), {
-                batch: [ ]
-            }, 'no more batch errors left');
+                // Make sure we actually hit those errors:
+                t2.deepEqual(MORAY.getMockErrors(), {
+                    batch: [ ]
+                }, 'no more batch errors left');
 
-            return t2.end();
+                t2.end();
+            });
         });
     });
 
@@ -986,6 +1180,52 @@ test('Provision nic: IP retry', function (t) {
                 network_uuid: PROV_MAC_NET.uuid
             }
         });
+    });
+});
+
+
+test('Provision NIC: Retry after QueryTimeoutErrors', function (t) {
+    var params = {
+        belongs_to_type: 'zone',
+        belongs_to_uuid: mod_uuid.v4(),
+        owner_uuid: mod_uuid.v4()
+    };
+
+    t.test('NIC provision', function (t2) {
+        var fakeErr = new Error('Timed out');
+        fakeErr.name = 'QueryTimeoutError';
+
+        /*
+         * The sql() error will prevent NAPI from selecting an IP from
+         * the first network in the pool. It will then retry, and fail
+         * to submit with batch(). After these errors, it will still
+         * use the originally selected IP, since it didn't actually need
+         * to change.
+         */
+        MORAY.setMockErrors({
+            sql: [ fakeErr ],
+            batch: [ fakeErr, fakeErr, fakeErr ]
+        });
+
+        mod_nic.provision(t2, {
+            net: NET2.uuid,
+            params: params,
+            exp: mod_nic.addDefaultParams({
+                belongs_to_type: params.belongs_to_type,
+                belongs_to_uuid: params.belongs_to_uuid,
+                owner_uuid: params.owner_uuid,
+                ip: h.nextProvisionableIP(NET2)
+            }, NET2)
+        });
+    });
+
+    t.test('Confirm that NAPI hit the errors', function (t2) {
+        // Make sure we actually hit all of the errors:
+        t2.deepEqual(MORAY.getMockErrors(), {
+            sql: [ ],
+            batch: [ ]
+        }, 'no more batch errors left');
+        t2.end();
     });
 });
 
@@ -1081,8 +1321,9 @@ test('Provision nic - with IP', function (t) {
             },
             expErr: h.invalidParamErr({
                 errors: [
-                    mod_err.duplicateParam('ip', util.format(
-                        constants.fmt.IP_EXISTS, NET2.uuid))
+                    mod_err.usedByParam('ip', 'zone', d.exp.belongs_to_uuid,
+                        util.format(constants.fmt.IP_IN_USE,
+                            'zone', d.exp.belongs_to_uuid))
                 ]
             })
         });
@@ -1175,6 +1416,231 @@ test('(PNDS) Provision nic - with different state', function (t) {
 });
 
 
+test('Provision NIC - IP specified w/o network_uuid', function (t) {
+    var mac1 = h.randomMAC();
+    var mac2 = h.randomMAC();
+    var base = {
+        belongs_to_type: 'zone',
+        owner_uuid: mod_uuid.v4(),
+        ip: h.nextProvisionableIP(NET3),
+        vlan_id: NET3.vlan_id,
+        nic_tag: NET3.nic_tag
+    };
+    var params1 = extend(base, { belongs_to_uuid: mod_uuid.v4() });
+    var params2 = extend(base, { belongs_to_uuid: mod_uuid.v4() });
+
+    t.test('create', function (t2) {
+        mod_nic.createAndGet(t2, {
+            mac: mac1,
+            params: params1,
+            partialExp: extend(params1, {
+                network_uuid: NET3.uuid
+            })
+        });
+    });
+
+    t.test('get IPv4 address', function (t2) {
+        mod_ip.get(t2, {
+            net: NET3.uuid,
+            ip: params1.ip,
+            exp: {
+                belongs_to_type: params1.belongs_to_type,
+                belongs_to_uuid: params1.belongs_to_uuid,
+                owner_uuid: params1.owner_uuid,
+                ip: params1.ip,
+                network_uuid: NET3.uuid,
+                free: false,
+                reserved: false
+            }
+        });
+    });
+
+    t.test('another NIC cannot steal the IP', function (t2) {
+        mod_nic.create(t2, {
+            mac: mac2,
+            params: params2,
+            expCode: 422,
+            expErr: h.invalidParamErr({
+                errors: [
+                    mod_err.usedByParam('ip', 'zone', params1.belongs_to_uuid,
+                        util.format(constants.fmt.IP_IN_USE,
+                            'zone', params1.belongs_to_uuid))
+                ]
+            })
+        });
+    });
+});
+
+
+
+
+
+// --- Get tests
+
+
+
+test('Get NIC with bad MAC address', function (t) {
+    mod_nic.get(t, {
+        mac: 'foo',
+        expCode: 422,
+        expErr: h.invalidParamErr({
+            errors: [ mod_err.invalidParam('mac', 'invalid MAC address') ]
+        })
+    });
+});
+
+
+
+// --- Delete tests
+
+
+
+test('Delete NIC with bad MAC address', function (t) {
+    mod_nic.del(t, {
+        mac: 'foo',
+        expCode: 422,
+        expErr: h.invalidParamErr({
+            errors: [ mod_err.invalidParam('mac', 'invalid MAC address') ]
+        })
+    });
+});
+
+
+test('Delete a nonexistent NIC', function (t) {
+    mod_nic.del(t, {
+        mac: h.randomMAC(),
+        expCode: 404,
+        expErr: {
+            code: 'ResourceNotFound',
+            message: 'nic not found'
+        }
+    });
+});
+
+
+test('Delete a NIC w/o any addresses on it', function (t) {
+    var nic;
+    var params = {
+        belongs_to_type: 'zone',
+        belongs_to_uuid: mod_uuid.v4(),
+        owner_uuid: mod_uuid.v4()
+    };
+
+    t.test('provision', function (t2) {
+        NAPI.post({ path: '/nics' }, params, function (err, res) {
+            if (h.ifErr(t2, err, 'provision new nic')) {
+                t2.end();
+                return;
+            }
+
+            nic = res;
+            for (var p in params) {
+                t2.equal(nic[p], params[p], p + ' correct');
+            }
+
+            t2.notOk(res.hasOwnProperty('ip'), 'NIC has no IP');
+
+            t2.end();
+        });
+    });
+
+    t.test('delete nic', function (t2) {
+        mod_nic.del(t2, { mac: nic.mac });
+    });
+
+    t.test('confirm nic deleted', function (t2) {
+        mod_nic.get(t2, {
+            mac: nic.mac,
+            expCode: 404,
+            expErr: {
+                code: 'ResourceNotFound',
+                message: 'nic not found'
+            }
+        });
+    });
+});
+
+
+test('Delete a NIC w/ an address on it', function (t) {
+    var nic;
+    var ip = h.nextProvisionableIP(NET2);
+    var params = {
+        belongs_to_type: 'zone',
+        belongs_to_uuid: mod_uuid.v4(),
+        owner_uuid: mod_uuid.v4()
+    };
+
+    t.test('provision', function (t2) {
+        NAPI.provisionNic(NET2.uuid, params, function (err, res) {
+            if (h.ifErr(t, err, 'provision nic')) {
+                t.end();
+                return;
+            }
+
+            nic = mod_nic.addDefaultParams({
+                mac: res.mac,
+                belongs_to_type: params.belongs_to_type,
+                belongs_to_uuid: params.belongs_to_uuid,
+                ip: ip,
+                owner_uuid: params.owner_uuid,
+                state: 'provisioning'
+            }, NET2);
+
+            t.deepEqual(res, nic, 'result');
+
+            mod_nic.get(t2, {
+                mac: res.mac,
+                exp: nic
+            });
+        });
+    });
+
+    t.test('check that ip is taken', function (t2) {
+        mod_ip.get(t2, {
+            net: NET2.uuid,
+            ip: ip,
+            exp: {
+                belongs_to_type: nic.belongs_to_type,
+                belongs_to_uuid: nic.belongs_to_uuid,
+                free: false,
+                ip: ip,
+                network_uuid: NET2.uuid,
+                owner_uuid: nic.owner_uuid,
+                reserved: false
+            }
+        });
+    });
+
+    t.test('delete nic', function (t2) {
+        mod_nic.del(t2, { mac: nic.mac });
+    });
+
+    t.test('confirm nic deleted', function (t2) {
+        mod_nic.get(t2, {
+            mac: nic.mac,
+            expCode: 404,
+            expErr: {
+                code: 'ResourceNotFound',
+                message: 'nic not found'
+            }
+        });
+    });
+
+    t.test('check that ip is now free', function (t2) {
+        mod_ip.get(t2, {
+            net: NET2.uuid,
+            ip: ip,
+            exp: {
+                free: true,
+                ip: ip,
+                network_uuid: NET2.uuid,
+                reserved: false
+            }
+        });
+    });
+});
+
+
 
 // --- Update tests
 
@@ -1204,7 +1670,7 @@ test('Update nic - provision IP', function (t) {
         d.exp = mod_nic.addDefaultParams({
             belongs_to_type: d.params.belongs_to_type,
             belongs_to_uuid: d.params.belongs_to_uuid,
-            ip: NET3.provision_start_ip,
+            ip: h.nextProvisionableIP(NET3),
             mac: d.mac,
             owner_uuid: d.params.owner_uuid
         }, NET3);
@@ -1228,7 +1694,7 @@ test('Update nic - provision IP', function (t) {
     t.test('get IP', function (t2) {
         mod_ip.get(t2, {
             net: NET3.uuid,
-            ip: NET3.provision_start_ip,
+            ip: d.exp.ip,
             exp: {
                 belongs_to_type: d.exp.belongs_to_type,
                 belongs_to_uuid: d.exp.belongs_to_uuid,
@@ -1244,7 +1710,7 @@ test('Update nic - provision IP', function (t) {
 
 
 test('Update nic - IP parameters updated', function (t) {
-    t.plan(6);
+    t.plan(5);
     var d = {};
 
     t.test('create', function (t2) {
@@ -1313,21 +1779,6 @@ test('Update nic - IP parameters updated', function (t) {
                 owner_uuid: d.exp.owner_uuid,
                 reserved: false
             }
-        });
-    });
-
-    t.test('update when moray IP object has changed', function (t2) {
-        var ipObj = mod_moray.getIP(NET.uuid, d.exp.ip);
-        t2.ok(ipObj, 'have IP object');
-        ipObj.network = {};
-
-        ipObj = mod_moray.getIP(NET.uuid, d.exp.ip);
-        t2.deepEqual(ipObj.network, {});
-
-        mod_nic.update(t2, {
-            mac: d.mac,
-            params: d.exp,
-            exp: d.exp
         });
     });
 });
@@ -1677,10 +2128,9 @@ test('Update nic - invalid params', function (t) {
         [ 'nic_tag and vlan_id do not match any networks',
             { ip: fmt('10.0.%d.3', NET.num), nic_tag: NET.nic_tag,
                 vlan_id: 656 },
-            [ mod_err.invalidParam('nic_tag',
-                'No networks found matching parameters'),
-            mod_err.invalidParam('vlan_id',
-                'No networks found matching parameters') ] ],
+            [ mod_err.invalidParam('ip', util.format(
+                constants.fmt.IP_NONET, NET.nic_tag, 656,
+                fmt('10.0.%d.3', NET.num))) ] ],
 
         [ 'state must be a valid state',
             { ip: fmt('10.0.%d.2', NET.num), network_uuid: NET.uuid,
@@ -1846,6 +2296,74 @@ test('Update nic - change state', function (t) {
 
 });
 
+test('Update nic - set "reserved" flag', function (t) {
+    var params = {
+        belongs_to_type: 'zone',
+        belongs_to_uuid: mod_uuid.v4(),
+        owner_uuid: mod_uuid.v4()
+    };
+
+    var ip = h.nextProvisionableIP(NET2);
+
+    t.test('provision', function (t2) {
+        mod_nic.provision(t2, {
+            net: NET2.uuid,
+            params: params,
+            partialExp: extend(params, {
+                ip: ip,
+                state: constants.DEFAULT_NIC_STATE
+            })
+        });
+    });
+
+    t.test('get IP: "reserved" should be false', function (t2) {
+        mod_ip.get(t2, {
+            net: NET2.uuid,
+            ip: ip,
+            exp: {
+                belongs_to_type: params.belongs_to_type,
+                belongs_to_uuid: params.belongs_to_uuid,
+                free: false,
+                ip: ip,
+                network_uuid: NET2.uuid,
+                owner_uuid: params.owner_uuid,
+                reserved: false
+            }
+        });
+    });
+
+    t.test('update: change state', function (t2) {
+        var updateParams = {
+            reserved: true
+        };
+
+        mod_nic.update(t2, {
+            mac: mod_nic.lastCreated().mac,
+            params: updateParams,
+            partialExp: extend(params, {
+                ip: ip,
+                state: constants.DEFAULT_NIC_STATE
+            })
+        });
+    });
+
+    t.test('get IP: "reserved" should be true', function (t2) {
+        mod_ip.get(t2, {
+            net: NET2.uuid,
+            ip: ip,
+            exp: {
+                belongs_to_type: params.belongs_to_type,
+                belongs_to_uuid: params.belongs_to_uuid,
+                free: false,
+                ip: ip,
+                network_uuid: NET2.uuid,
+                owner_uuid: params.owner_uuid,
+                reserved: true
+            }
+        });
+    });
+});
+
 
 test('Update nic moray failure getting IP / network', function (t) {
     var params = {
@@ -1873,7 +2391,7 @@ test('Update nic moray failure getting IP / network', function (t) {
             null,
             new Error('Oh no!')
         ];
-        mod_moray.setErrors({ getObject: errs });
+        MORAY.setMockErrors({ getObject: errs });
 
         mod_nic.update(t2, {
             mac: mod_nic.lastCreated().mac,
@@ -1889,10 +2407,10 @@ test('Update nic moray failure getting IP / network', function (t) {
 
     t.test('check error', function (t2) {
         // Make sure we made it to the correct error
-        t2.deepEqual(mod_moray.getErrors().getObject, [],
+        t2.deepEqual(MORAY.getMockErrors().getObject, [],
             'no errors remaining');
 
-        t2.deepEqual(mod_moray.getLastError(), {
+        t2.deepEqual(MORAY.getLastMockError(), {
             bucket: ip_common.bucketName(NET2.uuid),
             key: mod_nic.lastCreated().ip,
             op: 'getObject',
@@ -1914,6 +2432,59 @@ test('Update nic moray failure getting IP / network', function (t) {
         });
     });
 
+});
+
+
+test('Update NIC to sibling NIC\'s IP is disallowed (NAPI-385)', function (t) {
+    var params = {
+        belongs_to_type: 'zone',
+        belongs_to_uuid: mod_uuid.v4(),
+        owner_uuid: mod_uuid.v4()
+    };
+
+    var ip1 = h.nextProvisionableIP(NET2);
+    var ip2 = h.nextProvisionableIP(NET2);
+
+    var nic2;
+
+    t.test('provision nic1', function (t2) {
+        mod_nic.provision(t2, {
+            net: NET2.uuid,
+            params: params,
+            partialExp: extend(params, {
+                ip: ip1,
+                network_uuid: NET2.uuid
+            })
+        });
+    });
+
+    t.test('provision nic2', function (t2) {
+        mod_nic.provision(t2, {
+            net: NET2.uuid,
+            params: params,
+            partialExp: extend(params, {
+                ip: ip2,
+                network_uuid: NET2.uuid
+            })
+        });
+    });
+
+    t.test('update nic2 to nic1\'s IP', function (t2) {
+        nic2 = mod_nic.lastCreated();
+
+        mod_nic.update(t2, {
+            mac: nic2.mac,
+            params: { ip: ip1 },
+            expCode: 422,
+            expErr: h.invalidParamErr({
+                errors: [
+                    mod_err.usedByParam('ip', 'zone', params.belongs_to_uuid,
+                        util.format(constants.fmt.IP_IN_USE,
+                            'zone', params.belongs_to_uuid))
+                ]
+            })
+        });
+    });
 });
 
 
@@ -2051,11 +2622,12 @@ test('antispoof options', function (t) {
             d.mac = res.mac;
             t2.equal(res.ip, h.nextProvisionableIP(NET2), 'IP');
 
-            var morayObj = mod_moray.getNic(res.mac);
-            t2.ok(!morayObj.hasOwnProperty('network'),
-                'moray object does not have network in it');
-
-            return t2.end();
+            mod_moray.getNic(MORAY, res.mac, function (err2, morayObj) {
+                t2.ifError(err2, 'Get should succeed');
+                t2.ok(!morayObj.hasOwnProperty('network'),
+                    'moray object does not have network in it');
+                t2.end();
+            });
         });
     });
 
@@ -2086,16 +2658,18 @@ test('antispoof options', function (t) {
             params: d.updateParams,
             exp: d.exp
         }, function (err, res) {
-            if (err) {
-                return t2.end();
+            if (h.ifErr(t2, err, 'Update should succeed')) {
+                t2.end();
+                return;
             }
 
-            // Confirm that the fields have been removed from moray
-            var morayObj = mod_moray.getNic(res.mac);
-            t2.ok(!morayObj.hasOwnProperty('network'),
-                'moray object does not have network in it');
-
-            return t2.end();
+            // Confirm that the fields have been removed from Moray
+            mod_moray.getNic(MORAY, res.mac, function (err2, morayObj) {
+                t2.ifError(err2, 'Get should succeed');
+                t2.ok(!morayObj.hasOwnProperty('network'),
+                    'Moray object does not have network in it');
+                t2.end();
+            });
         });
     });
 
@@ -2117,16 +2691,18 @@ test('antispoof options', function (t) {
             params: d.updateParams,
             exp: d.exp
         }, function (err, res) {
-            if (err) {
-                return t2.end();
+            if (h.ifErr(t2, err, 'Update should succeed')) {
+                t2.end();
+                return;
             }
 
-            // Confirm that the fields have been removed from moray
-            var morayObj = mod_moray.getNic(res.mac);
-            t2.ok(!morayObj.hasOwnProperty('network'),
-                'moray object does not have network in it');
-
-            return t2.end();
+            // Confirm that the fields have been removed from Moray
+            mod_moray.getNic(MORAY, res.mac, function (err2, morayObj) {
+                t2.ifError(err2, 'Get should succeed');
+                t2.ok(!morayObj.hasOwnProperty('network'),
+                    'Moray object does not have network in it');
+                t2.end();
+            });
         });
     });
 
@@ -2263,10 +2839,35 @@ test('Listing Nics failures', function (t) {
     }
 });
 
+test('List all NICs', function (t) {
+    mod_nic.list(t, {
+        present: common.allCreated('nics').map(function (nic) {
+            return { mac: nic.mac };
+        })
+    });
+});
+
+
+test('List 2 NICs', function (t) {
+    mod_nic.list(t, {
+        params: {
+            limit: 2
+        }
+    }, function (err, res) {
+        if (h.ifErr(t, err, 'list nics error')) {
+            t.end();
+            return;
+        }
+
+        t.equal(res.length, 2, 'correct number of NICs returned');
+        t.end();
+    });
+});
+
+
+
 
 // XXX: More tests:
-// - create nic with IP, then create another nic with the same IP.  Old nic
-//   should no longer have that IP
 // - should not allow updating an IP to outside the subnet (if only the IP
 //   is specified)
 
@@ -2274,11 +2875,6 @@ test('Listing Nics failures', function (t) {
 
 // --- Teardown
 
+test('delete nics', mod_nic.delAllCreated);
 
-
-test('Stop server', function (t) {
-    h.stopServer(function (err) {
-        t.ifError(err, 'server stop');
-        t.end();
-    });
-});
+test('Stop server', mod_server.close);

@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright 2017, Joyent, Inc.
  */
 
 /*
@@ -358,8 +358,10 @@ test('POST /nics (with IP already reserved)', function (t) {
                 network_uuid: state.networks[0].uuid
             },
             expErr: h.invalidParamErr({ errors: [
-                mod_err.duplicateParam('ip', util.format(
-                    constants.fmt.IP_EXISTS, state.networks[0].uuid))
+                mod_err.usedByParam('ip', d.params.belongs_to_type,
+                    d.params.belongs_to_uuid,
+                    util.format(constants.fmt.IP_IN_USE,
+                        d.params.belongs_to_type, d.params.belongs_to_uuid))
             ] })
         });
     });

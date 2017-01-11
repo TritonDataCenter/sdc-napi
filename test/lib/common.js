@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright 2017, Joyent, Inc.
  */
 
 /*
@@ -290,6 +290,8 @@ function afterAPIcall(t, opts, callback, err, obj, _, res) {
     }
 
     if (opts.reqType === 'create') {
+        // We take plural names elsewhere, but expect the singular here:
+        assert.notEqual('s', opts.type.slice(-1));
         addToState(opts, opts.type + 's', obj);
     }
 
@@ -339,6 +341,7 @@ function afterAPIdelete(t, opts, callback, err, obj, req, res) {
 function afterAPIlist(t, opts, callback, err, obj, _, res) {
     assert.string(opts.type, 'opts.type');
     assert.string(opts.id, 'opts.id');
+    assert.optionalArray(opts.present, 'opts.present');
 
     var desc = opts.desc ? (' ' + opts.desc) : '';
     var id = opts.id;
@@ -418,6 +421,11 @@ function allCreated(type) {
 }
 
 
+function clearCreated(type) {
+    CREATED[type] = [];
+}
+
+
 /**
  * Assert the arguments to one of the helper functions are correct
  */
@@ -431,6 +439,20 @@ function assertArgs(t, opts, callback) {
         'one of exp, expErr, partialExp required');
     assert.object(opts.params, 'opts.params');
     assert.optionalObject(opts.state, 'opts.state');
+    assert.optionalFunc(callback, 'callback');
+}
+
+
+/**
+ * Assert the arguments to one of the list helper functions are correct
+ */
+function assertArgsList(t, opts, callback) {
+    assert.object(t, 't');
+    assert.object(opts, 'opts');
+    assert.optionalObject(opts.params, 'opts.params');
+    assert.optionalObject(opts.expErr, 'opts.expErr');
+    assert.optionalBool(opts.deepEqual, 'opts.deepEqual');
+    assert.optionalArrayOfObject(opts.present, 'opts.present');
     assert.optionalFunc(callback, 'callback');
 }
 
@@ -606,7 +628,9 @@ module.exports = {
     afterAPIlist: afterAPIlist,
     allCreated: allCreated,
     assertArgs: assertArgs,
+    assertArgsList: assertArgsList,
     badLimitOffTests: badLimitOffTests,
+    clearCreated: clearCreated,
     commonErrors: commonErrors,
     createClient: createClient,
     doneErr: doneErr,

@@ -23,6 +23,7 @@ var mod_moray = require('moray');
 var mod_portolan_moray = require('portolan-moray');
 var util_ip = require('../../lib/util/ip');
 var util_mac = require('../../lib/util/mac');
+var vasync = require('vasync');
 
 var doneErr = common.doneErr;
 var doneRes = common.doneRes;
@@ -39,6 +40,19 @@ var MORAY_CLIENT;
 
 // --- Internal
 
+function toMorayObj(exp) {
+    assert.object(exp);
+
+    // Convert colon-delimited MAC addresses to numeric form
+    if (exp.mac) {
+        exp.mac = util_mac.aton(exp.mac);
+    }
+
+    // Ensure IP addresses are in v6 notation
+    if (exp.ip) {
+        exp.ip = util_ip.toIPAddr(exp.ip).toString({ format: 'v6' });
+    }
+}
 
 
 function afterMoray(t, opts, callback, err, realObj) {
@@ -65,30 +79,69 @@ function afterMoray(t, opts, callback, err, realObj) {
         return doneErr(err, t, callback);
     }
 
-    // Convert numeric MAC addrs to real addresses
-    if (obj.mac) {
-        obj.mac = util_mac.ntoa(obj.mac);
-    }
-
     if (opts.exp) {
         exp = clone(opts.exp);
-        if (exp.ip) {
-            exp.ip = util_ip.toIPAddr(exp.ip).toString({ format: 'v6' });
-        }
-
+        toMorayObj(exp);
         t.deepEqual(obj, exp, 'expected object');
     }
 
     if (opts.partialExp) {
+        exp = clone(opts.partialExp);
+        toMorayObj(exp);
+
         var partialRes = {};
-        for (var p in opts.partialExp) {
+        for (var p in exp) {
             partialRes[p] = obj[p];
         }
 
-        t.deepEqual(partialRes, opts.partialExp, 'partial result');
+        t.deepEqual(partialRes, exp, 'partial result');
     }
 
     return doneRes(obj, t, callback);
+}
+
+
+function afterLogList(t, opts, callback, err, realObj) {
+    assert.optionalArrayOfObject(opts.exp);
+
+    var exp;
+    var obj;
+
+    if (realObj) {
+        obj = clone(realObj);
+    }
+
+    if (opts.expErr) {
+        t.ok(err, 'expected err');
+        if (!err) {
+            t.deepEqual(obj, {}, 'object returned instead of error');
+            doneRes(realObj, t, callback);
+            return;
+        }
+
+        t.deepEqual(err, opts.expErr, 'expected error');
+        doneErr(err, t, callback);
+        return;
+    }
+
+    t.ifErr(err, 'lookup err');
+    if (err) {
+        doneErr(err, t, callback);
+        return;
+    }
+
+    if (opts.exp) {
+        exp = clone(opts.exp);
+        exp.forEach(function (ev) {
+            toMorayObj(ev.record);
+        });
+        obj.forEach(function (ev) {
+            delete ev.id;
+        });
+        t.deepEqual(obj, exp, 'expected array of objects');
+    }
+
+    doneRes(realObj, t, callback);
 }
 
 
@@ -188,9 +241,7 @@ function overlayMapping(t, opts, callback) {
             vl2_vnet_id: vnetID
         };
 
-        mod_portolan_moray.vl2Lookup(vl2Opts,
-                afterMoray.bind(null, t, opts, function () {
-
+        function vl3Check() {
             var vl3Opts = {
                 log: log,
                 moray: client,
@@ -201,7 +252,14 @@ function overlayMapping(t, opts, callback) {
 
             mod_portolan_moray.vl3Lookup(vl3Opts,
                 afterMoray.bind(null, t, opts, callback));
-        }));
+        }
+
+        if (opts.skipVL2) {
+            vl3Check();
+        } else {
+            mod_portolan_moray.vl2Lookup(vl2Opts,
+                afterMoray.bind(null, t, opts, vl3Check));
+        }
     });
 }
 
@@ -233,10 +291,60 @@ function underlayMapping(t, opts, callback) {
 }
 
 
+function logReq(t, opts, callback) {
+    common.assertArgsList(t, opts, callback);
+    assert.string(opts.params.cn_uuid, 'opts.params.cn_uuid');
+
+    opts.type = 'event';
+
+    getMorayClient(function (err, client) {
+        if (err) {
+            callback(err);
+            return;
+        }
+
+        var lookupOpts = {
+            log: log,
+            limit: 1000,
+            moray: client,
+            noCache: true,
+            cnUuid: opts.params.cn_uuid
+        };
+
+        mod_portolan_moray.logReq(lookupOpts,
+            afterLogList.bind(null, t, opts, function (lErr, res) {
+            if (lErr) {
+                doneErr(lErr, t, callback);
+                return;
+            }
+
+            vasync.forEachParallel({
+                inputs: res,
+                func: function (entry, cb) {
+                    mod_portolan_moray.logRm({
+                        log: log,
+                        moray: client,
+                        uuid: entry.id
+                    }, cb);
+                }
+            }, function (dErr) {
+                if (dErr) {
+                    doneErr(dErr, t, callback);
+                    return;
+                }
+
+                doneRes(res, t, callback);
+            });
+        }));
+    });
+}
+
+
 module.exports = {
     closeClient: closeClient,
     notFoundErr: portolanNotFoundErr,
     nicVnetID: nicVnetID,
+    logReq: logReq,
     overlayMapping: overlayMapping,
     underlayMapping: underlayMapping
 };

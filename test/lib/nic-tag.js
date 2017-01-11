@@ -109,6 +109,8 @@ function delAllCreatedTags(t) {
         return t.end();
     }
 
+    common.clearCreated('nic_tags');
+
     mod_vasync.forEachParallel({
         inputs: created,
         func: function _delOne(tag, cb) {

@@ -33,6 +33,7 @@ var doneErr = common.doneErr;
 var NIC_NET_PARAMS = [
     'gateway',
     'gateway_provisioned',
+    'internet_nat',
     'mtu',
     'netmask',
     'nic_tag',
@@ -145,6 +146,8 @@ function delAllCreatedNets(t) {
         t.ok(true, 'No networks created');
         return t.end();
     }
+
+    common.clearCreated('networks');
 
     mod_vasync.forEachParallel({
         inputs: created,

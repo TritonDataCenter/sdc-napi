@@ -75,9 +75,7 @@ function missingParamErr(param, msg, invalid) {
 function netHasNicsErr(nics) {
     var usedBy = nics.map(function (nic) {
         return errors.usedBy('nic', nic.mac);
-    }).sort(function (a, b) {
-        return a.id < b.id;
-    });
+    }).sort(errors.sortById);
     return new errors.InUseError(constants.msg.NIC_ON_NET, usedBy).body;
 }
 

@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright 2017, Joyent, Inc.
  */
 
 /*
@@ -90,7 +90,7 @@ function expPoolFull(t, err) {
 /**
  * Checks to make sure the error matches the subnet full error
  */
-function expSubnetFull(t, err) {
+function expSubnetFull(t, network_uuid, err) {
     t.ok(err, 'error returned');
     if (!err) {
         return;
@@ -99,7 +99,8 @@ function expSubnetFull(t, err) {
     t.equal(err.statusCode, 507, 'status code');
     t.deepEqual(err.body, {
         code: 'SubnetFull',
-        message: constants.SUBNET_FULL_MSG
+        message: constants.SUBNET_FULL_MSG,
+        network_uuid: network_uuid
     }, 'error');
 }
 
@@ -119,7 +120,7 @@ function expProvisionFail(t, opts) {
         if (opts.pool) {
             expPoolFull(t, err);
         } else {
-            expSubnetFull(t, err);
+            expSubnetFull(t, opts.network_uuid, err);
         }
 
         if (res) {
@@ -860,7 +861,7 @@ test('update network provision range', function (t) {
         napi.provisionNic(state.networks[1].uuid, params, function (err, res) {
             // If we pass in null, we expect the provision to fail
             if (!expected) {
-                expSubnetFull(t, err);
+                expSubnetFull(t, state.networks[1].uuid, err);
                 return cb();
             }
 

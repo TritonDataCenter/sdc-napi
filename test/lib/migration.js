@@ -22,6 +22,7 @@ var mod_moray = require('moray');
 var mod_server = require('./server');
 var mod_vasync = require('vasync');
 var napi_moray = require('../../lib/apis/moray');
+var VError = require('verror');
 
 
 
@@ -206,7 +207,8 @@ function initTestBucket(t, opts) {
 
         function _delOldBucket(_, cb) {
             client.delBucket(bucketName, function (delErr) {
-                if (delErr && delErr.name === 'BucketNotFoundError') {
+                if (delErr &&
+                    VError.hasCauseWithName(delErr, 'BucketNotFoundError')) {
                     t.ok(delErr, 'bucket not found: ' + bucketName);
                     return cb();
                 }

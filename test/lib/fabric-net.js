@@ -138,6 +138,8 @@ function delAllCreatedFabricNets(t) {
         return t.end();
     }
 
+    common.clearCreated('fabric-networks');
+
     mod_vasync.forEachParallel({
         inputs: created,
         func: function _delOne(net, cb) {

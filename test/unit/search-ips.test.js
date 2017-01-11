@@ -20,6 +20,7 @@ var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
 var mod_net = require('../lib/net');
 var mod_nicTag = require('../lib/nic-tag');
+var mod_server = require('../lib/server');
 var mod_uuid = require('node-uuid');
 var test = require('tape');
 
@@ -235,9 +236,4 @@ test('IP not in any networks', function (t) {
 
 
 
-test('Stop server', function (t) {
-    h.stopServer(function (err) {
-        t.ifError(err, 'server stop');
-        t.end();
-    });
-});
+test('Stop server', mod_server.close);

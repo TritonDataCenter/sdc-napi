@@ -1,5 +1,6 @@
 smf/manifests/napi.xml
 /build
+/coverage
 node_modules
 napi-pkg-*.tar.bz2
 config.json

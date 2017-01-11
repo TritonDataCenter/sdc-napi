@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright 2016, Joyent, Inc.
+ * Copyright 2017, Joyent, Inc.
  */
 
 /*
@@ -35,12 +35,16 @@ var NON_OBJECT_PARAMS = [
     new Boolean(true), // eslint-disable-line
     [ 5 ]
 ];
-var SERVER;
 
 
 
 // --- Exports
 
+
+function reset() {
+    NET_NUM = 2;
+    NET_IPS = {};
+}
 
 
 /**
@@ -58,23 +62,29 @@ function copyParams(from, to) {
  * requests)
  */
 function createClient(t) {
-    return common.createClient(SERVER.info().url, t);
+    return common.createClient(mod_server.get().info().url, t);
 }
 
 
 /**
  * Creates a test NAPI server, and returns a client for accessing it
  */
-function createClientAndServer(callback) {
-    mod_server._create({
-        unitTest: true
-    }, function (err, res) {
+function createClientAndServer(opts, callback) {
+    if (callback === undefined) {
+        callback = opts;
+        opts = {};
+    }
+
+    assert.object(opts, 'opts');
+    assert.func(callback, 'callback');
+
+    mod_server._create(opts, function (err, res) {
         if (err) {
-            return callback(err);
+            callback(err);
+            return;
         }
 
-        SERVER = res.server;
-        return callback(null, res.client);
+        callback(null, res.client, res.moray);
     });
 }
 
@@ -113,8 +123,10 @@ function missingParam(field, message) {
 /**
  * Get the next provisionable IP address for the network object passed in
  */
-function nextProvisionableIP(net) {
+function nextProvisionableIP(net, willFail) {
     assert.object(net, 'net');
+    assert.optionalBool(willFail, 'willFail');
+
     if (!NET_IPS.hasOwnProperty(net.uuid)) {
         assert.string(net.provision_start_ip, 'net.provision_start_ip');
         NET_IPS[net.uuid] = util_ip.toIPAddr(net.provision_start_ip);
@@ -122,20 +134,12 @@ function nextProvisionableIP(net) {
     }
 
     var curr = NET_IPS[net.uuid];
-    NET_IPS[net.uuid] = util_ip.ipAddrPlus(curr, 1);
-    return curr.toString();
-}
 
-
-/**
- * Stops the test NAPI server
- */
-function stopServer(callback) {
-    if (!SERVER) {
-        return callback();
+    if (!willFail) {
+        NET_IPS[net.uuid] = util_ip.ipAddrPlus(curr, 1);
     }
 
-    return SERVER.stop(callback);
+    return curr.toString();
 }
 
 
@@ -183,7 +187,7 @@ function validNicparams(override) {
  */
 function validIPv4NetworkParams(override) {
     var newNet = {
-        name: 'myname',
+        name: 'myname' + NET_NUM,
         nic_tag: 'nic_tag',
         provision_end_ip: util.format('10.0.%d.254', NET_NUM),
         provision_start_ip: util.format('10.0.%d.1', NET_NUM),
@@ -208,12 +212,12 @@ function validIPv4NetworkParams(override) {
 function validIPv6NetworkParams(override) {
     var NET_HEX = NET_NUM.toString(16);
     var newNet = {
-        name: 'myname',
+        name: 'myname' + NET_NUM,
         nic_tag: 'nic_tag',
-        provision_end_ip: util.format('fc00:%s::ffff:ffff:ffff:ffff', NET_HEX),
-        provision_start_ip: util.format('fc00:%s::1', NET_HEX),
+        provision_end_ip: util.format('fd00:%s::ffff:ffff:ffff:ffff', NET_HEX),
+        provision_start_ip: util.format('fd00:%s::1', NET_HEX),
         resolvers: ['2001:4860:4860::8888', '2001:4860:4860::8844'],
-        subnet: util.format('fc00:%s::/64', NET_HEX),
+        subnet: util.format('fd00:%s::/64', NET_HEX),
         vlan_id: 0,
         mtu: constants.MTU_DEFAULT
     };
@@ -243,10 +247,7 @@ module.exports = {
     },
     randomMAC: common.randomMAC,
     reqOpts: common.reqOpts,
-    get server() {
-        return SERVER;
-    },
-    stopServer: stopServer,
+    reset: reset,
     uuidSort: common.uuidSort,
     validIPparams: validIPparams,
     validNicparams: validNicparams,

@@ -14,20 +14,23 @@
 
 'use strict';
 
+var assert = require('assert-plus');
 var clone = require('clone');
 var config = require('../lib/config');
 var constants = require('../../lib/util/constants');
-var extend = require('xtend');
 var h = require('./helpers');
 var mod_err = require('../lib/err');
 var mod_uuid = require('node-uuid');
 var mod_fabric_net = require('../lib/fabric-net');
+var mod_jsprim = require('jsprim');
 var mod_nic = require('../lib/nic');
 var mod_nic_tag = require('../lib/nic-tag');
 var mod_net = require('../lib/net');
 var mod_portolan = require('../lib/portolan');
 var mod_vlan = require('../lib/vlan');
 var test = require('../lib/fabrics').testIfEnabled;
+
+var extend = mod_jsprim.mergeObjects;
 
 
 
@@ -131,7 +134,7 @@ var NETS = [
 
     // -- On VLANS[2] (OWNERS[1])
 
-    // 3: same subnet range as 2, but different owner
+    // 3: same subnet range and VLAN as 2, but different owner
     {
         vlan_id: VLANS[2].vlan_id,
         subnet: '192.168.0.0/24',
@@ -161,14 +164,54 @@ var NETS = [
 var VMS = [
     mod_uuid.v4(),
     mod_uuid.v4(),
+    mod_uuid.v4(),
+    mod_uuid.v4(),
     mod_uuid.v4()
 ];
 var SERVERS = [
     mod_uuid.v4(),
+    mod_uuid.v4(),
+
+    // Nothing goes on SERVERS[2], so its event log is always empty
     mod_uuid.v4()
 ];
 var SERVER_NICS = [];
 
+
+// --- Internal helper functions
+
+
+function checkEventLog(t, opts) {
+    assert.object(t);
+    assert.object(opts);
+
+    t.test('Shootdowns generated for SERVERS[0]', function (t2) {
+        mod_portolan.logReq(t2, {
+            params: {
+                cn_uuid: SERVERS[0]
+            },
+            exp: opts.log1
+        });
+    });
+
+    t.test('Shootdowns generated for SERVERS[1]', function (t2) {
+        mod_portolan.logReq(t2, {
+            params: {
+                cn_uuid: SERVERS[1]
+            },
+            exp: opts.log2
+        });
+    });
+
+    t.test('Shootdowns generated for SERVERS[2]', function (t2) {
+        mod_portolan.logReq(t2, {
+            params: {
+                cn_uuid: SERVERS[2]
+            },
+            exp: opts.log3
+        });
+    });
+}
 
 
 // XXX: make test() here something that checks if overlays are enabled,
@@ -821,7 +864,7 @@ test('provision server nics', function (t) {
         });
     });
 
-    t.test('REAL_NETS[0]: fail to provision underlay nic', function (t2) {
+    t.test('REAL_NETS[0]: fail to provision underlay NIC', function (t2) {
         mod_nic.provision(t2, {
             fillInMissing: true,
             net: REAL_NETS[0].uuid,
@@ -836,7 +879,7 @@ test('provision server nics', function (t) {
         });
     });
 
-    t.test('REAL_NETS[0]: provision underlay nic', function (t2) {
+    t.test('REAL_NETS[0]: provision SERVERS[0] underlay NIC', function (t2) {
         mod_nic.provision(t2, {
             fillInMissing: true,
             net: REAL_NETS[0].uuid,
@@ -855,7 +898,6 @@ test('provision server nics', function (t) {
         });
     });
 
-
     t.test('underlay mapping created', function (t2) {
         SERVER_NICS.push(mod_nic.lastCreated());
         t.ok(SERVER_NICS[1], 'have last created nic');
@@ -868,6 +910,42 @@ test('provision server nics', function (t) {
             exp: {
                 cn_uuid: SERVERS[0],
                 ip: SERVER_NICS[1].ip,
+                port: constants.VXLAN_PORT
+            }
+        });
+    });
+
+    t.test('REAL_NETS[0]: provision SERVERS[1] underlay NIC', function (t2) {
+        mod_nic.provision(t2, {
+            fillInMissing: true,
+            net: REAL_NETS[0].uuid,
+            params: {
+                belongs_to_type: 'server',
+                belongs_to_uuid: SERVERS[1],
+                owner_uuid: ADMIN_OWNER,
+                underlay: true
+            },
+            exp: mod_net.addNetParams(REAL_NETS[0], {
+                belongs_to_type: 'server',
+                belongs_to_uuid: SERVERS[1],
+                owner_uuid: ADMIN_OWNER,
+                underlay: true
+            })
+        });
+    });
+
+    t.test('underlay mapping created', function (t2) {
+        SERVER_NICS.push(mod_nic.lastCreated());
+        t.ok(SERVER_NICS[2], 'have last created nic');
+        t.ok(SERVER_NICS[2].underlay, 'nic has underlay property');
+
+        mod_portolan.underlayMapping(t2, {
+            params: {
+                cn_uuid: SERVERS[1]
+            },
+            exp: {
+                cn_uuid: SERVERS[1],
+                ip: SERVER_NICS[2].ip,
                 port: constants.VXLAN_PORT
             }
         });
@@ -1136,33 +1214,302 @@ test('update nics', function (t) {
             expErr: mod_err.invalidParam('nic_tag', 'nic tag does not exist')
         });
     });
-
 });
 
+test('basic shootdown tests', function (t) {
+    var nic1, nic2;
+    var vnet_id, vlan_id;
+    var nic_tag = mod_fabric_net.nicTag(t, NETS[0]);
+    var newIP = NETS[1].provision_end_ip;
 
-test('delete server nic', function (t) {
+    // NIC <n>, Virtual Layer <n>, shootdown <n>
+    var nic1vl3s1;
+    var nic1vl3s2;
+    var nic1vl2s1;
+    var nic2vl3s1;
 
-    t.test('delete server nic', function (t2) {
-        t.ok(SERVER_NICS[1], 'have underlay nic');
-        t.ok(SERVER_NICS[1].underlay, 'nic has underlay property');
+    t.test('clear event log for SERVERS[0]', function (t2) {
+        mod_portolan.logReq(t2, {
+            params: {
+                cn_uuid: SERVERS[0]
+            },
+            partialExp: {}
+        });
+    });
 
+    t.test('clear event log for SERVERS[1]', function (t2) {
+        mod_portolan.logReq(t2, {
+            params: {
+                cn_uuid: SERVERS[1]
+            },
+            partialExp: {}
+        });
+    });
+
+    t.test('provision nic1', function (t2) {
+        mod_nic.provision(t2, {
+            fillInMissing: true,
+            net: NETS[1].uuid,
+            params: {
+                belongs_to_type: 'zone',
+                belongs_to_uuid: VMS[3],
+                cn_uuid: SERVERS[0],
+                owner_uuid: OWNERS[0]
+            },
+            exp: mod_net.addNetParams(NETS[1], {
+                belongs_to_type: 'zone',
+                belongs_to_uuid: VMS[3],
+                cn_uuid: SERVERS[0],
+                fabric: true,
+                nic_tag: nic_tag,
+                owner_uuid: OWNERS[0]
+            })
+        });
+    });
+
+    t.test('overlay mapping updated', function (t2) {
+        nic1 = mod_nic.lastCreated();
+        t.ok(nic1, 'last created nic');
+
+        vnet_id = mod_portolan.nicVnetID(t, nic1);
+        vlan_id = nic1.vlan_id;
+
+        nic1vl3s1 = {
+            vnet_id: vnet_id,
+            version: 1,
+            record: {
+                type: 'SVP_LOG_VL3',
+                ip: nic1.ip,
+                mac: nic1.mac,
+                vlan: vlan_id,
+                vnet_id: vnet_id
+            }
+        };
+
+        nic1vl2s1 = {
+            vnet_id: vnet_id,
+            version: 1,
+            record: {
+                type: 'SVP_LOG_VL2',
+                mac: nic1.mac,
+                vnet_id: vnet_id
+            }
+        };
+
+        mod_portolan.overlayMapping(t2, {
+            params: {
+                nic: nic1
+            },
+            exp: {
+                cn_uuid: SERVERS[0],
+                deleted: false,
+                ip: nic1.ip,
+                mac: nic1.mac,
+                version: 1,
+                vnet_id: vnet_id
+            }
+        });
+    });
+
+    t.test('Checking VL3 shootdowns', function (t2) {
+        checkEventLog(t2, {
+            log1: [ extend(nic1vl3s1, { cn_uuid: SERVERS[0] }) ],
+            log2: [],
+            log3: []
+        });
+    });
+
+    t.test('provision nic2', function (t2) {
+        mod_nic.provision(t2, {
+            fillInMissing: true,
+            net: NETS[1].uuid,
+            params: {
+                belongs_to_type: 'zone',
+                belongs_to_uuid: VMS[4],
+                cn_uuid: SERVERS[1],
+                owner_uuid: OWNERS[0]
+            },
+            exp: mod_net.addNetParams(NETS[1], {
+                belongs_to_type: 'zone',
+                belongs_to_uuid: VMS[4],
+                cn_uuid: SERVERS[1],
+                fabric: true,
+                nic_tag: nic_tag,
+                owner_uuid: OWNERS[0]
+            })
+        });
+    });
+
+    t.test('overlay mapping updated', function (t2) {
+        nic2 = mod_nic.lastCreated();
+        t.ok(nic2, 'last created nic');
+
+        nic2vl3s1 = {
+            vnet_id: vnet_id,
+            version: 1,
+            record: {
+                type: 'SVP_LOG_VL3',
+                ip: nic2.ip,
+                mac: nic2.mac,
+                vlan: vlan_id,
+                vnet_id: vnet_id
+            }
+        };
+
+        mod_portolan.overlayMapping(t2, {
+            params: {
+                nic: nic2
+            },
+            exp: {
+                cn_uuid: SERVERS[1],
+                deleted: false,
+                ip: nic2.ip,
+                mac: nic2.mac,
+                version: 1,
+                vnet_id: vnet_id
+            }
+        });
+    });
+
+    t.test('Checking VL3 shootdowns', function (t2) {
+        checkEventLog(t2, {
+            log1: [ extend(nic2vl3s1, { cn_uuid: SERVERS[0] }) ],
+            log2: [],
+            log3: []
+        });
+    });
+
+    t.test('NAPI-397: update fabric NIC to new IP address', function (t2) {
+        var params = {
+            ip: newIP
+        };
+        mod_nic.updateAndGet(t2, {
+            mac: nic1.mac,
+            params: params,
+            exp: extend(nic1, params)
+        });
+    });
+
+    t.test('old overlay mapping updated to deleted=true', function (t2) {
+        mod_portolan.overlayMapping(t2, {
+            params: {
+                nic: nic1
+            },
+            skipVL2: true,
+            expErr: mod_portolan.notFoundErr()
+        });
+    });
+
+    t.test('new overlay mapping updated', function (t2) {
+        nic1.ip = newIP;
+        nic1vl3s2 = {
+            vnet_id: vnet_id,
+            version: 1,
+            record: {
+                type: 'SVP_LOG_VL3',
+                ip: newIP,
+                mac: nic1.mac,
+                vlan: vlan_id,
+                vnet_id: vnet_id
+            }
+        };
+
+        mod_portolan.overlayMapping(t2, {
+            params: {
+                nic: nic1
+            },
+            exp: {
+                cn_uuid: SERVERS[0],
+                deleted: false,
+                ip: newIP,
+                mac: nic1.mac,
+                version: 1,
+                vnet_id: vnet_id
+            }
+        });
+    });
+
+    t.test('Checking VL3 shootdowns', function (t2) {
+        checkEventLog(t2, {
+            log1: [
+                extend(nic1vl3s1, { cn_uuid: SERVERS[0] }),
+                extend(nic1vl3s2, { cn_uuid: SERVERS[0] })
+            ],
+            log2: [
+                extend(nic1vl3s1, { cn_uuid: SERVERS[1] }),
+                extend(nic1vl3s2, { cn_uuid: SERVERS[1] })
+            ],
+            log3: []
+        });
+    });
+
+    t.test('NAPI-358: update nic1.cn_uuid to SERVERS[1]', function (t2) {
+        nic1.cn_uuid = SERVERS[1];
+
+        mod_nic.updateAndGet(t2, {
+            mac: nic1.mac,
+            params: {
+                cn_uuid: SERVERS[1]
+            },
+            exp: nic1
+        });
+    });
+
+    t.test('new overlay mapping updated', function (t2) {
+        mod_portolan.overlayMapping(t2, {
+            params: {
+                nic: nic1
+            },
+            exp: {
+                cn_uuid: SERVERS[1],
+                deleted: false,
+                ip: newIP,
+                mac: nic1.mac,
+                version: 1,
+                vnet_id: vnet_id
+            }
+        });
+    });
+
+    t.test('Checking VL2 & VL3 shootdowns', function (t2) {
+        checkEventLog(t2, {
+            log1: [
+                extend(nic1vl3s2, { cn_uuid: SERVERS[0] }),
+                extend(nic1vl2s1, { cn_uuid: SERVERS[0] })
+            ],
+            log2: [
+                extend(nic1vl3s2, { cn_uuid: SERVERS[1] }),
+                extend(nic1vl2s1, { cn_uuid: SERVERS[1] })
+            ],
+            log3: []
+        });
+    });
+
+    t.test('deleting nic1', function (t2) {
         mod_nic.del(t2, {
-            mac: SERVER_NICS[1].mac,
+            mac: nic1.mac,
             exp: {}
         });
     });
 
-
-    t.test('underlay mapping removed', function (t2) {
-        mod_portolan.underlayMapping(t2, {
+    t.test('overlay mapping updated to deleted=true', function (t2) {
+        mod_portolan.overlayMapping(t2, {
             params: {
-                cn_uuid: SERVERS[0]
+                nic: nic1
             },
             expErr: mod_portolan.notFoundErr()
         });
     });
 
+    t.test('Checking VL2 & VL3 shootdowns', function (t2) {
+        checkEventLog(t2, {
+            log1: [ extend(nic1vl2s1, { cn_uuid: SERVERS[0] }) ],
+            log2: [ extend(nic1vl2s1, { cn_uuid: SERVERS[1] }) ],
+            log3: []
+        });
+    });
 });
+
 
 
 test('provision gateway', function (t) {
@@ -1388,6 +1735,79 @@ test('NAPI-348: Provision with fabric nic_tag', function (t) {
                 version: 1,
                 vnet_id: mod_portolan.nicVnetID(t, nic)
             }
+        });
+    });
+});
+
+
+test('Provision fabric NIC - IP specified w/o network_uuid', function (t) {
+    var ip = '192.168.0.150';
+    var mac = h.randomMAC();
+    var nic_tag = mod_fabric_net.nicTag(t, NETS[3]);
+    var params = {
+        ip: ip,
+        nic_tag: nic_tag,
+        vlan_id: NETS[3].vlan_id,
+        belongs_to_type: 'zone',
+        belongs_to_uuid: VMS[2],
+        primary: false,
+        state: 'running',
+        cn_uuid: SERVERS[0],
+        owner_uuid: OWNERS[1]
+    };
+    var exp = mod_net.addNetParams(NETS[3],
+        extend(params, { fabric: true, network_uuid: NETS[3] }));
+
+    t.test('NETS[3]: provision', function (t2) {
+        mod_nic.createAndGet(t2, {
+            mac: mac,
+            params: params,
+            exp: exp
+        });
+    });
+
+    t.test('overlay mapping added', function (t2) {
+        var nic = mod_nic.lastCreated();
+        t.ok(nic, 'last created nic');
+
+        mod_portolan.overlayMapping(t2, {
+            params: {
+                nic: nic
+            },
+            exp: {
+                cn_uuid: SERVERS[0],
+                deleted: false,
+                ip: ip,
+                mac: mac,
+                version: 1,
+                vnet_id: mod_portolan.nicVnetID(t, nic)
+            }
+        });
+    });
+});
+
+
+// --- Delete tests
+
+
+test('delete server nic', function (t) {
+    t.test('delete server nic', function (t2) {
+        t.ok(SERVER_NICS[1], 'have underlay nic');
+        t.ok(SERVER_NICS[1].underlay, 'nic has underlay property');
+
+        mod_nic.del(t2, {
+            mac: SERVER_NICS[1].mac,
+            exp: {}
+        });
+    });
+
+
+    t.test('underlay mapping removed', function (t2) {
+        mod_portolan.underlayMapping(t2, {
+            params: {
+                cn_uuid: SERVERS[0]
+            },
+            expErr: mod_portolan.notFoundErr()
         });
     });
 });

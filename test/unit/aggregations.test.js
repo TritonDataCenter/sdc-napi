@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright 2016, Joyent, Inc.
+ * Copyright 2017, Joyent, Inc.
  */
 
 /*
@@ -20,9 +20,9 @@ var clone = require('clone');
 var constants = require('../../lib/util/constants');
 var mod_aggr = require('../lib/aggr');
 var mod_err = require('../../lib/util/errors');
-var mod_moray = require('../lib/moray');
 var mod_nic = require('../lib/nic');
 var mod_nic_tag = require('../lib/nic-tag');
+var mod_server = require('../lib/server');
 var mod_uuid = require('node-uuid');
 var test = require('tape');
 var util = require('util');
@@ -35,6 +35,7 @@ var vasync = require('vasync');
 
 
 
+var MORAY;
 var NAPI;
 var owner = 'e597afe2-b4a6-4842-81d3-f5a7a98404b1';
 var state = {
@@ -154,13 +155,17 @@ function createParamErrs(t, param, baseParams, list) {
 
 
 test('setup', function (t) {
+    h.reset();
+
     t.plan(6);
 
     t.test('create client and server', function (t2) {
-        h.createClientAndServer(function (err, res) {
+        h.createClientAndServer(function (err, res, moray) {
+            MORAY = moray;
             NAPI = res;
             t2.ifError(err, 'server creation');
             t2.ok(NAPI, 'client');
+            t2.ok(MORAY, 'moray');
             t2.end();
         });
     });
@@ -255,14 +260,17 @@ test('create', function (t) {
                 return t2.end();
             }
 
-            var morayObj = mod_moray.getObj('napi_aggregations', exp.id);
-            t2.ok(morayObj, 'got moray object');
-            res.macs = params.macs.map(function (m) {
-                return util_mac.aton(m);
-            });
+            MORAY.getObject('napi_aggregations', exp.id,
+                function (err2, morayObj) {
+                t2.ifError(err2, 'Getting aggregation should succeed');
+                t2.ok(morayObj, 'Got Moray object');
+                res.macs = params.macs.map(function (m) {
+                    return util_mac.aton(m);
+                });
 
-            t2.deepEqual(morayObj, res, 'raw moray object');
-            return t2.end();
+                t2.deepEqual(morayObj.value, res, 'Raw Moray object');
+                t2.end();
+            });
         });
     });
 
@@ -393,7 +401,7 @@ test('create', function (t) {
             },
             expErr: h.invalidParamErr({
                 errors: [ mod_err.invalidParam('macs',
-                    constants.msg.AGGR_BELONGS, { invalid: macs }) ]
+                    constants.msg.AGGR_BELONGS, { invalid: macs.sort() }) ]
             })
         });
     });
@@ -685,11 +693,6 @@ test('delete', function (t) {
 
 // --- Teardown
 
+test('delete nics', mod_nic.delAllCreated);
 
-
-test('teardown', function (t) {
-    h.stopServer(function (err) {
-        t.ifError(err, 'server stop');
-        return t.end();
-    });
-});
+test('Stop server', mod_server.close);

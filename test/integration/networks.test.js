@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright 2017, Joyent, Inc.
  */
 
 /*
@@ -15,15 +15,16 @@
 'use strict';
 
 var constants = require('../../lib/util/constants');
-var extend = require('xtend');
 var fmt = require('util').format;
 var h = require('./helpers');
+var mod_jsprim = require('jsprim');
 var mod_net = require('../lib/net');
 var mod_uuid = require('node-uuid');
 var mod_vasync = require('vasync');
 var test = require('tape');
 var util = require('util');
 
+var extend = mod_jsprim.mergeObjects;
 
 
 // --- Globals

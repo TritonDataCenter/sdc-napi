@@ -5,7 +5,7 @@
 #
 
 #
-# Copyright (c) 2015, Joyent, Inc.
+# Copyright 2017, Joyent, Inc.
 #
 
 #
@@ -16,7 +16,8 @@
 # Tools
 #
 
-TAPE	:= ./node_modules/.bin/tape
+ISTANBUL	:= node_modules/.bin/istanbul
+FAUCET		:= node_modules/.bin/faucet
 
 #
 # Files
@@ -64,24 +65,25 @@ INSTDIR         := $(PKGDIR)/root/opt/smartdc/napi
 #
 
 .PHONY: all
-all: $(SMF_MANIFESTS) | $(TAPE) $(REPO_DEPS) sdc-scripts
-	$(NPM) install
+all: $(SMF_MANIFESTS) | $(NPM_EXEC) $(REPO_DEPS) sdc-scripts
+	$(NPM) install --production
 
 $(ESLINT): | $(NPM_EXEC)
+	$(NPM) install \
+	    eslint@`json -f package.json devDependencies.eslint` \
+	    eslint-plugin-joyent@`json -f package.json devDependencies.eslint-plugin-joyent`
+
+$(ISTANBUL): | $(NPM_EXEC)
 	$(NPM) install
 
-$(TAPE): | $(NPM_EXEC)
+$(FAUCET): | $(NPM_EXEC)
 	$(NPM) install
 
-CLEAN_FILES += $(TAPE) ./node_modules/tape
+CLEAN_FILES += ./node_modules/tape
 
 .PHONY: test
-test: $(TAPE)
-	@(for F in test/unit/*.test.js; do \
-		echo "# $$F" ;\
-		$(NODE_EXEC) $(TAPE) $$F ;\
-		[[ $$? == "0" ]] || exit 1; \
-	done)
+test: $(ISTANBUL) $(FAUCET)
+	$(ISTANBUL) cover --print none test/unit/run.js | $(FAUCET)
 
 #
 # Packaging targets

@@ -15,8 +15,8 @@
 'use strict';
 
 var constants = require('../../lib/util/constants');
-var extend = require('xtend');
 var mod_ip = require('../lib/ip');
+var mod_jsprim = require('jsprim');
 var mod_migr = require('../lib/migration');
 var mod_net = require('../lib/net');
 var mod_nic = require('../lib/nic');
@@ -25,6 +25,7 @@ var mod_server = require('../lib/server');
 var mod_uuid = require('node-uuid');
 var test = require('tape');
 
+var extend = mod_jsprim.mergeObjects;
 
 
 // --- Globals

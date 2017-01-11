@@ -116,6 +116,8 @@ function delAllCreatedVLANs(t) {
         return t.end();
     }
 
+    common.clearCreated('vlans');
+
     mod_vasync.forEachParallel({
         inputs: created,
         func: function _delOne(vlan, cb) {

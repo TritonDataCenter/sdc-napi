@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright 2017, Joyent, Inc.
  */
 
 /*
@@ -162,6 +162,8 @@ function delAllCreatedNics(t) {
         return t.end();
     }
 
+    common.clearCreated('nics');
+
     mod_vasync.forEachParallel({
         inputs: created,
         func: function _delOne(nic, cb) {
@@ -233,11 +235,7 @@ function lastCreatedNic() {
  * List networks
  */
 function listNics(t, opts, callback) {
-    assert.object(t, 't');
-    assert.object(opts, 'opts');
-    assert.optionalBool(opts.deepEqual, 'opts.deepEqual');
-    assert.optionalArrayOfObject(opts.present, 'opts.present');
-    assert.optionalObject(opts.expErr, 'opts.expErr');
+    common.assertArgsList(t, opts, callback);
 
     var client = opts.client || mod_client.get();
     var params = opts.params || {};
