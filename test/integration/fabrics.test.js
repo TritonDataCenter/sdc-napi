@@ -1346,6 +1346,53 @@ test('provision gateway', function (t) {
 });
 
 
+test('NAPI-348: Provision with fabric nic_tag', function (t) {
+    var expTag = mod_fabric_net.nicTag(t, NETS[3]);
+
+    t.test('provision NIC on NETS[3]', function (t2) {
+        mod_nic.provision(t2, {
+            fillInMissing: true,
+            net: NETS[3].uuid,
+            params: {
+                belongs_to_type: 'zone',
+                belongs_to_uuid: VMS[2],
+                cn_uuid: SERVERS[0],
+                nic_tag: expTag,
+                owner_uuid: OWNERS[1]
+            },
+            exp: mod_net.addNetParams(NETS[3], {
+                belongs_to_type: 'zone',
+                belongs_to_uuid: VMS[2],
+                cn_uuid: SERVERS[0],
+                fabric: true,
+                internet_nat: false,
+                nic_tag: expTag,
+                owner_uuid: OWNERS[1]
+            })
+        });
+    });
+
+    t.test('overlay mapping added for NIC', function (t2) {
+        var nic = mod_nic.lastCreated();
+        t.ok(nic, 'last created nic');
+
+        mod_portolan.overlayMapping(t2, {
+            params: {
+                nic: nic
+            },
+            exp: {
+                cn_uuid: SERVERS[0],
+                deleted: false,
+                ip: nic.ip,
+                mac: nic.mac,
+                version: 1,
+                vnet_id: mod_portolan.nicVnetID(t, nic)
+            }
+        });
+    });
+});
+
+
 // Create network tests:
 //
 // - Can't create public (non-RFC1918) nets
