@@ -315,7 +315,30 @@ test('Create admin nic tag - with wrong MTU', function (t) {
     });
 });
 
-// // --- Delete tests
+
+// --- Get tests
+
+
+test('Get nic tag with invalid name', function (t) {
+    NAPI.getNicTag('__ad**$@$sfasdf', function (err, obj) {
+        t.ok(err, 'error returned');
+        t.deepEqual(obj, null, 'no value returned');
+        if (!err) {
+            t.end();
+            return;
+        }
+
+        t.equal(err.statusCode, 422, '422 returned');
+        t.deepEqual(err.body, h.invalidParamErr({
+            errors: [ mod_err.invalidParam('name', INVALID_MSG) ]
+        }), 'Error body');
+
+        t.end();
+    });
+});
+
+
+// --- Delete tests
 
 
 test('Delete nic tag in use', function (t) {
