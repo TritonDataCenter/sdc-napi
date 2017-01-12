@@ -10,7 +10,7 @@ markdown2extras: tables, code-friendly, fenced-code-blocks
 -->
 
 <!--
-    Copyright (c) 2017, Joyent, Inc.
+    Copyright 2017, Joyent, Inc.
 -->
 
 # Networking API (NAPI)
@@ -448,7 +448,8 @@ No response payload, only a "204 No Content" response status.
 
 ## ProvisionNic (POST /networks/:network_uuid/nics)
 
-Creates a new nic, provisioning an IP and MAC address in the process.
+Creates a new NIC, provisioning an IP and MAC address in the process. The
+`:network_uuid` can refer to a Network or a [Network Pool](#network-pools).
 
 ### Inputs
 
@@ -1241,11 +1242,14 @@ Returns a list of all logical network pools.
 All parameters are optional filters on the list. A network pool will be listed
 if it matches *all* of the input parameters.
 
-| Field            | Type    | Description                                                    |
-| ---------------- | ------- | -------------------------------------------------------------- |
-| provisionable_by | UUID    | Return network pools that are provisionable by this owner_uuid |
-| offset           | Integer | Starting offset, see [Pagination](#pagination)                 |
-| limit            | Integer | Maximum number of responses, see [Pagination](#pagination)     |
+| Field            | Type           | Description                                                                              |
+| ---------------- | -------------- | ---------------------------------------------------------------------------------------- |
+| name             | String         | Return network pools that match the pool name                                            |
+| family           | String         | Return network pools containing networks of the given family (one of 'ipv4' or 'ipv6')   |
+| networks         | Array of UUIDs | Return network pools that contain the given network UUID (only one can be given for now) |
+| provisionable_by | UUID           | Return network pools that are provisionable by this owner_uuid                           |
+| offset           | Integer        | Starting offset, see [Pagination](#pagination)                                           |
+| limit            | Integer        | Maximum number of responses, see [Pagination](#pagination)                               |
 
 ### Example
 
@@ -1253,7 +1257,9 @@ if it matches *all* of the input parameters.
     [
       {
         "uuid": "3b5913ec-42e6-4803-9c0b-c9b1c5603520",
-        "name": "internal",
+        "name": "internal networks",
+        "nic_tag": "internal",
+        "family": "ipv4",
         "networks": [
           "0e70de36-a40b-4ac0-9429-819f5ff822bd",
           "9f2eada0-529b-4673-a377-c249f9240a12"
@@ -1261,7 +1267,10 @@ if it matches *all* of the input parameters.
       },
       {
         "uuid": "e967a42b-312d-490c-b753-c4768d9f2091",
-        "name": "external",
+        "name": "external v6 networks",
+        "description": "Logical pool of public IPv6 addresses",
+        "nic_tag": "external",
+        "family": "ipv6",
         "networks": [
           "57a83e2b-527c-41c1-983c-be9b792011dc",
           "8ba8a35f-3eb3-496b-8103-8238eb40f9d0"
@@ -1278,7 +1287,8 @@ Creates a new logical network provisioning pool.
 
 | Field       | Type           | Description                                                          |
 | ----------- | -------------- | -------------------------------------------------------------------- |
-| name        | String         | network provisioning pool name                                       |
+| name        | String         | Network provisioning pool name                                       |
+| description | String         | Description of the new network pool                                  |
 | networks    | Array of UUIDs | Logical Network UUIDs                                                |
 | owner_uuids | Array of UUIDs | UFDS user UUIDs allowed to provision on this network pool (Optional) |
 
@@ -1292,11 +1302,13 @@ Creates a new logical network provisioning pool.
 ### Example
 
     POST /network_pools
-        name=internal
+        name=internal%20networks
         networks=0e70de36-a40b-4ac0-9429-819f5ff822bd,9f2eada0-529b-4673-a377-c249f9240a12
     {
       "uuid": "3b5913ec-42e6-4803-9c0b-c9b1c5603520",
-      "name": "internal",
+      "name": "internal networks",
+      "nic_tag": "internal",
+      "family": "ipv4",
       "networks": [
         "0e70de36-a40b-4ac0-9429-819f5ff822bd",
         "9f2eada0-529b-4673-a377-c249f9240a12"
@@ -1313,7 +1325,9 @@ Gets a logical network provisioning pool by UUID.
     GET /network_pools/3b5913ec-42e6-4803-9c0b-c9b1c5603520
     {
       "uuid": "3b5913ec-42e6-4803-9c0b-c9b1c5603520",
-      "name": "internal",
+      "name": "internal networks",
+      "nic_tag": "internal",
+      "family": "ipv4",
       "networks": [
         "0e70de36-a40b-4ac0-9429-819f5ff822bd",
         "9f2eada0-529b-4673-a377-c249f9240a12"
@@ -1329,18 +1343,22 @@ Changes a logical network provisioning pool.
 
 Must specify at least one of:
 
-| Field    | Type           | Description                    |
-| -------- | -------------- | ------------------------------ |
-| name     | String         | network provisioning pool name |
-| networks | Array of UUIDs | Logical Network UUIDs          |
+| Field       | Type           | Description                                                          |
+| ----------- | -------------- | -------------------------------------------------------------------- |
+| name        | String         | Network provisioning pool name                                       |
+| description | String         | Description of the new network pool                                  |
+| networks    | Array of UUIDs | Logical Network UUIDs                                                |
+| owner_uuids | Array of UUIDs | UFDS user UUIDs allowed to provision on this network pool            |
 
 ### Example
 
     PUT /network_pools/3b5913ec-42e6-4803-9c0b-c9b1c5603520
-        name=internal2
+        name=internal-pool
     {
       "uuid": "3b5913ec-42e6-4803-9c0b-c9b1c5603520",
-      "name": "internal2",
+      "name": "internal-pool",
+      "nic_tag": "internal",
+      "family": "ipv4",
       "networks": [
         "0e70de36-a40b-4ac0-9429-819f5ff822bd",
         "9f2eada0-529b-4673-a377-c249f9240a12"

@@ -42,6 +42,10 @@ var VLAN = {
 };
 
 
+function overlapSort(a, b) {
+    return (a.id > b.id) ? 1 : -1;
+}
+
 
 // --- Setup
 
@@ -228,7 +232,7 @@ function testOverlap(t, testParams) {
             params: params,
             expErr: h.invalidParamErr({
                 errors: mod_err.networkOverlapParams(
-                    [ net, nonOverlappingNets[0] ])
+                    [ net, nonOverlappingNets[0] ]).sort(overlapSort)
             })
         });
     });

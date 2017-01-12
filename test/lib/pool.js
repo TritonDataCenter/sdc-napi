@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright 2017, Joyent, Inc.
  */
 
 /*
@@ -187,19 +187,25 @@ function lastCreated() {
  */
 function list(t, opts, callback) {
     var client = opts.client || mod_client.get();
-    var desc = opts.desc ? (' ' + opts.desc) : '';
-    var params = opts.params || {};
+    var params = opts.params;
 
     assert.object(t, 't');
+    assert.object(opts.params, 'opts.params');
+    assert.optionalObject(opts.expErr, 'opts.expErr');
+    assert.optionalObject(opts.params, 'opts.params');
+    assert.optionalObject(opts.partialExp, 'opts.partialExp');
+    assert.optionalArrayOfObject(opts.present, 'opts.present');
+    assert.ok(opts.present || opts.partialExp || opts.expErr,
+        'one of present, expErr, partialExp required');
+
+    opts.type = 'pool';
+    opts.id = 'uuid';
+    opts.reqType = 'list';
+
     log.debug({ params: params }, 'list network pools');
 
-    client.listNetworkPools(params, function (err, obj, _, res) {
-        common.ifErr(t, err, 'list pools: ' + JSON.stringify(params) + desc);
-        t.equal(res.statusCode, 200,
-            'status code: ' + JSON.stringify(params) + desc);
-
-        return callback(err, obj);
-    });
+    client.listNetworkPools(params,
+        common.afterAPIlist.bind(null, t, opts, callback));
 }
 
 /**

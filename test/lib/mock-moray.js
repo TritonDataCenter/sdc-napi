@@ -142,7 +142,9 @@ function matchObj(filter, origObj) {
     var obj = {};
     for (var k in origObj.value) {
         var val = origObj.value[k];
-        if (util.isArray(val)) {
+        if (val === undefined) {
+            continue;
+        } else if (util.isArray(val)) {
             obj[k] = clone(origObj.value[k]);
         } else {
             obj[k] = origObj.value[k].toString();

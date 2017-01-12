@@ -94,6 +94,7 @@ test('POST /network_pools', function (t) {
                 networks: [ state.network.uuid ].sort()
             },
             exp: {
+                family: 'ipv4',
                 networks: [ state.network.uuid ].sort(),
                 nic_tag: state.network.nic_tag
             },
@@ -108,6 +109,7 @@ test('POST /network_pools', function (t) {
                 networks: [ state.network.uuid, state.network2.uuid ].sort()
             },
             exp: {
+                family: 'ipv4',
                 networks: [ state.network.uuid, state.network2.uuid ].sort(),
                 nic_tag: state.network.nic_tag
             },
@@ -150,6 +152,7 @@ test('PUT /network_pools/:uuid', function (t) {
 
         params.uuid = state.pools[0].uuid;
         params.nic_tag = state.network.nic_tag;
+        params.family = 'ipv4';
         t.deepEqual(res, params, 'update params');
 
         return napi.getNetworkPool(res.uuid, function (err2, res2) {

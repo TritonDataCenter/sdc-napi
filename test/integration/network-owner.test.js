@@ -88,7 +88,7 @@ function checkProvisionSuccess(newOwner, t) {
 }
 
 
-function createNetworkPool(t, name, params) {
+function createNetworkPool(t, name, type, params) {
     var pidName = name + '-' + process.pid;
     napi.createNetworkPool(pidName, params, function (err, res) {
         if (h.ifErr(t, err, 'create network pool ' + name)) {
@@ -101,8 +101,9 @@ function createNetworkPool(t, name, params) {
         params.networks.sort();
         params.uuid = res.uuid;
         params.nic_tag = state.nicTag.name;
+        params.family = type;
 
-        t.deepEqual(params, res, 'network pool ' + name);
+        t.deepEqual(res, params, 'network pool ' + name);
         state[name] = res;
         return t.end();
     });
@@ -168,14 +169,20 @@ test('setup', function (t) {
 // without an owner that already exist, since these will show up in the
 // list
 test('populate no owner pool list', function (t) {
-    mod_pool.list(t, { }, function (_, res) {
+    mod_pool.list(t, {
+        params: {
+            provisionable_by: mod_uuid.v4()
+        },
+        present: []
+    }, function (err, res) {
         if (res) {
             state.noOwnerPools = res.map(function (p) {
                 return p.uuid;
             });
         }
 
-        return t.end();
+        t.ifError(err);
+        t.end();
     });
 });
 
@@ -223,14 +230,14 @@ test('Create second no owner network', function (t) {
 
 
 test('Create no owner network pool', function (t) {
-    createNetworkPool(t, 'noOwnerPool', {
+    createNetworkPool(t, 'noOwnerPool', 'ipv4', {
         networks: [ state.noOwner.uuid, state.noOwner2.uuid ]
     });
 });
 
 
 test('Create owner network pool', function (t) {
-    createNetworkPool(t, 'ownerPool', {
+    createNetworkPool(t, 'ownerPool', 'ipv4', {
         networks: [ state.network.uuid, state.ownerNet2.uuid ],
         owner_uuids: [ owner ]
     });
@@ -238,8 +245,8 @@ test('Create owner network pool', function (t) {
 
 
 test('Create owner2 network pool', function (t) {
-    createNetworkPool(t, 'ownerPool2', {
-        networks: [ state.ownerNet3.uuid, state.ownerNet3.uuid ],
+    createNetworkPool(t, 'ownerPool2', 'ipv4', {
+        networks: [ state.ownerNet3.uuid, state.ownerNet4.uuid ],
         owner_uuids: [ owner2 ]
     });
 });
@@ -318,22 +325,16 @@ test('provisionable_by network: owner', function (t) {
 test('provisionable_by network: other owner', function (t) {
     var netUuid = state.ownerNet3.uuid;
 
-    napi.getNetwork(netUuid, { params: { provisionable_by: owner } },
-        function (err, res) {
-        t.deepEqual(err, {
-            message: constants.msg.NET_OWNER,
-            statusCode: 403,
-            body: {
-                code: 'NotAuthorized',
-                message: constants.msg.NET_OWNER
-            },
-            restCode: 'NotAuthorized',
-            name: 'NotAuthorizedError'
-        });
-
-        t.ifError(res);
-
-        return t.end();
+    mod_net.get(t, {
+        params: {
+            uuid: netUuid,
+            params: { provisionable_by: owner }
+        },
+        expCode: 403,
+        expErr: {
+            code: 'NotAuthorized',
+            message: constants.msg.NET_OWNER
+        }
     });
 });
 
