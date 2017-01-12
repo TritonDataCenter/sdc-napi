@@ -57,9 +57,10 @@ server.on('initialized', function _afterReady() {
     server.doMigrations(function (err) {
         if (err) {
             log.error(err, 'Error migrating data');
-        } else {
-            log.info('Migrations complete');
+            return;
         }
+
+        log.info('Migrations complete');
 
         server.loadInitialData(function () {
             log.info('Initial data loaded');

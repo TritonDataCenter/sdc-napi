@@ -960,34 +960,42 @@ Delete a fabric network.
 
 
 
-# Nics
+# NICs
 
-These endpoints manage nics.
+These endpoints manage NICs.
 
 ## ListNics (GET /nics)
 
-Returns a list of all nics.
+Returns a list of all NICs.
 
 ### Inputs
 
-All parameters are optional filters on the list. A nic is output in the list
+All parameters are optional filters on the list. A NIC is output in the list
 if it matches *all* of the input parameters.
 
-| Field             | Type                   | Description                                                |
-| ----------------- | ---------------------- | ---------------------------------------------------------- |
-| owner_uuid        | UUID                   | Nic Owner                                                  |
-| belongs_to_uuid   | UUID                   | The UUID of what this Nic belongs to                       |
-| belongs_to_type   | String                 | The type that this belongs to (eg: 'zone', 'server')       |
-| network_uuid      | String                 | The UUID of the network the NIC is on                      |
-| nic_tag           | String                 | The nic tag that this nic is on                            |
-| nic_tags_provided | Array of nic tag names | Nic tags provided by the nic                               |
-| offset            | Integer                | Starting offset, see [Pagination](#pagination)             |
-| limit             | Integer                | Maximum number of responses, see [Pagination](#pagination) |
+| Field                    | Type                   | Description                                                                      |
+| ------------------------ | ---------------------- | -------------------------------------------------------------------------------- |
+| owner_uuid               | UUID                   | NIC Owner                                                                        |
+| belongs_to_uuid          | UUID                   | The UUID of what this NIC belongs to                                             |
+| belongs_to_type          | String                 | The type that the NIC belongs to (e.g., 'zone', 'server')                        |
+| allow_dhcp_spoofing      | Boolean                | Whether the NIC is allowed to function as a DHCP server                          |
+| allow_ip_spoofing        | Boolean                | Whether the NIC is allowed to spoof IP addresses                                 |
+| allow_mac_spoofing       | Boolean                | Whether the NIC is allowed to spoof MAC addresses                                |
+| allow_restricted_traffic | Boolean                | Whether the NIC is allowed to send non-IP, non-ICMP, non-ARP traffic             |
+| allow_unfiltered_promisc | Boolean                | Whether the NIC is allowed to listen promiscuously to traffic on different VLANs |
+| cn_uuid                  | String                 | The UUID of the Compute Node that the NIC is on                                  |
+| network_uuid             | String                 | The UUID of the network the NIC is on                                            |
+| nic_tag                  | String                 | The NIC tag that this NIC is on                                                  |
+| nic_tags_provided        | Array of NIC tag names | NIC tags provided by the NIC                                                     |
+| state                    | String                 | What state the NIC is in (e.g., 'running', 'stopped', 'provisioning')            |
+| underlay                 | Boolean                | Whether the NIC is being used to service overlay networks                        |
+| offset                   | Integer                | Starting offset, see [Pagination](#pagination)                                   |
+| limit                    | Integer                | Maximum number of responses, see [Pagination](#pagination)                       |
 
 Note: all filter fields above can have multiple comma-separated values to search
 on (like a logical OR), excepting `offset` and `limit`.
 
-### Example: list all nics
+### Example: list all NICs
 
     GET /nics
 
