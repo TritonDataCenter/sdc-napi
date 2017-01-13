@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright 2017, Joyent, Inc.
  */
 
 /*
@@ -46,12 +46,20 @@ var MESSAGES = {
 
 
 
-/**
- * Return an error for an overlapping subnet
- */
 function invalidParamErr(param, msg, invalid) {
     var body = new errors.InvalidParamsError(constants.msg.INVALID_PARAMS,
         [ errors.invalidParam(param, msg) ]).body;
+
+    if (invalid) {
+        body.errors[0].invalid = invalid;
+    }
+
+    return body;
+}
+
+function missingParamErr(param, msg, invalid) {
+    var body = new errors.InvalidParamsError(errors.msg.missingParams,
+        [ errors.missingParam(param, msg) ]).body;
 
     if (invalid) {
         body.errors[0].invalid = invalid;
@@ -132,6 +140,7 @@ function vlanHasNetworksErr(nets) {
 
 module.exports = {
     invalidParam: invalidParamErr,
+    missingParam: missingParamErr,
     msg: MESSAGES,
     netHasNicsErr: netHasNicsErr,
     netNameInUse: netNameInUseErr,

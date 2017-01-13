@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright 2017, Joyent, Inc.
  */
 
 /*
@@ -821,6 +821,20 @@ test('provision server nics', function (t) {
         });
     });
 
+    t.test('REAL_NETS[0]: fail to provision underlay nic', function (t2) {
+        mod_nic.provision(t2, {
+            fillInMissing: true,
+            net: REAL_NETS[0].uuid,
+            params: {
+                belongs_to_type: 'zone',
+                belongs_to_uuid: SERVERS[0],
+                owner_uuid: ADMIN_OWNER,
+                underlay: true
+            },
+            expErr: mod_err.invalidParam('underlay',
+                constants.SERVER_UNDERLAY_MSG)
+        });
+    });
 
     t.test('REAL_NETS[0]: provision underlay nic', function (t2) {
         mod_nic.provision(t2, {
@@ -870,7 +884,6 @@ test('provision zone nics', function (t) {
         mod_fabric_net.nicTag(t, NETS[0]),
         mod_fabric_net.nicTag(t, NETS[3])
     ];
-    var updateNic;
 
     t.test('NETS[0]: provision', function (t2) {
         mod_nic.provision(t2, {
@@ -880,6 +893,7 @@ test('provision zone nics', function (t) {
             params: {
                 belongs_to_type: 'zone',
                 belongs_to_uuid: VMS[0],
+                cn_uuid: SERVERS[0],
                 owner_uuid: OWNERS[0]
             },
             exp: mod_net.addNetParams(NETS[0], {
@@ -888,26 +902,28 @@ test('provision zone nics', function (t) {
                 fabric: true,
                 internet_nat: true,
                 nic_tag: nicTags[0],
+                cn_uuid: SERVERS[0],
                 owner_uuid: OWNERS[0]
             })
         });
     });
 
+    var updateNic;
 
-    // We didn't specify cn_uuid when provisioning the last nic, so it should
-    // not have an overlay mapping
-    t.test('nic 0: overlay mapping not added', function (t2) {
+    // This test should fail, since no cn_uuid was provided
+    t.test('NETS[0]: provision without cn_uuid', function (t2) {
         updateNic = mod_nic.lastCreated();
-        t.ok(updateNic, 'last created nic');
-
-        mod_portolan.overlayMapping(t2, {
+        mod_nic.provision(t2, {
+            fillInMissing: true,
+            net: NETS[0].uuid,
             params: {
-                nic: updateNic
+                belongs_to_type: 'zone',
+                belongs_to_uuid: VMS[0],
+                owner_uuid: OWNERS[0]
             },
-            expErr: mod_portolan.notFoundErr()
+            expErr: mod_err.missingParam('cn_uuid')
         });
     });
-
 
     t.test('NETS[0]: provision with IP', function (t2) {
         mod_nic.provision(t2, {
@@ -916,12 +932,14 @@ test('provision zone nics', function (t) {
             params: {
                 belongs_to_type: 'zone',
                 belongs_to_uuid: VMS[0],
+                cn_uuid: SERVERS[0],
                 ip: '10.2.1.40',
                 owner_uuid: OWNERS[0]
             },
             exp: mod_net.addNetParams(NETS[0], {
                 belongs_to_type: 'zone',
                 belongs_to_uuid: VMS[0],
+                cn_uuid: SERVERS[0],
                 fabric: true,
                 ip: '10.2.1.40',
                 internet_nat: true,
@@ -987,11 +1005,13 @@ test('provision zone nics', function (t) {
             params: {
                 belongs_to_type: 'zone',
                 belongs_to_uuid: VMS[2],
+                cn_uuid: SERVERS[0],
                 owner_uuid: OWNERS[1]
             },
             exp: mod_net.addNetParams(NETS[3], {
                 belongs_to_type: 'zone',
                 belongs_to_uuid: VMS[2],
+                cn_uuid: SERVERS[0],
                 fabric: true,
                 internet_nat: false,
                 nic_tag: nicTags[1],
@@ -1000,8 +1020,26 @@ test('provision zone nics', function (t) {
         });
     });
 
+    t.test('nic 3: overlay mapping added', function (t2) {
+        var nic = mod_nic.lastCreated();
+        t.ok(nic, 'last created nic');
 
-    t.test('update nic to add cn_uuid', function (t2) {
+        mod_portolan.overlayMapping(t2, {
+            params: {
+                nic: nic
+            },
+            exp: {
+                cn_uuid: SERVERS[0],
+                deleted: false,
+                ip: nic.ip,
+                mac: nic.mac,
+                version: 1,
+                vnet_id: mod_portolan.nicVnetID(t, nic)
+            }
+        });
+    });
+
+    t.test('update nic to change cn_uuid', function (t2) {
         mod_nic.updateAndGet(t2, {
             mac: updateNic.mac,
             params: {
@@ -1013,44 +1051,24 @@ test('provision zone nics', function (t) {
         });
     });
 
+    t.test('update nic to change underlay', function (t2) {
+        mod_nic.update(t2, {
+            mac: updateNic.mac,
+            params: {
+                underlay: true
+            },
+            expErr: mod_err.invalidParam('underlay',
+                constants.SERVER_UNDERLAY_MSG)
+        });
+    });
 
-    t.test('updated nic: overlay mapping added', function (t2) {
+    t.test('update nic: overlay mapping changed', function (t2) {
         mod_portolan.overlayMapping(t2, {
             params: {
                 nic: updateNic
             },
             exp: {
                 cn_uuid: SERVERS[1],
-                deleted: false,
-                ip: updateNic.ip,
-                mac: updateNic.mac,
-                version: 1,
-                vnet_id: mod_portolan.nicVnetID(t, updateNic)
-            }
-        });
-    });
-
-
-    t.test('update nic to change cn_uuid', function (t2) {
-        mod_nic.updateAndGet(t2, {
-            mac: updateNic.mac,
-            params: {
-                cn_uuid: SERVERS[0]
-            },
-            partialExp: {
-                cn_uuid: SERVERS[0]
-            }
-        });
-    });
-
-
-    t.test('updated nic: overlay mapping changed', function (t2) {
-        mod_portolan.overlayMapping(t2, {
-            params: {
-                nic: updateNic
-            },
-            exp: {
-                cn_uuid: SERVERS[0],
                 deleted: false,
                 ip: updateNic.ip,
                 mac: updateNic.mac,
@@ -1174,12 +1192,14 @@ test('provision gateway', function (t) {
             params: {
                 belongs_to_type: 'zone',
                 belongs_to_uuid: gw,
+                cn_uuid: SERVERS[0],
                 ip: NETS[0].gateway,
                 owner_uuid: ADMIN_OWNER
             },
             exp: mod_net.addNetParams(NETS[0], {
                 belongs_to_type: 'zone',
                 belongs_to_uuid: gw,
+                cn_uuid: SERVERS[0],
                 fabric: true,
                 internet_nat: true,
                 gateway_provisioned: true,
@@ -1259,11 +1279,13 @@ test('provision gateway', function (t) {
             params: {
                 belongs_to_type: 'zone',
                 belongs_to_uuid: VMS[2],
+                cn_uuid: SERVERS[0],
                 owner_uuid: OWNERS[0]
             },
             exp: mod_net.addNetParams(NETS[0], {
                 belongs_to_type: 'zone',
                 belongs_to_uuid: VMS[2],
+                cn_uuid: SERVERS[0],
                 fabric: true,
                 internet_nat: true,
                 gateway_provisioned: true,

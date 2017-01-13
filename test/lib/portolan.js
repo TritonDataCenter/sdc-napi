@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright 2017, Joyent, Inc.
  */
 
 /*
@@ -94,7 +94,8 @@ function afterMoray(t, opts, callback, err, realObj) {
 
 function getMorayClient(callback) {
     if (MORAY_CLIENT) {
-        return callback(null, MORAY_CLIENT);
+        callback(null, MORAY_CLIENT);
+        return;
     }
 
     assert.object(config, 'config');
@@ -108,10 +109,11 @@ function getMorayClient(callback) {
             port: config.moray.port
         });
 
-        // XXX: Possible to get an error event here?
+
+        MORAY_CLIENT.once('error', callback);
 
         MORAY_CLIENT.once('connect', function _afterConnect() {
-            return callback(null, MORAY_CLIENT);
+            callback(null, MORAY_CLIENT);
         });
     });
 }
@@ -173,7 +175,11 @@ function overlayMapping(t, opts, callback) {
         return doneErr(vnetErr, t, callback);
     }
 
-    getMorayClient(function (_, client) {
+    getMorayClient(function (err, client) {
+        if (err) {
+            callback(err);
+            return;
+        }
         var vl2Opts = {
             log: log,
             moray: client,
@@ -210,7 +216,11 @@ function underlayMapping(t, opts, callback) {
 
     assert.string(opts.params.cn_uuid, 'opts.params.cn_uuid');
 
-    getMorayClient(function (_, client) {
+    getMorayClient(function (err, client) {
+        if (err) {
+            callback(err);
+            return;
+        }
         var lookupOpts = {
             moray: client,
             noCache: true,
