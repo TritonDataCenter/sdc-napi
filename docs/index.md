@@ -1095,6 +1095,7 @@ Creates a new nic.
 | network_uuid             | UUID                   | UUID of the network or network pool to provision an IP on                         |
 | nic_tag                  | String                 | Nic tag (required if IP specified)                                                |
 | vlan_id                  | Number                 | VLAN ID (required if IP specified)                                                |
+| primary                  | Boolean                | Whether this is the VM's primary nic (optional, default false)                    |
 | reserved                 | Boolean                | Whether the IP address should be reserved                                         |
 | nic_tags_provided        | Array of nic tag names | Nic tags this nic provides                                                        |
 | model                    | String                 | Nic model for KVM VMs (optional for other VM types)                               |
@@ -1105,7 +1106,11 @@ Creates a new nic.
 | allow_mac_spoofing       | Boolean                | Allow sending and receiving packets that don't match the nic's MAC address        |
 | allow_restricted_traffic | Boolean                | Allow sending restricted network traffic (packets that are not IPv4, IPv6 or ARP) |
 | allow_unfiltered_promisc | Boolean                | Allow this VM to have multiple MAC addresses                                      |
-| underlay                 | Boolean                | Indicates this vnic is to be used as a server's unerlay nic (optional)            |
+| underlay                 | Boolean                | Indicates this vnic is to be used as a server's underlay nic (optional)           |
+
+A VM can only have one primary NIC, and  will set its default gateway and
+nameservers to the values obtained from the network attached to the primary NIC.
+Adding a new primary NIC will remove the `primary` flag from the old one.
 
 
 ### Example
@@ -1165,6 +1170,7 @@ Changes properties of the nic with the given MAC address.
 | cn_uuid                  | UUID                   | The UUID of the Compute Node a VM's nic is provisioned on (optional)              |
 | ip                       | String                 | IP address to assign to the nic                                                   |
 | network_uuid             | UUID                   | The network UUID the nic's IP should be on                                        |
+| primary                  | Boolean                | Whether this is the VM's primary nic                                              |
 | nic_tags_provided        | Array of nic tag names | Nic tags this nic provides                                                        |
 | model                    | String                 | Nic model for KVM VMs (optional for other VM types)                               |
 | check_owner              | Boolean                | If set to false, skips network ownership checks (optional)                        |
@@ -1173,7 +1179,7 @@ Changes properties of the nic with the given MAC address.
 | allow_mac_spoofing       | Boolean                | Allow sending and receiving packets that don't match the nic's MAC address        |
 | allow_restricted_traffic | Boolean                | Allow sending restricted network traffic (packets that are not IPv4, IPv6 or ARP) |
 | allow_unfiltered_promisc | Boolean                | Allow this VM to have multiple MAC addresses                                      |
-| underlay                 | Boolean                | Indicates this vnic is to be used as a server's unerlay nic (optional)            |
+| underlay                 | Boolean                | Indicates this vnic is to be used as a server's underlay nic (optional)           |
 
 
 **Note: this is the MAC address with all colons removed.**
