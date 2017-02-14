@@ -10,7 +10,7 @@ markdown2extras: tables, code-friendly, fenced-code-blocks
 -->
 
 <!--
-    Copyright (c) 2015, Joyent, Inc.
+    Copyright (c) 2017, Joyent, Inc.
 -->
 
 # Networking API (NAPI)
@@ -348,12 +348,7 @@ This sets two static routes:
 
 ## UpdateNetwork (PUT /networks/:network_uuid)
 
-Updates a logical network.  Note updating the following parameters will cause
-a workflow to be run to update VMs on that network with the changes:
-
-* resolvers
-* routes
-* gateway
+Updates a logical network.
 
 ### Inputs
 
