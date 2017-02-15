@@ -456,7 +456,7 @@ Creates a new NIC, provisioning an IP and MAC address in the process. The
 | Field             | Type                   | Description                                                                      |
 | ----------------- | ---------------------- | -------------------------------------------------------------------------------- |
 | owner_uuid        | UUID                   | Nic Owner                                                                        |
-| cn_uuid  |        | UUID                   | The UUID of the CN this NIC is on (optional, unless on fabric)                  |
+| cn_uuid           | UUID                   | The UUID of the CN this NIC is on (optional, unless on fabric)                  |
 | belongs_to_uuid   | UUID                   | The UUID of what this Nic belongs to                                             |
 | belongs_to_type   | String                 | The type that this belongs to (eg: 'zone', 'server')                             |
 | ip                | String                 | IP address to assign to the nic                                                  |
