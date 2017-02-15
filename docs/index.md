@@ -456,13 +456,14 @@ Creates a new NIC, provisioning an IP and MAC address in the process. The
 | Field             | Type                   | Description                                                                      |
 | ----------------- | ---------------------- | -------------------------------------------------------------------------------- |
 | owner_uuid        | UUID                   | Nic Owner                                                                        |
+| cn_uuid  |        | UUID                   | The UUID of the CN this NIC is on (optional, unless on fabric)                  |
 | belongs_to_uuid   | UUID                   | The UUID of what this Nic belongs to                                             |
 | belongs_to_type   | String                 | The type that this belongs to (eg: 'zone', 'server')                             |
 | ip                | String                 | IP address to assign to the nic                                                  |
 | reserved          | Boolean                | Whether the IP address should be reserved                                        |
 | nic_tags_provided | Array of nic tag names | Nic tags this nic provides                                                       |
 | check_owner       | Boolean                | If set to false, skips network ownership checks (optional)                       |
-| status            | String                 | Set state nic starts in (one of 'provisioning', 'stopped', 'running') (optional) |
+| state             | String                 | Set state nic starts in (one of 'provisioning', 'stopped', 'running') (optional) |
 
 **Notes:**
 
@@ -484,7 +485,7 @@ Creates a new NIC, provisioning an IP and MAC address in the process. The
       "belongs_to_uuid": "a112b8aa-eb39-4f84-8257-17a705880773",
       "belongs_to_type": "zone",
       "gateway": "10.99.99.7",
-      "status": "running",
+      "state": "running",
       "resolvers": [
         "8.8.4.4",
         "8.8.8.8"
@@ -993,7 +994,7 @@ on (like a logical OR), excepting `offset` and `limit`.
         "belongs_to_uuid": "27391a96-9fb5-4896-975a-85f948d9c509",
         "belongs_to_type": "zone",
         "gateway": "10.88.88.2",
-        "status": "running",
+        "state": "running",
         "resolvers": [
           "8.8.4.4",
           "8.8.8.8"
@@ -1010,7 +1011,7 @@ on (like a logical OR), excepting `offset` and `limit`.
         "belongs_to_uuid": "27391a96-9fb5-4896-975a-85f948d9c509",
         "belongs_to_type": "zone",
         "gateway": "10.88.88.2",
-        "status": "running",
+        "state": "running",
         "resolvers": [
           "8.8.4.4",
           "8.8.8.8"
@@ -1036,7 +1037,7 @@ on (like a logical OR), excepting `offset` and `limit`.
         "vlan_id": 0,
         "nic_tag": "admin",
         "gateway": "10.99.99.7",
-        "status": "running",
+        "state": "running",
         "resolvers": [
           "8.8.8.8",
           "8.8.4.4"
@@ -1053,7 +1054,7 @@ on (like a logical OR), excepting `offset` and `limit`.
         "vlan_id": 0,
         "nic_tag": "external",
         "gateway": "10.88.88.2",
-        "status": "running",
+        "state": "running",
         "resolvers": [
           "8.8.8.8",
           "8.8.4.4"
@@ -1086,7 +1087,7 @@ Creates a new nic.
 | owner_uuid               | UUID                   | Nic Owner                                                                         |
 | belongs_to_uuid          | UUID                   | The UUID of what this Nic belongs to                                              |
 | belongs_to_type          | String                 | The type that this belongs to (eg: 'zone', 'server')                              |
-| cn_uuid                  | UUID                   | The UUID of the Compute Node a VM's nic is provisioned on (optional)              |
+| cn_uuid                  | UUID                   | The UUID of the CN this NIC is on (optional, unless on fabric)                    |
 | ip                       | String                 | IP address to assign to the nic                                                   |
 | network_uuid             | UUID                   | UUID of the network or network pool to provision an IP on                         |
 | nic_tag                  | String                 | Nic tag (required if IP specified)                                                |
@@ -1096,7 +1097,7 @@ Creates a new nic.
 | nic_tags_provided        | Array of nic tag names | Nic tags this nic provides                                                        |
 | model                    | String                 | Nic model for KVM VMs (optional for other VM types)                               |
 | check_owner              | Boolean                | If set to false, skips network ownership checks (optional)                        |
-| status                   | String                 | Set state nic starts in (one of 'provisioning', 'stopped', 'running') (optional)  |
+| state                    | String                 | Set state nic starts in (one of 'provisioning', 'stopped', 'running') (optional)  |
 | allow_dhcp_spoofing      | Boolean                | Allow operating a DHCP server on this nic                                         |
 | allow_ip_spoofing        | Boolean                | Allow sending and receiving packets that don't match the nic's IP                 |
 | allow_mac_spoofing       | Boolean                | Allow sending and receiving packets that don't match the nic's MAC address        |
@@ -1146,7 +1147,7 @@ Returns the nic with the given MAC address.
       "belongs_to_uuid": "27391a96-bbbb-bbbb-bbbb-85f948d9c509",
       "belongs_to_type": "zone",
       "gateway": "10.88.88.2",
-      "status": "running",
+      "state": "running",
       "resolvers": [
         "8.8.4.4",
         "8.8.8.8"
@@ -1185,7 +1186,7 @@ Changes properties of the nic with the given MAC address.
     PUT /nics/90b8d0575370
         -d belongs_to_uuid=27391a96-bbbb-bbbb-bbbb-888888888888
         -d belongs_to_type=server
-        -d status=stopped
+        -d state=stopped
 
     {
       "ip": "10.88.88.198",
@@ -1198,7 +1199,7 @@ Changes properties of the nic with the given MAC address.
       "belongs_to_uuid": "27391a96-bbbb-bbbb-bbbb-888888888888",
       "belongs_to_type": "server",
       "gateway": "10.88.88.2",
-      "status": "stopped",
+      "state": "stopped",
       "resolvers": [
         "8.8.4.4",
         "8.8.8.8"
