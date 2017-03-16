@@ -1007,6 +1007,10 @@ test('Provision nic - on network pool', function (t) {
             }
 
             var net = nextIPnum < 6 ? NETS[0] : NETS[1];
+
+            delete res.created_timestamp;
+            delete res.modified_timestamp;
+
             t.deepEqual(res, mod_nic.addDefaultParams({
                 belongs_to_type: params.belongs_to_type,
                 belongs_to_uuid: params.belongs_to_uuid,

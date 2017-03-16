@@ -1151,9 +1151,16 @@ Returns the nic with the given MAC address.
       "resolvers": [
         "8.8.4.4",
         "8.8.8.8"
-      ]
+      ],
+      "created_timestamp": "2017-04-01T01:02:03.456Z",
+      "modified_timestamp": "2017-05-12T11:22:33.777Z"
     }
 
+The meaning of the fields are the same as in the CreateNic call.
+
+NOTE: The created and modified timestamps are read-only.  They may also
+return "1970-01-01T00:00:00.000Z" (epoch) if the creation or last modification
+of the nic occurred prior to NAPI implementing support for the timestamps.
 
 ## UpdateNic (PUT /nics/:mac_address)
 

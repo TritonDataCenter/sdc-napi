@@ -61,8 +61,7 @@ function checkProvisionSuccess(newOwner, t) {
     };
 
     napi.provisionNic(state.network.uuid, params, function (err, res) {
-        t.ifError(err, 'error returned');
-        if (err) {
+        if (h.ifErr(t, err, 'error returned')) {
             t.deepEqual(err.body, {}, 'err body for debugging');
             return t.end();
         }
@@ -81,6 +80,8 @@ function checkProvisionSuccess(newOwner, t) {
         params.ip = nextIP;
 
         h.addNetParamsToNic(state, params);
+        delete res.created_timestamp;
+        delete res.modified_timestamp;
         t.deepEqual(res, params, 'nic params');
 
         return t.end();

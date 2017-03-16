@@ -247,6 +247,7 @@ function listNics(t, opts, callback) {
     }
     opts.id = 'mac';
     opts.type = TYPE;
+    opts.reqType = 'list';
 
     log.debug({ params: params }, 'list networks');
 

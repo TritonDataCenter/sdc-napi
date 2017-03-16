@@ -50,6 +50,34 @@ function addNetParamsToNic(state, params) {
     mod_net.addNetParams(state.network, params);
 }
 
+/*
+ * Save the timestamps from an object into state, and remove from
+ * nic to keep deepEquals happy
+ */
+function saveTimestamps(state, obj, which) {
+    if (!state.ts.created_timestamp) {
+        state.ts.created_timestamp = {};
+    }
+    if (!state.ts.modified_timestamp) {
+        state.ts.modified_timestamp = {};
+    }
+
+    state.ts.created_timestamp[which] = obj.created_timestamp;
+    delete obj.created_timestamp;
+
+    state.ts.modified_timestamp[which] = obj.modified_timestamp;
+    delete obj.modified_timestamp;
+}
+
+/*
+ * Verify that after a modification that the timestamp is advancing.
+ */
+function timestampsAdvance(t, desc, oldTs, newTs) {
+    // this is technically superfluous, but it yields more information on
+    // failure than the subsequent t.ok() test
+    t.notEqual(oldTs, newTs, 'modified timestamp updated' + desc);
+    t.ok(newTs > oldTs, 'modified timestamp advancing' + desc);
+}
 
 /**
  * Create a NAPI client, with a req_id for tracking requests.
@@ -395,7 +423,9 @@ module.exports = {
     loadUFDSadminUUID: loadUFDSadminUUID,
     randomMAC: common.randomMAC,
     reqOpts: common.reqOpts,
+    saveTimestamps: saveTimestamps,
     similar: similar,
+    timestampsAdvance: timestampsAdvance,
     get ufdsAdminUuid() {
         if (!ADMIN_UUID) {
             throw new Error(

@@ -1186,7 +1186,8 @@ test('update nics', function (t) {
         mod_nic.updateAndGet(t2, {
             mac: CREATED.updateNic.mac,
             params: CREATED.updateNic,
-            exp: CREATED.updateNic
+            exp: CREATED.updateNic,
+            ignore: [ 'modified_timestamp' ]
         });
     });
 
@@ -1386,7 +1387,8 @@ test('basic shootdown tests', function (t) {
         mod_nic.updateAndGet(t2, {
             mac: nic1.mac,
             params: params,
-            exp: extend(nic1, params)
+            exp: extend(nic1, params),
+            ignore: [ 'modified_timestamp' ]
         });
     });
 
@@ -1451,7 +1453,8 @@ test('basic shootdown tests', function (t) {
             params: {
                 cn_uuid: SERVERS[1]
             },
-            exp: nic1
+            exp: nic1,
+            ignore: [ 'modified_timestamp' ]
         });
     });
 
