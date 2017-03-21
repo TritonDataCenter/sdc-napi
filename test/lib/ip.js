@@ -101,6 +101,21 @@ function listIPs(t, opts, callback) {
         common.afterAPIlist.bind(null, t, opts, callback));
 }
 
+function searchIPs(t, opts, callback) {
+    var client = opts.client || mod_client.get();
+
+    assert.object(t, 't');
+    assert.string(opts.ip, 'opts.ip');
+    assert.object(opts.params, 'opts.params');
+
+    opts.type = TYPE;
+    opts.id = 'ip';
+
+    log.debug({ params: opts.params }, 'search IPs');
+
+    client.searchIPs(opts.ip, opts.params,
+        common.afterAPIlist.bind(null, t, opts, callback));
+}
 
 /**
  * Update an IP and compare the output
@@ -131,5 +146,6 @@ module.exports = {
     get: getIP,
     freeIP: freeIPrecord,
     list: listIPs,
+    search: searchIPs,
     update: updateIP
 };
