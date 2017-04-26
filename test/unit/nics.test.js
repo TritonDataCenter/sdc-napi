@@ -2593,6 +2593,76 @@ test('Delete nic - IP ownership changed underneath', function (t) {
 });
 
 
+test('NAPI-407: Concurrent deletes should fail with 404s', function (t) {
+    var params = {
+        belongs_to_type: 'zone',
+        belongs_to_uuid: mod_uuid.v4(),
+        owner_uuid: mod_uuid.v4()
+    };
+    var nic;
+
+    t.plan(2);
+
+    t.test('provision', function (t2) {
+        NAPI.provisionNic(NET2.uuid, params, function (err, res) {
+            if (h.ifErr(t2, err, 'provision new nic')) {
+                t2.end();
+                return;
+            }
+
+            nic = res;
+            for (var p in params) {
+                t2.equal(nic[p], params[p], p + ' correct');
+            }
+
+            t2.equal(res.ip, h.nextProvisionableIP(NET2), 'IP');
+
+            t2.end();
+        });
+    });
+
+    t.test('delete nic', function (t2) {
+        var barrier = vasync.barrier();
+        var deleted = false;
+        var done = 0;
+
+        barrier.on('drain', function () {
+            t2.ok(deleted, 'should have deleted NIC once');
+            t2.end();
+        });
+
+        function onDelete(err, _, req, res) {
+            if (err) {
+                t2.deepEqual(err.statusCode, 404, 'nic should be gone');
+                t2.deepEqual(err.body, {
+                    code: 'ResourceNotFound',
+                    message: 'nic not found'
+                }, 'correct error body');
+            } else {
+                if (deleted) {
+                    t2.deepEqual(null, res, 'should only delete once');
+                } else {
+                    t2.equal(res.statusCode, 204, 'successfully deleted');
+                    deleted = true;
+                }
+            }
+
+            done += 1;
+            barrier.done('delete-' + done.toString());
+        }
+
+        barrier.start('delete-1');
+        NAPI.deleteNic(nic.mac, onDelete);
+
+        barrier.start('delete-2');
+        NAPI.deleteNic(nic.mac, onDelete);
+
+        barrier.start('delete-3');
+        NAPI.deleteNic(nic.mac, onDelete);
+    });
+});
+
+
 test('antispoof options', function (t) {
     t.plan(6);
     var d = {};
