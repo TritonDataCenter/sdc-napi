@@ -268,6 +268,7 @@ function createPool(name, params, type, t) {
         params.uuid = res.uuid;
         params.name = name;
         params.nic_tag = netParams.nic_tag;
+        params.nic_tags_present = [ netParams.nic_tag ];
         params.family = type;
         t.deepEqual(res, params, 'result');
         pools.push(res);

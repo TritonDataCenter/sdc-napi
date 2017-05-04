@@ -102,6 +102,7 @@ function createNetworkPool(t, name, type, params) {
         params.networks.sort();
         params.uuid = res.uuid;
         params.nic_tag = state.nicTag.name;
+        params.nic_tags_present = [ state.nicTag.name ];
         params.family = type;
 
         t.deepEqual(res, params, 'network pool ' + name);

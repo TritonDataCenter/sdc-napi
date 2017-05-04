@@ -42,6 +42,9 @@ var NAPI;
 var NETS = [];
 var POOLS = [];
 
+var NIC_TAG1 = 'nictag1p' + process.pid;
+var NIC_TAG2 = 'nictag2p' + process.pid;
+var NIC_TAG3 = 'nictag3p' + process.pid;
 
 
 // --- Internal helpers
@@ -58,6 +61,7 @@ function netParams(extra) {
 
     var params = {
         name: 'net' + l,
+        nic_tag: NIC_TAG1,
         subnet: util.format('10.0.%d.0/28', l),
         provision_end_ip: util.format('10.0.%d.12', l),
         provision_start_ip: util.format('10.0.%d.9', l),
@@ -83,6 +87,7 @@ function v6netParams(extra) {
 
     var params = {
         name: 'net' + l,
+        nic_tag: NIC_TAG1,
         // Ensure the networks sort in order of creation:
         uuid: util.format('%d%d%d%d7862-54fa-4667-89ae-c981cd5ada9a',
             l, l, l, l)
@@ -102,12 +107,14 @@ function createNet(t, extra) {
     }
 
     NAPI.createNetwork(netParams(extra), function (err, res) {
-        t.ifErr(err);
-        if (res) {
-            NETS.push(res);
+        if (h.ifErr(t, err, 'createNetwork() error')) {
+            t.end();
+            return;
         }
 
-        return t.end();
+        NETS.push(res);
+
+        t.end();
     });
 }
 
@@ -137,18 +144,21 @@ test('Initial setup', function (t) {
             provision_start_ip: '10.0.0.2',
             provision_end_ip: '10.0.0.5'
         });
-        var otherTag = 'othertag' + process.pid;
 
         t.test('delete previous', function (t2) {
             mod_pool.delAll(t2, {});
         });
 
         t.test('create nic tag 1', function (t2) {
-            mod_tag.create(t2, { name: net1Params.nic_tag });
+            mod_tag.create(t2, { name: NIC_TAG1 });
         });
 
-        t.test('create other nic tag', function (t2) {
-            mod_tag.create(t2, { name: otherTag });
+        t.test('create nic tag 2', function (t2) {
+            mod_tag.create(t2, { name: NIC_TAG2 });
+        });
+
+        t.test('create nic tag 3', function (t2) {
+            mod_tag.create(t2, { name: NIC_TAG3 });
         });
 
         t.test('create net0', function (t2) {
@@ -171,7 +181,7 @@ test('Initial setup', function (t) {
         });
 
         t.test('create net3', function (t2) {
-            createNet(t2, { nic_tag: otherTag });
+            createNet(t2, { nic_tag: NIC_TAG2 });
         });
 
         t.test('create net4', function (t2) {
@@ -204,6 +214,10 @@ test('Initial setup', function (t) {
             });
         });
 
+        t.test('create net8', function (t2) {
+            createNet(t2);
+        });
+
         t.test('create pool1', function (t2) {
             var name = 'pool1-' + process.pid;
             var params = {
@@ -217,8 +231,9 @@ test('Initial setup', function (t) {
                     params.name = name;
                     params.uuid = res2.uuid;
                     params.nic_tag = NETS[0].nic_tag;
+                    params.nic_tags_present = [ NETS[0].nic_tag ];
                     params.family = 'ipv4';
-                    t2.deepEqual(res2, params, 'result');
+                    t2.deepEqual(res2, params, 'result for ' + res2.uuid);
                 }
 
                 t2.ifErr(err2);
@@ -239,8 +254,9 @@ test('Initial setup', function (t) {
                     params.name = name;
                     params.uuid = res2.uuid;
                     params.nic_tag = NETS[4].nic_tag;
+                    params.nic_tags_present = [ NETS[4].nic_tag ];
                     params.family = 'ipv4';
-                    t2.deepEqual(res2, params, 'result');
+                    t2.deepEqual(res2, params, 'result for ' + res2.uuid);
                 }
 
                 t2.ifErr(err2);
@@ -261,8 +277,9 @@ test('Initial setup', function (t) {
                     params.name = name;
                     params.uuid = res2.uuid;
                     params.nic_tag = NETS[6].nic_tag;
+                    params.nic_tags_present = [ NETS[6].nic_tag ];
                     params.family = 'ipv6';
-                    t2.deepEqual(res2, params, 'result');
+                    t2.deepEqual(res2, params, 'result for ' + res2.uuid);
                 }
 
                 t2.ifErr(err2);
@@ -282,14 +299,64 @@ test('Initial setup', function (t) {
                     params.name = name;
                     params.uuid = res2.uuid;
                     params.nic_tag = NETS[0].nic_tag;
+                    params.nic_tags_present = [ NETS[0].nic_tag ];
                     params.family = 'ipv4';
-                    t2.deepEqual(res2, params, 'result');
+                    t2.deepEqual(res2, params, 'result for ' + res2.uuid);
                 }
 
                 t2.ifErr(err2);
                 t2.end();
             });
         });
+
+
+        t.test('create pool5', function (t2) {
+            var name = 'pool5-' + process.pid;
+            var params = {
+                networks: [ NETS[3].uuid, NETS[8].uuid ]
+            };
+
+            NAPI.createNetworkPool(name, params, function (err2, res2) {
+                if (res2) {
+                    POOLS.push(res2);
+                    params.name = name;
+                    params.uuid = res2.uuid;
+                    params.nic_tag = NETS[3].nic_tag;
+                    params.nic_tags_present =
+                        [ NETS[3].nic_tag, NETS[8].nic_tag ];
+                    params.family = 'ipv4';
+                    t2.deepEqual(res2, params, 'result for ' + res2.uuid);
+                }
+
+                t2.ifErr(err2);
+                t2.end();
+            });
+        });
+
+
+        t.test('create pool6', function (t2) {
+            var name = 'pool6-' + process.pid;
+            var params = {
+                networks: [ NETS[0].uuid, NETS[3].uuid ]
+            };
+
+            NAPI.createNetworkPool(name, params, function (err2, res2) {
+                if (res2) {
+                    POOLS.push(res2);
+                    params.name = name;
+                    params.uuid = res2.uuid;
+                    params.nic_tag = NETS[0].nic_tag;
+                    params.nic_tags_present =
+                        [ NETS[0].nic_tag, NETS[3].nic_tag ];
+                    params.family = 'ipv4';
+                    t2.deepEqual(res2, params, 'result for ' + res2.uuid);
+                }
+
+                t2.ifErr(err2);
+                t2.end();
+            });
+        });
+
 
         t.end();
     });
@@ -344,29 +411,6 @@ test('Create pool - too many networks', function (t) {
         t.deepEqual(err.body, h.invalidParamErr({
             errors: [ mod_err.invalidParam('networks',
                 'maximum 64 networks per network pool') ]
-        }), 'error body');
-
-        return t.end();
-    });
-});
-
-
-test('Create pool - mismatched nic tags', function (t) {
-    var params = {
-        networks: [ NETS[0].uuid, NETS[3].uuid ]
-    };
-
-    NAPI.createNetworkPool('pool-fail-2-' + process.pid, params,
-        function (err, res) {
-        t.ok(err, 'error returned');
-        if (!err) {
-            return t.end();
-        }
-
-        t.equal(err.statusCode, 422, 'status code');
-        t.deepEqual(err.body, h.invalidParamErr({
-            errors: [ mod_err.invalidParam('networks',
-                constants.POOL_TAGS_MATCH_MSG) ]
         }), 'error body');
 
         return t.end();
@@ -762,7 +806,7 @@ test('provisionable_by network pools: owner', function (t) {
 
     t.test('create network', function (t2) {
         owners = [ mod_uuid.v4(), mod_uuid.v4() ];
-        var params = h.validNetworkParams({
+        var params = netParams({
             owner_uuids: [ owners[0] ]
         });
 
@@ -850,7 +894,14 @@ test('List pools - filter for "ipv4" pools', function (t) {
             family: 'ipv4'
         },
         deepEqual: true,
-        present: [ POOLS[0], POOLS[1], POOLS[3], POOLS[4] ]
+        present: [
+            POOLS[0],
+            POOLS[1],
+            POOLS[3],
+            POOLS[4],
+            POOLS[5],
+            POOLS[6]
+        ]
     });
 });
 
@@ -909,13 +960,17 @@ test('List pools - single network filter', function (t) {
     });
 });
 
-test('List pools - filter with two networks', function (t) {
+test('List pools - filter returns multiple networks', function (t) {
     mod_pool.list(t, {
         params: {
             networks: [ POOLS[3].networks[0] ]
         },
         deepEqual: true,
-        present: [ POOLS[0], POOLS[3] ]
+        present: [
+            POOLS[0],
+            POOLS[3],
+            POOLS[5]
+        ]
     });
 });
 
@@ -1032,19 +1087,14 @@ test('Provision nic - on network pool', function (t) {
             owner_uuid: mod_uuid.v4()
         };
 
-        NAPI.provisionNic(POOLS[0].uuid, params, function (err, res) {
-            t.ok(err);
-            if (!err) {
-                return t.end();
-            }
-
-            t.equal(err.statusCode, 422, 'status code');
-            t.deepEqual(err.body, h.invalidParamErr({
+        mod_nic.provision(t, {
+            net: POOLS[0].uuid,
+            params: params,
+            expCode: 422,
+            expErr: h.invalidParamErr({
                 errors: [ mod_err.invalidParam('network_uuid',
-                                    constants.POOL_FULL_MSG) ]
-            }), 'error body');
-
-            return t.end();
+                    util.format(constants.fmt.POOL_FULL_MSG, POOLS[0].uuid)) ]
+            })
         });
     });
 });
@@ -1095,6 +1145,132 @@ test('Provision NIC on pool: Retry after QueryTimeoutErrors', function (t) {
     });
 });
 
+
+test('Provision NIC on pool: pool has multiple NIC tags', function (t) {
+    t.test('Provision with "nic_tags_available"', function (t2) {
+        var params = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            owner_uuid: mod_uuid.v4(),
+            nic_tags_available: [ NIC_TAG1, NIC_TAG3 ]
+        };
+
+        mod_nic.provision(t2, {
+            net: POOLS[4].uuid,
+            params: params,
+            partialExp: mod_net.addNetParams(NETS[8], {
+                belongs_to_type: 'zone',
+                belongs_to_uuid: params.belongs_to_uuid,
+                owner_uuid: params.owner_uuid,
+                ip: h.nextProvisionableIP(NETS[8])
+            })
+        });
+    });
+
+    t.test('Provision with "nic_tags_available"', function (t2) {
+        var params = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            owner_uuid: mod_uuid.v4(),
+            nic_tags_available: [ NIC_TAG2, NIC_TAG3 ]
+        };
+
+        mod_nic.provision(t2, {
+            net: POOLS[4].uuid,
+            params: params,
+            partialExp: mod_net.addNetParams(NETS[3], {
+                belongs_to_type: 'zone',
+                belongs_to_uuid: params.belongs_to_uuid,
+                owner_uuid: params.owner_uuid,
+                ip: h.nextProvisionableIP(NETS[3])
+            })
+        });
+    });
+
+    t.test('Provision with "nic_tag"', function (t2) {
+        var params = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            owner_uuid: mod_uuid.v4(),
+            nic_tag: NIC_TAG2
+        };
+
+        mod_nic.provision(t2, {
+            net: POOLS[4].uuid,
+            params: params,
+            partialExp: mod_net.addNetParams(NETS[3], {
+                belongs_to_type: 'zone',
+                belongs_to_uuid: params.belongs_to_uuid,
+                owner_uuid: params.owner_uuid,
+                ip: h.nextProvisionableIP(NETS[3])
+            })
+        });
+    });
+
+    t.test('Provision with no nic_tag hints', function (t2) {
+        var params = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            owner_uuid: mod_uuid.v4()
+        };
+
+        mod_nic.provision(t2, {
+            net: POOLS[4].uuid,
+            params: params,
+            expCode: 422,
+            expErr: h.missingParamErr({
+                errors: [ h.missingParam('nic_tags_available',
+                    util.format(constants.fmt.POOL_NIC_TAGS_AMBIGUOUS,
+                        POOLS[4].uuid)) ]
+            })
+        });
+    });
+
+    t.test('Provision with no matching networks in pool', function (t2) {
+        var params = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            owner_uuid: mod_uuid.v4(),
+            nic_tags_available: [ NIC_TAG3 ]
+        };
+
+        mod_nic.provision(t2, {
+            net: POOLS[4].uuid,
+            params: params,
+            expCode: 422,
+            expErr: h.invalidParamErr({
+                errors: [ mod_err.invalidParam('network_uuid',
+                    util.format(constants.fmt.POOL_FAILS_CONSTRAINTS,
+                        POOLS[4].uuid)) ]
+            })
+        });
+    });
+});
+
+
+test('Provision NIC on pool: First intersection fails', function (t) {
+    var params = {
+        belongs_to_type: 'zone',
+        belongs_to_uuid: mod_uuid.v4(),
+        owner_uuid: mod_uuid.v4(),
+        nic_tags_available: POOLS[5].nic_tags_present
+    };
+
+    /*
+     * NETS[0] was exhausted earlier, so provisioning on it will fail, and
+     * we'll end up provisioning onto NETS[3] instead.
+     */
+    mod_nic.provision(t, {
+        net: POOLS[5].uuid,
+        params: params,
+        partialExp: mod_net.addNetParams(NETS[3], {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: params.belongs_to_uuid,
+            owner_uuid: params.owner_uuid,
+            ip: h.nextProvisionableIP(NETS[3])
+        })
+    });
+});
 
 
 

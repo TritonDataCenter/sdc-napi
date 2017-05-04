@@ -96,6 +96,7 @@ test('POST /network_pools', function (t) {
             exp: {
                 family: 'ipv4',
                 networks: [ state.network.uuid ].sort(),
+                nic_tags_present: [ state.network.nic_tag ],
                 nic_tag: state.network.nic_tag
             },
             state: state
@@ -111,6 +112,7 @@ test('POST /network_pools', function (t) {
             exp: {
                 family: 'ipv4',
                 networks: [ state.network.uuid, state.network2.uuid ].sort(),
+                nic_tags_present: [ state.network.nic_tag ],
                 nic_tag: state.network.nic_tag
             },
             state: state
@@ -152,6 +154,7 @@ test('PUT /network_pools/:uuid', function (t) {
 
         params.uuid = state.pools[0].uuid;
         params.nic_tag = state.network.nic_tag;
+        params.nic_tags_present = [ state.network.nic_tag ];
         params.family = 'ipv4';
         t.deepEqual(res, params, 'update params');
 

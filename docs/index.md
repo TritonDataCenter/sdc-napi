@@ -1276,6 +1276,7 @@ if it matches *all* of the input parameters.
         "uuid": "3b5913ec-42e6-4803-9c0b-c9b1c5603520",
         "name": "internal networks",
         "nic_tag": "internal",
+        "nic_tags_present": [ "internal" ],
         "family": "ipv4",
         "networks": [
           "0e70de36-a40b-4ac0-9429-819f5ff822bd",
@@ -1287,6 +1288,7 @@ if it matches *all* of the input parameters.
         "name": "external v6 networks",
         "description": "Logical pool of public IPv6 addresses",
         "nic_tag": "external",
+        "nic_tags_present": [ "external" ],
         "family": "ipv6",
         "networks": [
           "57a83e2b-527c-41c1-983c-be9b792011dc",
@@ -1325,6 +1327,7 @@ Creates a new logical network provisioning pool.
       "uuid": "3b5913ec-42e6-4803-9c0b-c9b1c5603520",
       "name": "internal networks",
       "nic_tag": "internal",
+      "nic_tags_present": [ "internal" ],
       "family": "ipv4",
       "networks": [
         "0e70de36-a40b-4ac0-9429-819f5ff822bd",
@@ -1344,6 +1347,7 @@ Gets a logical network provisioning pool by UUID.
       "uuid": "3b5913ec-42e6-4803-9c0b-c9b1c5603520",
       "name": "internal networks",
       "nic_tag": "internal",
+      "nic_tags_present": [ "internal" ],
       "family": "ipv4",
       "networks": [
         "0e70de36-a40b-4ac0-9429-819f5ff822bd",
@@ -1375,6 +1379,7 @@ Must specify at least one of:
       "uuid": "3b5913ec-42e6-4803-9c0b-c9b1c5603520",
       "name": "internal-pool",
       "nic_tag": "internal",
+      "nic_tags_present": [ "internal" ],
       "family": "ipv4",
       "networks": [
         "0e70de36-a40b-4ac0-9429-819f5ff822bd",
