@@ -220,6 +220,7 @@ it matches *all* of the input parameters.
 | Field            | Type            | Description                                                |
 | ---------------- | --------------- | ---------------------------------------------------------- |
 | fabric           | Boolean         | Whether the network is on a fabric or not                  |
+| family           | String          | Return networks of the given family (one of 'ipv4' or 'ipv6') |
 | name             | String or Array | Network name                                               |
 | vlan_id          | Integer         | VLAN ID                                                    |
 | nic_tag          | String or Array | Nic Tag name                                               |
@@ -251,6 +252,7 @@ it matches *all* of the input parameters.
         "uuid": "1275886f-3fdf-456e-bba6-28e0e2eab58f",
         "name": "admin",
         "vlan_id": 0,
+        "family": "ipv4",
         "subnet": "10.99.99.0/24",
         "netmask": "255.255.255.0",
         "provision_start_ip": "10.99.99.189",
@@ -265,6 +267,7 @@ it matches *all* of the input parameters.
         "uuid": "c9306c59-f0d6-4aa0-aa0c-17d22a6a3f0f",
         "name": "external",
         "vlan_id": 128,
+        "family": "ipv4",
         "subnet": "10.88.88.0/24",
         "netmask": "255.255.255.0",
         "provision_start_ip": "10.88.88.189",
@@ -336,6 +339,7 @@ This sets two static routes:
       "uuid": "dcb499bd-1caf-4ff6-8d70-4e6d5c02dff3",
       "name": "internal",
       "vlan_id": 401,
+      "family": "ipv4",
       "subnet": "10.0.2.0/24",
       "netmask": "255.255.255.0",
       "provision_start_ip": "10.0.2.5",
@@ -385,6 +389,7 @@ specified in the update are changed, leaving all others unchanged.
       "uuid": "2c670e67-bcd1-44c8-b59c-aaf7d8cfa17b",
       "name": "admin",
       "vlan_id": 0,
+      "family": "ipv4",
       "subnet": "10.99.99.0/24",
       "netmask": "255.255.255.0",
       "provision_start_ip": "10.99.99.37",
@@ -423,6 +428,7 @@ All fields are optional.
       "uuid": "dcb499bd-1caf-4ff6-8d70-4e6d5c02dff3",
       "name": "internal",
       "vlan_id": 401,
+      "family": "ipv4",
       "subnet": "10.0.2.0/24",
       "netmask": "255.255.255.0",
       "provision_start_ip": "10.0.2.5",
@@ -820,6 +826,7 @@ All parameters are optional.
         "provision_end_ip": "10.0.1.254",
         "provision_start_ip": "10.0.1.2",
         "vlan_id": 44,
+        "family": "ipv4",
         "subnet": "10.0.1.0/24",
         "uuid": "4944e6d9-d3ee-462c-b5a6-1c953551ffcf",
         "fabric": true,
@@ -876,6 +883,7 @@ but with some fields removed:
       "provision_end_ip": "10.0.1.254",
       "provision_start_ip": "10.0.1.2",
       "vlan_id": 44,
+      "family": "ipv4",
       "subnet": "10.0.1.0/24",
       "uuid": "4944e6d9-d3ee-462c-b5a6-1c953551ffcf",
       "fabric": true,
@@ -926,6 +934,7 @@ All parameters are optional.
       "provision_end_ip": "10.0.1.254",
       "provision_start_ip": "10.0.1.2",
       "vlan_id": 44,
+      "family": "ipv4",
       "subnet": "10.0.1.0/24",
       "uuid": "4944e6d9-d3ee-462c-b5a6-1c953551ffcf",
       "fabric": true,

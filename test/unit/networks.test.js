@@ -70,6 +70,7 @@ test('Initial setup', function (t) {
         MORAY = moray;
         if (!NAPI) {
             t.end();
+            return;
         }
 
         // Match the name of the nic tag in h.validNetworkParams()
@@ -100,11 +101,13 @@ test('Create network', function (t) {
 
     NAPI.createNetwork(params, function (err, obj, req, res) {
         if (h.ifErr(t, err, 'network create')) {
-            return t.end();
+            t.end();
+            return;
         }
 
         t.equal(res.statusCode, 200, 'status code');
 
+        params.family = 'ipv4';
         params.uuid = obj.uuid;
         params.netmask = '255.255.255.0';
         params.vlan_id = 0;
@@ -557,7 +560,8 @@ test('Create network where mtu nic_tag > network > default', function (t) {
     };
     NAPI.createNicTag(nicTagName, nicTagParams, function (err, nictag) {
         if (h.ifErr(t, err, 'nic tag creation')) {
-            return t.end();
+            t.end();
+            return;
         }
 
         nicTagParams.uuid = nictag.uuid;
@@ -570,11 +574,13 @@ test('Create network where mtu nic_tag > network > default', function (t) {
 
         NAPI.createNetwork(networkParams, function (err2, obj, req, res) {
             if (h.ifErr(t, err2, 'network creation')) {
-                return t.end();
+                t.end();
+                return;
             }
 
             t.equal(res.statusCode, 200, 'status code');
 
+            networkParams.family = 'ipv4';
             networkParams.uuid = obj.uuid;
             networkParams.netmask = '255.255.255.0';
             networkParams.vlan_id = 0;
@@ -584,9 +590,8 @@ test('Create network where mtu nic_tag > network > default', function (t) {
 
             NAPI.getNetwork(obj.uuid, function (err3, res3) {
                 t.ifError(err3);
-
                 t.equal(res3.mtu, networkParams.mtu, 'MTU correct after get');
-                return t.end();
+                t.end();
             });
         });
     });
@@ -619,6 +624,7 @@ test('Create network where mtu == nic_tag == max', function (t) {
 
             t.equal(res.statusCode, 200, 'status code');
 
+            networkParams.family = 'ipv4';
             networkParams.uuid = obj.uuid;
             networkParams.netmask = '255.255.255.0';
             networkParams.vlan_id = 0;

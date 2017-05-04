@@ -276,9 +276,12 @@ function createNetwork(t, napi, state, extraParams, targetName, callback) {
         t.ifError(err, 'create network');
         if (err) {
             if (callback) {
-                return callback(err);
+                callback(err);
+                return;
             }
-            return t.end();
+
+            t.end();
+            return;
         }
 
         t.ok(res.uuid, 'test network uuid: ' + res.uuid);
@@ -291,6 +294,7 @@ function createNetwork(t, napi, state, extraParams, targetName, callback) {
             params.resolvers = [];
         }
 
+        params.family = 'ipv4';
         params.netmask = util_ip.bitsToNetmask(params.subnet.split('/')[1]);
         params.uuid = res.uuid;
 
@@ -302,9 +306,11 @@ function createNetwork(t, napi, state, extraParams, targetName, callback) {
         }
 
         if (callback) {
-            return callback();
+            callback();
+            return;
         }
-        return t.end();
+
+        t.end();
     });
 }
 

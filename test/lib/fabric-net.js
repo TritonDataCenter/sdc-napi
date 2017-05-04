@@ -71,7 +71,7 @@ function createFabricNet(t, opts, callback) {
         params.name = generateNetworkName();
     }
 
-    opts.fillIn = [ 'mtu', 'vnet_id' ];
+    opts.fillIn = [ 'family', 'mtu', 'vnet_id' ];
     opts.idKey = 'uuid';
     opts.reqType = 'create';
     opts.type = TYPE;

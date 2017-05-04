@@ -79,7 +79,7 @@ function createNet(t, opts, callback) {
     }
 
     opts.idKey = 'uuid';
-    opts.fillIn = [ 'mtu' ];
+    opts.fillIn = [ 'family', 'mtu' ];
     opts.reqType = 'create';
     opts.type = TYPE;
 

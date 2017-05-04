@@ -130,9 +130,11 @@ test('POST /networks', function (t) {
 
     napi.createNetwork(params, function (err, res) {
         if (h.ifErr(t, err, 'create network')) {
-            return t.end();
+            t.end();
+            return;
         }
 
+        params.family = 'ipv4';
         params.mtu = constants.MTU_DEFAULT;
         params.netmask = '255.255.255.0';
         params.uuid = res.uuid;
@@ -306,9 +308,11 @@ test('POST /networks (empty gateway)', function (t) {
     napi.createNetwork(params, function (err, res) {
         t.ifError(err, 'create network');
         if (err) {
-            return t.end();
+            t.end();
+            return;
         }
 
+        params.family = 'ipv4';
         params.mtu = constants.MTU_DEFAULT;
         params.netmask = '255.255.255.0';
         params.uuid = res.uuid;
@@ -329,9 +333,11 @@ test('POST /networks (single resolver)', function (t) {
     napi.createNetwork(params, function (err, res) {
         t.ifError(err, 'create network');
         if (err) {
-            return t.end();
+            t.end();
+            return;
         }
 
+        params.family = 'ipv4';
         params.mtu = constants.MTU_DEFAULT;
         params.netmask = '255.255.255.0';
         params.uuid = res.uuid;
@@ -342,11 +348,12 @@ test('POST /networks (single resolver)', function (t) {
         napi.getNetwork(res.uuid, function (err2, res2) {
             t.ifError(err2, 'create network');
             if (err2) {
-                return t.end();
+                t.end();
+                return;
             }
 
             t.deepEqual(res2, params, 'get parameters for network ' + res.uuid);
-            return t.end();
+            t.end();
         });
     });
 });
@@ -359,9 +366,11 @@ test('POST /networks (comma-separated resolvers)', function (t) {
     napi.createNetwork(params, function (err, res) {
         t.ifError(err, 'create network');
         if (err) {
-            return t.end();
+            t.end();
+            return;
         }
 
+        params.family = 'ipv4';
         params.mtu = constants.MTU_DEFAULT;
         params.netmask = '255.255.255.0';
         params.resolvers = params.resolvers.split(',');
@@ -373,11 +382,12 @@ test('POST /networks (comma-separated resolvers)', function (t) {
         napi.getNetwork(res.uuid, function (err2, res2) {
             t.ifError(err2, 'create network');
             if (err2) {
-                return t.end();
+                t.end();
+                return;
             }
 
             t.deepEqual(res2, params, 'get parameters for network ' + res.uuid);
-            return t.end();
+            t.end();
         });
     });
 });
