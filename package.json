@@ -16,7 +16,7 @@
     "lomstream": "1.1.0",
     "moray": "2.0.1",
     "node-uuid": "1.4.7",
-    "portolan-moray": "git+https://github.com/joyent/sdc-portolan-moray.git#5f266f3",
+    "portolan-moray": "git+https://github.com/joyent/sdc-portolan-moray.git#7e2c4ca",
     "restify": "4.1.1",
     "restify-warden": "0.1.1",
     "sdc-clients": "9.2.0",
