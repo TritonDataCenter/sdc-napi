@@ -570,7 +570,7 @@ function assertArgs(t, opts, callback) {
     assert.optionalObject(opts.partialExp, 'opts.partialExp');
     assert.ok(opts.exp || opts.partialExp || opts.expErr,
         'one of exp, expErr, partialExp required');
-    assert.object(opts.params, 'opts.params');
+    assert.optionalObject(opts.params, 'opts.params');
     assert.optionalObject(opts.state, 'opts.state');
     assert.optionalFunc(callback, 'callback');
 }

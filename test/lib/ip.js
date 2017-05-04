@@ -20,10 +20,6 @@ var common = require('./common');
 var log = require('./log');
 var mod_client = require('./client');
 
-var doneRes = common.doneRes;
-var doneErr = common.doneErr;
-
-
 
 // --- Globals
 
@@ -55,21 +51,16 @@ function freeIPrecord(net, ip) {
  */
 function getIP(t, opts, callback) {
     var client = opts.client || mod_client.get();
-    var desc = opts.desc ? (' ' + opts.desc) : '';
 
-    assert.object(t, 't');
+    common.assertArgs(t, opts, callback);
     assert.string(opts.net, 'opts.net');
     assert.string(opts.ip, 'opts.ip');
-    assert.object(opts.exp, 'opts.exp');
 
-    client.getIP(opts.net, opts.ip, function (err, res) {
-        if (common.ifErr(t, err, 'get IP ' + opts.ip + desc)) {
-            return doneErr(err, t, callback);
-        }
+    opts.type = TYPE;
+    opts.reqType = 'get';
 
-        t.deepEqual(res, opts.exp, 'full result' + desc);
-        return doneRes(res, t, callback);
-    });
+    client.getIP(opts.net, opts.ip, opts.params || {},
+        common.afterAPIcall.bind(null, t, opts, callback));
 }
 
 
@@ -122,22 +113,16 @@ function searchIPs(t, opts, callback) {
  */
 function updateIP(t, opts, callback) {
     var client = opts.client || mod_client.get();
-    var desc = opts.desc ? (' ' + opts.desc) : '';
 
-    assert.object(t, 't');
+    common.assertArgs(t, opts, callback);
     assert.string(opts.net, 'opts.net');
     assert.string(opts.ip, 'opts.ip');
-    assert.object(opts.params, 'opts.params');
-    assert.object(opts.exp, 'opts.exp');
 
-    client.updateIP(opts.net, opts.ip, opts.params, function (err, res) {
-        if (common.ifErr(t, err, 'update IP ' + opts.ip + desc)) {
-            return doneErr(err, t, callback);
-        }
+    opts.type = TYPE;
+    opts.reqType = 'update';
 
-        t.deepEqual(res, opts.exp, 'full result' + desc);
-        return doneRes(res, t, callback);
-    });
+    client.updateIP(opts.net, opts.ip, opts.params,
+        common.afterAPIcall.bind(null, t, opts, callback));
 }
 
 
