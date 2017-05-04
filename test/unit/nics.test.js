@@ -48,6 +48,7 @@ var NET;
 var NET2;
 var NET3;
 var NET4;
+var NET5;
 var PROV_MAC_NET;
 
 
@@ -150,6 +151,23 @@ test('Initial setup', function (t) {
         }, function (_, res) {
             NET4 = res;
             NET4.num = num;
+
+            t2.end();
+        });
+    });
+
+    t.test('create net5', function (t2) {
+        num = h.NET_NUM;
+        var params = h.validIPv6NetworkParams({
+            gateway: util.format('fd00:%s::e40e', num),
+            vlan_id: 47
+        });
+        mod_net.create(t2, {
+            params: params,
+            partialExp: params
+        }, function (_, res) {
+            NET5 = res;
+            NET5.num = num;
 
             t2.end();
         });
@@ -382,12 +400,25 @@ test('Create nic - invalid params', function (t) {
                     constants.fmt.IP_OUTSIDE, fmt('10.0.%d.1', NET.num + 1),
                     NET.uuid)) ] ],
 
+        [ 'IPv6 instead of IPv4 address in "ip" field',
+            { ip: 'fd00::42', belongs_to_type: type,
+                belongs_to_uuid: uuid, owner_uuid: owner,
+                network_uuid: NET.uuid },
+                [ mod_err.invalidParam('ip', constants.IPV4_REQUIRED) ] ],
+
         [ 'IP specified, but not nic_tag or vlan_id',
             { ip: '10.0.2.2', belongs_to_type: type, belongs_to_uuid: uuid,
                 owner_uuid: owner },
                 [ h.missingParam('nic_tag', constants.msg.IP_NO_VLAN_TAG),
                 h.missingParam('vlan_id', constants.msg.IP_NO_VLAN_TAG) ],
                 'Missing parameters' ],
+
+        [ 'IPv6 network in network_uuid',
+            { ip: '10.0.2.2', belongs_to_type: type,
+                belongs_to_uuid: uuid, owner_uuid: owner,
+                network_uuid: NET5.uuid },
+                [ mod_err.invalidParam('network_uuid', util.format(
+                    constants.fmt.NET_BAD_AF, 'IPv4')) ] ],
 
         [ 'Non-existent network',
             { ip: '10.0.2.2', belongs_to_type: type, belongs_to_uuid: uuid,
@@ -1742,7 +1773,7 @@ test('Update nic - provision IP', function (t) {
         });
     });
 
-    t.test('get IP', function (t2) {
+    t.test('get IPv4 address', function (t2) {
         mod_ip.get(t2, {
             net: NET3.uuid,
             ip: d.exp.ip,

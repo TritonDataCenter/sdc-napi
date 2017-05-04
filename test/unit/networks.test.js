@@ -643,31 +643,60 @@ test('Create network where mtu == nic_tag == max', function (t) {
 });
 
 
-test('Create fabric network - non-private subnet', function (t) {
-    NAPI.createNetwork(h.validNetworkParams({
-        fabric: true,
-        provision_start_ip: fmt('123.0.%d.1', h.NET_NUM),
-        provision_end_ip: fmt('123.0.%d.254', h.NET_NUM),
-        subnet: fmt('123.0.%d.0/24', h.NET_NUM)
-    }), function (err, res) {
-        t.ok(err, 'error returned');
-
-        if (!err) {
-            return t.end();
-        }
-
-        t.equal(err.statusCode, 422, 'status code');
-        t.deepEqual(err.body, h.invalidParamErr({
+test('Create IPv4 fabric network - non-private subnet', function (t) {
+    mod_net.create(t, {
+        params: h.validNetworkParams({
+            fabric: true,
+            provision_start_ip: fmt('123.0.%d.1', h.NET_NUM),
+            provision_end_ip: fmt('123.0.%d.254', h.NET_NUM),
+            subnet: fmt('123.0.%d.0/24', h.NET_NUM)
+        }),
+        expCode: 422,
+        expErr: h.invalidParamErr({
             errors: [
-                mod_err.invalidParam('subnet',
-                    constants.PRIV_RANGE_ONLY)
-            ],
-            message: 'Invalid parameters'
-        }), 'Error body');
-
-        return t.end();
+                mod_err.invalidParam('subnet', constants.PRIV_RANGE_ONLY)
+            ]
+        })
     });
 });
+
+
+test('Create IPv6 fabric network - non-private subnet', function (t) {
+    mod_net.create(t, {
+        params: h.validIPv6NetworkParams({
+            fabric: true,
+            provision_start_ip: fmt('fe80:%d::1', h.NET_NUM),
+            provision_end_ip: fmt('fe80:%d::ffff', h.NET_NUM),
+            subnet: fmt('fe80:%d::/64', h.NET_NUM)
+        }),
+        expCode: 422,
+        expErr: h.invalidParamErr({
+            errors: [
+                mod_err.invalidParam('subnet', constants.PRIV_RANGE_ONLY)
+            ]
+        })
+    });
+});
+
+
+test('Create IPv6 fabric network - disallowed for now', function (t) {
+    mod_net.create(t, {
+        params: h.validIPv6NetworkParams({
+            fabric: true,
+            provision_start_ip: fmt('fd89:%d::1', h.NET_NUM),
+            provision_end_ip: fmt('fd89:%d::ffff', h.NET_NUM),
+            subnet: fmt('fd89:%d::/64', h.NET_NUM)
+        }),
+        expCode: 422,
+        expErr: h.invalidParamErr({
+            errors: [
+                mod_err.invalidParam('subnet', constants.FABRIC_IPV4_ONLY)
+            ]
+        })
+    });
+});
+
+
 
 // --- Update tests
 
