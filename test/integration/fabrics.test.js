@@ -45,6 +45,7 @@ var OWNERS = [
     mod_uuid.v4(),
     mod_uuid.v4()
 ];
+
 var OVERLAY_MTU = config.server.overlay.defaultOverlayMTU;
 var OVERLAY_NIC_TAG = config.server.overlay.overlayNicTag;
 var UNDERLAY_MTU = config.server.overlay.defaultUnderlayMTU;
@@ -252,7 +253,12 @@ test('overlay / underlay nic tags', function (t) {
                 name: OVERLAY_NIC_TAG
             },
             partialExp: {
-                mtu: UNDERLAY_MTU,
+                /*
+                 * MTUs can't be set below 1500 on a nic_tag, so
+                 * we clamp it during its creation and here in
+                 * case it's set to 1400 (i.e., COAL).
+                 */
+                mtu: Math.max(OVERLAY_MTU, 1500),
                 name: OVERLAY_NIC_TAG
             }
         });

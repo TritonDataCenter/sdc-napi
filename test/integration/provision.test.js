@@ -72,7 +72,7 @@ function ipSort(a, b) {
 /**
  * Checks to make sure the error matches the network pool full error
  */
-function expPoolFull(t, err) {
+function expPoolFull(t, uuid, err) {
     t.ok(err, 'error returned');
     if (!err) {
         return;
@@ -81,7 +81,8 @@ function expPoolFull(t, err) {
     t.equal(err.statusCode, 422, 'status code');
     t.deepEqual(err.body, h.invalidParamErr({
         errors: [
-            mod_err.invalidParam('network_uuid', constants.POOL_FULL_MSG)
+            mod_err.invalidParam('network_uuid',
+                util.format(constants.fmt.POOL_FULL_MSG, uuid))
         ]
     }), 'error');
 }
@@ -118,7 +119,7 @@ function expProvisionFail(t, opts) {
     log.debug({ mac: mac, params: params }, 'expProvisionFail');
     napi.createNic(mac, params, function (err, res) {
         if (opts.pool) {
-            expPoolFull(t, err);
+            expPoolFull(t, opts.network_uuid, err);
         } else {
             expSubnetFull(t, opts.network_uuid, err);
         }
