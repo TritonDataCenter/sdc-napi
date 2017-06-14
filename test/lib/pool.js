@@ -195,8 +195,7 @@ function list(t, opts, callback) {
     assert.optionalObject(opts.params, 'opts.params');
     assert.optionalObject(opts.partialExp, 'opts.partialExp');
     assert.optionalArrayOfObject(opts.present, 'opts.present');
-    assert.ok(opts.present || opts.partialExp || opts.expErr,
-        'one of present, expErr, partialExp required');
+    assert.ok(opts.present || opts.expErr, 'one of present or expErr required');
 
     opts.type = 'pool';
     opts.id = 'uuid';

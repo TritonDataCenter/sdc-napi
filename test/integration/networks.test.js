@@ -257,13 +257,12 @@ test('GET /networks', function (t) {
 
 
 test('GET /networks (filtered)', function (t) {
-    var filter = {
-        name: state.network.name
-    };
-    var desc = util.format(' (name=%s)', filter.name);
+    var desc = util.format(' (name=%s)', state.network.name);
 
-    napi.listNetworks(filter, function (err, res) {
-        t.ifError(err, 'get networks' + desc);
+    mod_net.list(t, {
+        params: {name: state.network.name},
+        present: []
+    }, function (err, res) {
         t.ok(res, 'list returned' + desc);
         if (err || !res) {
             return t.end();
@@ -275,6 +274,79 @@ test('GET /networks (filtered)', function (t) {
     });
 });
 
+test('GET /networks?uuid=$existing_prefix', function (t) {
+    var uuid = state.network.uuid;
+    var prefix = uuid.substring(0, 8) + "*";
+    mod_net.list(t, {
+        params: {uuid: prefix},
+        present: [ state.network ]
+    });
+});
+
+test('GET /networks?uuid=badcafe*', function (t) {
+    mod_net.list(t, {
+        params: {uuid: 'badcafe*'},
+        present: []
+    });
+});
+
+test('GET /networks?uuid=badcafe', function (t) {
+    mod_net.list(t, {
+        params: {uuid: 'badcafe'},
+        expErr: {
+            code: 'InvalidParameters',
+            message: 'Invalid parameters',
+            errors: [
+                {
+                    field: 'Invalid UUID',
+                    code: 'InvalidParameter',
+                    message: 'Invalid parameters'
+                }
+            ]
+        }
+    });
+});
+
+test('GET /networks?uuid=$SOME_UUID', function (t) {
+    mod_net.list(t, {
+        params: {uuid: 'e80a3efa-5158-11e7-a3ff-fbd21a3ddd8b'},
+        present: []
+    });
+});
+
+test('GET /networks?uuid=*badcafe', function (t) {
+    mod_net.list(t, {
+        params: {uuid: '*badcafe'},
+        expErr: {
+            code: 'InvalidParameters',
+            message: 'Invalid parameters',
+            errors: [
+                {
+                    field: 'uuid',
+                    code: 'InvalidParameter',
+                    message: 'only UUID prefixes are allowed'
+                }
+            ]
+        }
+    });
+});
+
+test('GET /networks?uuid=*badcafe*', function (t) {
+    mod_net.list(t, {
+        params: {uuid: '*badcafe*'},
+        expErr: {
+            code: 'InvalidParameters',
+            message: 'Invalid parameters',
+            errors: [
+                {
+                    field: 'uuid',
+                    code: 'InvalidParameter',
+                    message: 'need only 1 wildcard'
+                }
+            ]
+        }
+    });
+});
 
 test('GET /networks (filter: multiple nic tags)', function (t) {
 

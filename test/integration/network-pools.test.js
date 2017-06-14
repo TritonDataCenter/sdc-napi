@@ -139,6 +139,86 @@ test('GET /network_pools', function (t) {
     });
 });
 
+test('GET /network_pools?uuid=$SOME_UUID', function (t) {
+    /* Expect empty list */
+    mod_pool.list(t, {
+        params: {uuid: 'e80a3efa-5158-11e7-a3ff-fbd21a3ddd8b'},
+        present: []
+    });
+});
+
+test('GET /network_pools?uuid=badcafe*', function (t) {
+    /* Expect empty list */
+    mod_pool.list(t, {
+        params: {uuid: 'badcafe*'},
+        present: []
+    });
+});
+
+test('GET /network_pools?uuid=$existing_prefix', function (t) {
+    var uuid = state.pools[0].uuid;
+    var prefix = uuid.substring(0, 8) + "*";
+    /* Expect empty list */
+    mod_pool.list(t, {
+        params: {uuid: prefix},
+        present: [ state.pools[0] ]
+    });
+});
+
+test('GET /network_pools?uuid=badcafe', function (t) {
+    /* Expect empty list */
+    mod_pool.list(t, {
+        params: {uuid: 'badcafe'},
+        expErr: {
+            code: 'InvalidParameters',
+            message: 'Invalid parameters',
+            errors: [
+                {
+                    field: 'Invalid UUID',
+                    code: 'InvalidParameter',
+                    message: 'Invalid parameters'
+                }
+            ]
+        }
+    });
+});
+
+test('GET /network_pools?uuid=*badcafe', function (t) {
+    /* Expect prefix validation error */
+    mod_pool.list(t, {
+        params: {uuid: '*badcafe'},
+        expErr: {
+            code: 'InvalidParameters',
+            message: 'Invalid parameters',
+            errors: [
+                {
+                    field: 'uuid',
+                    code: 'InvalidParameter',
+                    message: 'only UUID prefixes are allowed'
+                }
+            ]
+        }
+    });
+});
+
+test('GET /network_pools?uuid=*badcafe*', function (t) {
+    /* Expect too-man-wildcards error */
+    mod_pool.list(t, {
+        params: {uuid: '*badcafe*'},
+        expErr: {
+            code: 'InvalidParameters',
+            message: 'Invalid parameters',
+            errors: [
+                {
+                    field: 'uuid',
+                    code: 'InvalidParameter',
+                    message: 'need only 1 wildcard'
+                }
+            ]
+        }
+    });
+});
+
 
 test('PUT /network_pools/:uuid', function (t) {
     var params = {
