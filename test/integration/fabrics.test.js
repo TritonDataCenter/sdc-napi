@@ -1587,7 +1587,7 @@ test('provision gateway', function (t) {
                 gateway: NETS[0].gateway
             },
             expErr: mod_err.invalidParam('gateway',
-                'Fabric network updates for this field are not supported')
+                constants.msg.FABRIC_PROP_IMMUTABLE)
         });
     });
 
@@ -1599,8 +1599,7 @@ test('provision gateway', function (t) {
                 gateway_provisioned: false
             },
             expErr: mod_err.invalidParam('gateway_provisioned',
-                'Fabric network updates for this field are not supported: ' +
-                'delete the gateway NIC instead')
+                constants.msg.NET_PROP_IMMUTABLE)
         });
     });
 
@@ -1612,7 +1611,7 @@ test('provision gateway', function (t) {
                 internet_nat: false
             },
             expErr: mod_err.invalidParam('internet_nat',
-                'Fabric network updates for this field are not supported')
+                constants.msg.NET_PROP_IMMUTABLE)
         });
     });
 
@@ -1823,6 +1822,37 @@ test('delete server nic', function (t) {
 });
 
 
+/*
+ * Update Tests
+ *
+ * For now, fabric networks can't be updated at a /fabrics/... endpoint, but
+ * they can be updated at their /networks/<uuid> endpoint. We test updating
+ * several properties here that should not be allowed to change.
+ */
+
+test('"owner_uuids" is immutable', function (t) {
+    mod_net.update(t, {
+        params: {
+            uuid: NETS[0].uuid,
+            owner_uuids: [ OWNERS[1] ]
+        },
+        expErr: mod_err.invalidParam('owner_uuids',
+            constants.msg.FABRIC_PROP_IMMUTABLE)
+    });
+});
+
+test('"vlan_id" is immutable', function (t) {
+    mod_net.update(t, {
+        params: {
+            uuid: NETS[0].uuid,
+            vlan_id: VLANS[1].vlan_id
+        },
+        expErr: mod_err.invalidParam('vlan_id',
+            constants.msg.NET_PROP_IMMUTABLE)
+    });
+});
+
+
 // Create network tests:
 //
 // - Can't create public (non-RFC1918) nets
@@ -1835,11 +1865,6 @@ test('delete server nic', function (t) {
 // - and the last one
 // - mtu: < nic tag's mtu
 // - Make sure we can't use body params to override vlan_id or owner
-
-
-// Update tests:
-// - Can't update owner_uuids or vlan_id
-// - Can't set another owner UUID on a fabric network
 
 
 // Provision tests:
@@ -1871,7 +1896,6 @@ test('delete server nic', function (t) {
 // - Don't allow deleting the overlay or underlay tags
 // - Don't allow setting the underlay tag:
 //   - on more than one server nic
-//   - if belongs_to_type !== 'server'
 // - Validation of underlay param
 // - Update a server's nic to add the underlay param
 // - Only allow provisioning fabric networks on the overlay nic

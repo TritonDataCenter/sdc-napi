@@ -21,6 +21,7 @@ var fmt = require('util').format;
 var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
 var mod_ip = require('../../lib/models/ip');
+var mod_jsprim = require('jsprim');
 var mod_moray = require('../lib/moray');
 var mod_net = require('../lib/net');
 var mod_server = require('../lib/server');
@@ -460,11 +461,13 @@ test('Create fabric network - automatic gateway assignment', function (t) {
     var gateway = fmt('10.0.%d.1', h.NET_NUM);
     NAPI.createNetwork(h.validNetworkParams({
         fabric: true,
+        owner_uuids: [ mod_uuid.v4() ],
         internet_nat: true,
         vnet_id: 1234
     }), function (err, obj, req, res) {
         if (h.ifErr(t, err, 'network creation')) {
-            return t.end();
+            t.end();
+            return;
         }
 
         t.equal(res.statusCode, 200, 'status code');
@@ -643,10 +646,31 @@ test('Create network where mtu == nic_tag == max', function (t) {
 });
 
 
+test('Create fabric network - multiple owners', function (t) {
+    mod_net.create(t, {
+        params: h.validNetworkParams({
+            fabric: true,
+            owner_uuids: [ mod_uuid.v4(), mod_uuid.v4() ],
+            provision_start_ip: fmt('10.0.%d.1', h.NET_NUM),
+            provision_end_ip: fmt('10.0.%d.254', h.NET_NUM),
+            subnet: fmt('10.0.%d.0/24', h.NET_NUM)
+        }),
+        expCode: 422,
+        expErr: h.invalidParamErr({
+            errors: [
+                mod_err.invalidParam('owner_uuids',
+                    constants.msg.FABRIC_SINGLE_OWNER)
+            ]
+        })
+    });
+});
+
+
 test('Create IPv4 fabric network - non-private subnet', function (t) {
     mod_net.create(t, {
         params: h.validNetworkParams({
             fabric: true,
+            owner_uuids: [ mod_uuid.v4() ],
             provision_start_ip: fmt('123.0.%d.1', h.NET_NUM),
             provision_end_ip: fmt('123.0.%d.254', h.NET_NUM),
             subnet: fmt('123.0.%d.0/24', h.NET_NUM)
@@ -665,6 +689,7 @@ test('Create IPv6 fabric network - non-private subnet', function (t) {
     mod_net.create(t, {
         params: h.validIPv6NetworkParams({
             fabric: true,
+            owner_uuids: [ mod_uuid.v4() ],
             provision_start_ip: fmt('fe80:%d::1', h.NET_NUM),
             provision_end_ip: fmt('fe80:%d::ffff', h.NET_NUM),
             subnet: fmt('fe80:%d::/64', h.NET_NUM)
@@ -683,6 +708,7 @@ test('Create IPv6 fabric network - disallowed for now', function (t) {
     mod_net.create(t, {
         params: h.validIPv6NetworkParams({
             fabric: true,
+            owner_uuids: [ mod_uuid.v4() ],
             provision_start_ip: fmt('fd89:%d::1', h.NET_NUM),
             provision_end_ip: fmt('fd89:%d::ffff', h.NET_NUM),
             subnet: fmt('fd89:%d::/64', h.NET_NUM)
@@ -1270,6 +1296,33 @@ test('Update network - invalid parameters', function (t) {
           { gateway: constants.GATEWAY_SUBNET_MSG }
         ],
 
+        // Immutable network properties:
+        [ { fabric: true },
+          { fabric: constants.msg.NET_PROP_IMMUTABLE }
+        ],
+        [ { family: 'ipv6' },
+          { family: constants.msg.NET_PROP_IMMUTABLE }
+        ],
+        [ { gateway_provisioned: true },
+          { gateway_provisioned: constants.msg.NET_PROP_IMMUTABLE }
+        ],
+        [ { internet_nat: true },
+          { internet_nat: constants.msg.NET_PROP_IMMUTABLE }
+        ],
+        [ { nic_tag: 'foobar' },
+          { nic_tag: constants.msg.NET_PROP_IMMUTABLE }
+        ],
+        [ { subnet: '192.168.0.0/16' },
+          { subnet: constants.msg.NET_PROP_IMMUTABLE }
+        ],
+        [ { vlan_id: 30 },
+          { vlan_id: constants.msg.NET_PROP_IMMUTABLE }
+        ],
+        [ { vnet_id: 200 },
+          { vnet_id: constants.msg.NET_PROP_IMMUTABLE }
+        ],
+
+
         [ { name: 1 }, { name: mod_test_err.msg.str } ],
         [ { name: LONG_STR }, { name: mod_test_err.msg.longStr } ],
 
@@ -1286,39 +1339,38 @@ test('Update network - invalid parameters', function (t) {
 
     NAPI.createNetwork(vals, function (err, net) {
         if (h.ifErr(t, err, 'creating network')) {
-            return t.end();
+            t.end();
+            return;
         }
 
         vasync.forEachParallel({
             inputs: invalid,
             func: function (data, cb) {
-                NAPI.updateNetwork(net.uuid, data[0], function (err2, res) {
-                    t.ok(err2, util.format('error returned: %s',
-                        JSON.stringify(data[0])));
-                    if (!err2) {
-                        return cb();
+                var invalidErrs = Object.keys(data[1]).sort().map(function (k) {
+                    var msg = util.isArray(data[1][k]) ?
+                        data[1][k][0] :
+                        data[1][k];
+                    var iErr = mod_err.invalidParam(k, msg);
+
+                    if (util.isArray(data[1][k])) {
+                        iErr.invalid = data[1][k][1];
                     }
 
-                    t.equal(err2.statusCode, 422, 'status code');
-                    var invalidErrs = [];
+                    return iErr;
+                });
 
-                    Object.keys(data[1]).sort().forEach(function (k) {
-                        var iErr = mod_err.invalidParam(k,
-                            util.isArray(data[1][k]) ?
-                                data[1][k][0] : data[1][k]);
-                        if (util.isArray(data[1][k])) {
-                            iErr.invalid = data[1][k][1];
-                        }
+                var expErr = h.invalidParamErr({
+                    errors: invalidErrs,
+                    message: 'Invalid parameters'
+                });
 
-                        invalidErrs.push(iErr);
-                    });
-
-                    t.deepEqual(err2.body, h.invalidParamErr({
-                        errors: invalidErrs,
-                        message: 'Invalid parameters'
-                    }), 'Error body');
-
-                    return cb();
+                mod_net.update(t, {
+                    params: mod_jsprim.mergeObjects(data[0], {
+                        uuid: net.uuid
+                    }),
+                    expErr: expErr
+                }, function (_) {
+                    cb();
                 });
             }
         }, function () {
