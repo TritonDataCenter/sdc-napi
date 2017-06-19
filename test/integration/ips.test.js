@@ -216,7 +216,7 @@ test('GET /networks/:uuid/ips', function (t) {
 
 
 test('PUT /networks/:uuid/ips/:ip (free an IP)', function (t) {
-    var doUpdate = function (_, cb) {
+    function doUpdate(_, cb) {
         var params = {
             free: true
         };
@@ -224,7 +224,8 @@ test('PUT /networks/:uuid/ips/:ip (free an IP)', function (t) {
         napi.updateIP(state.networks[0].uuid, IPS.zone, params,
             function (err, res) {
             if (err) {
-                return h.doneWithError(t, err, 'freeing IP: ' + IPS.zone);
+                h.doneWithError(t, err, 'freeing IP: ' + IPS.zone);
+                return;
             }
 
             params.ip = IPS.zone;
@@ -233,18 +234,19 @@ test('PUT /networks/:uuid/ips/:ip (free an IP)', function (t) {
             params.network_uuid = state.networks[0].uuid;
             t.deepEqual(res, params, 'freeing an IP');
 
-            return napi.getIP(state.networks[0].uuid, params.ip,
-                    common.reqOpts(t), function (err2, res2) {
-                t.ifError(err2, 'getting free IP: ' + IPS.zone);
-                if (err2) {
-                    return cb(err2);
+            napi.getIP(state.networks[0].uuid, params.ip, common.reqOpts(t),
+                function (err2, res2) {
+                if (h.ifErr(t, err2, 'getting free IP: ' + IPS.zone)) {
+                    cb(err2);
+                    return;
                 }
 
                 t.deepEqual(res2, params, 'GET on a free IP');
-                return cb();
+
+                cb();
             });
         });
-    };
+    }
 
     // Try this twice, to prove that it works for both a free and a non-free IP
     vasync.pipeline({

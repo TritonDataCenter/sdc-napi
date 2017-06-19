@@ -31,9 +31,8 @@ JS_FILES	:= $(shell ls *.js) $(shell find lib test -name '*.js') \
 JSL_CONF_NODE	= tools/jsl.node.conf
 JSL_FILES_NODE	= $(JS_FILES)
 JSSTYLE_FILES	= $(JS_FILES)
-JSSTYLE_FLAGS	= -o indent=4,doxygen,unparenthesized-return=0
+JSSTYLE_FLAGS	= -o indent=2,doxygen,unparenthesized-return=0,strict-indent=true
 ESLINT		= ./node_modules/.bin/eslint
-ESLINT_CONF	= tools/eslint.node.conf
 ESLINT_FILES	= $(JS_FILES)
 SMF_MANIFESTS_IN = smf/manifests/napi.xml.in
 BASH_FILES	:= sbin/napid bin/napictl
@@ -50,6 +49,7 @@ include ./tools/mk/Makefile.defs
 ifeq ($(shell uname -s),SunOS)
 	include ./tools/mk/Makefile.node_prebuilt.defs
 else
+	NODE := node
 	NPM_EXEC :=
 	NPM = npm
 endif
@@ -67,11 +67,6 @@ INSTDIR         := $(PKGDIR)/root/opt/smartdc/napi
 .PHONY: all
 all: $(SMF_MANIFESTS) | $(NPM_EXEC) $(REPO_DEPS) sdc-scripts
 	$(NPM) install --production
-
-$(ESLINT): | $(NPM_EXEC)
-	$(NPM) install \
-	    eslint@`json -f package.json devDependencies.eslint` \
-	    eslint-plugin-joyent@`json -f package.json devDependencies.eslint-plugin-joyent`
 
 $(ISTANBUL): | $(NPM_EXEC)
 	$(NPM) install
@@ -138,10 +133,6 @@ publish: release
   fi
 	mkdir -p $(BITS_DIR)/napi
 	cp $(TOP)/$(RELEASE_TARBALL) $(BITS_DIR)/napi/$(RELEASE_TARBALL)
-
-.PHONY: check
-check:: $(ESLINT)
-	$(ESLINT) -c $(ESLINT_CONF) $(ESLINT_FILES)
 
 #
 # Includes

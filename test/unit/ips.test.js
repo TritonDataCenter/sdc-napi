@@ -895,8 +895,7 @@ function testIPv4List(t, opts, callback) {
 test('Listing IPv4 failures', function (t) {
     t.plan(common.badLimitOffTests.length);
 
-    for (var i = 0; i < common.badLimitOffTests.length; i++) {
-        var blot = common.badLimitOffTests[i];
+    common.badLimitOffTests.forEach(function (blot) {
         t.test(blot.bc_name, function (t2) {
             testIPv4List(t2, {
                 params: blot.bc_params,
@@ -904,8 +903,7 @@ test('Listing IPv4 failures', function (t) {
                 expErr: blot.bc_experr
             });
         });
-    }
-
+    });
 });
 
 function testIPv6List(t, opts, callback) {
@@ -919,8 +917,7 @@ function testIPv6List(t, opts, callback) {
 test('Listing IPv6 failures', function (t) {
     t.plan(common.badLimitOffTests.length);
 
-    for (var i = 0; i < common.badLimitOffTests.length; i++) {
-        var blot = common.badLimitOffTests[i];
+    common.badLimitOffTests.forEach(function (blot) {
         t.test(blot.bc_name, function (t2) {
             testIPv6List(t2, {
                 params: blot.bc_params,
@@ -928,8 +925,7 @@ test('Listing IPv6 failures', function (t) {
                 expErr: blot.bc_experr
             });
         });
-    }
-
+    });
 });
 
 

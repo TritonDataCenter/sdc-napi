@@ -543,7 +543,7 @@ test('Create network - provision start IP after end IP', function (t) {
         t.deepEqual(err.body, h.invalidParamErr({
             errors: [
                 mod_err.invalidParam('provision_end_ip',
-                   constants.PROV_RANGE_ORDER_MSG),
+                    constants.PROV_RANGE_ORDER_MSG),
                 mod_err.invalidParam('provision_start_ip',
                     constants.PROV_RANGE_ORDER_MSG)
             ],
@@ -1621,8 +1621,7 @@ test('Update network - unset owner_uuids', function (t) {
 test('Listing Network failures', function (t) {
     t.plan(common.badLimitOffTests.length);
 
-    for (var i = 0; i < common.badLimitOffTests.length; i++) {
-        var blot = common.badLimitOffTests[i];
+    common.badLimitOffTests.forEach(function (blot) {
         t.test(blot.bc_name, function (t2) {
             mod_net.list(t2, {
                 params: blot.bc_params,
@@ -1630,7 +1629,7 @@ test('Listing Network failures', function (t) {
                 expErr: blot.bc_experr
             });
         });
-    }
+    });
 });
 
 

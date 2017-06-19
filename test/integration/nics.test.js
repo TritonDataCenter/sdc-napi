@@ -785,14 +785,15 @@ test('PUT /nics/:mac', function (t) {
 test('Check IPs are updated along with nics', function (t) {
     var ips = ['b', 'd'];
 
-    var checkIP = function (ipNum, cb) {
+    function checkIP(ipNum, cb) {
         var ip = state.ip[ipNum];
         var desc = util.format(' %s/%s%s',
             state.networks[0].uuid, ip, state.desc[ipNum]);
         napi.getIP(state.networks[0].uuid, ip, function (err, res) {
             t.ifError(err, 'get updated IP' + desc);
             if (err) {
-                return cb();
+                cb();
+                return;
             }
 
             var exp = {
@@ -805,9 +806,10 @@ test('Check IPs are updated along with nics', function (t) {
                 free: false
             };
             t.deepEqual(res, exp, 'Updated IP params correct' + desc);
-            return cb();
+
+            cb();
         });
-    };
+    }
 
     vasync.forEachParallel({
         func: checkIP,
@@ -1304,34 +1306,37 @@ test('GET /nics (filter: nic_tags_provided)', function (t) {
 test('DELETE /nics/:mac', function (t) {
     var nics = Object.keys(state.nic);
 
-    var delNic = function (nicNum, cb) {
+    function delNic(nicNum, cb) {
         var nic = state.nic[nicNum];
         var desc = state.desc[nicNum] || '';
 
-        return napi.deleteNic(nic.mac, function (err, res) {
+        napi.deleteNic(nic.mac, function (err, res) {
             t.ifError(err, 'delete nic ' + nic.mac + desc);
             if (err) {
-                return cb();
+                cb();
+                return;
             }
 
-            return napi.getNic(nic.mac, function (err2, res2) {
+            napi.getNic(nic.mac, function (err2, res2) {
                 t.ok(err2, 'error getting deleted nic' + desc);
                 if (!err) {
-                    return cb();
+                    cb();
+                    return;
                 }
+
                 t.equal(err2.code, 'ResourceNotFound',
                     '404 on deleted nic' + desc);
 
-                return cb();
+                cb();
             });
         });
-    };
+    }
 
     vasync.forEachParallel({
         func: delNic,
         inputs: nics
     }, function (_err) {
-        return t.end();
+        t.end();
     });
 });
 
@@ -1339,7 +1344,7 @@ test('DELETE /nics/:mac', function (t) {
 test('Check IPs are freed along with nics', function (t) {
     var ips = Object.keys(state.ip);
 
-    var checkIP = function (ipDesc, cb) {
+    function checkIP(ipDesc, cb) {
         var ip = state.ip[ipDesc];
         var net = state.networks[0];
 
@@ -1351,7 +1356,8 @@ test('Check IPs are freed along with nics', function (t) {
 
         if (!ip) {
             t.ok(false, 'IP "' + ipDesc + '" does not exist:' + desc);
-            return cb();
+            cb();
+            return;
         }
 
         napi.getIP(net.uuid, ip, function (err, res) {
@@ -1359,7 +1365,8 @@ test('Check IPs are freed along with nics', function (t) {
             if (err) {
                 t.deepEqual(net, {},
                     util.format('network for Failing IP: %s', desc));
-                return cb();
+                cb();
+                return;
             }
 
             var exp = {
@@ -1369,15 +1376,16 @@ test('Check IPs are freed along with nics', function (t) {
                 reserved: false
             };
             t.deepEqual(res, exp, 'Updated IP params correct' + desc);
-            return cb();
+
+            cb();
         });
-    };
+    }
 
     vasync.forEachParallel({
         func: checkIP,
         inputs: ips
     }, function (_err) {
-        return t.end();
+        t.end();
     });
 });
 

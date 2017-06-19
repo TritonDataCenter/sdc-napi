@@ -18,6 +18,7 @@ var assert = require('assert-plus');
 var fmt = require('util').format;
 var clone = require('clone');
 var constants = require('../../lib/util/constants');
+var jsprim = require('jsprim');
 var mod_err = require('../../lib/util/errors');
 var mod_uuid = require('node-uuid');
 var NAPI = require('sdc-clients').NAPI;
@@ -475,8 +476,7 @@ function afterAPIlist(t, opts, callback, err, obj, _, res) {
         var present = clone(ids);
         var notInPresent = [];
 
-        for (var n in obj) {
-            var resObj = obj[n];
+        jsprim.forEachKey(obj, function (_key, resObj) {
             var idx = ids.indexOf(resObj[id]);
             if (idx !== -1) {
                 var expObj = left[idx];
@@ -528,7 +528,7 @@ function afterAPIlist(t, opts, callback, err, obj, _, res) {
             } else {
                 notInPresent.push(resObj);
             }
-        }
+        });
 
         t.deepEqual(ids, [],
             'found ' + type + 's not specified in opts.present ' + desc);
@@ -728,11 +728,11 @@ function missingParamErr(extra) {
 function randomMAC() {
     var data = [(Math.floor(Math.random() * 15) + 1).toString(16) + 2];
     for (var i = 0; i < 5; i++) {
-         var oct = (Math.floor(Math.random() * 255)).toString(16);
-         if (oct.length === 1) {
-                oct = '0' + oct;
-         }
-         data.push(oct);
+        var oct = (Math.floor(Math.random() * 255)).toString(16);
+        if (oct.length === 1) {
+            oct = '0' + oct;
+        }
+        data.push(oct);
     }
 
     return data.join(':');

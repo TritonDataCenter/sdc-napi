@@ -105,8 +105,8 @@ test('Initial setup', function (t) {
         num = h.NET_NUM;
         var params = h.validNetworkParams({
             routes: {
-              '10.0.3.4': '10.0.2.2',
-              '10.0.4.0/24': '10.0.2.2'
+                '10.0.3.4': '10.0.2.2',
+                '10.0.4.0/24': '10.0.2.2'
             },
             vlan_id: 46
         });
@@ -2740,76 +2740,80 @@ test('Delete nic - IP ownership changed underneath', function (t) {
     });
 
     t.test('confirm IP ownership', function (t2) {
-       NAPI.getIP(NET2.uuid, nic.ip, function (err, res) {
-           if (h.ifErr(t2, err, 'get IP')) {
-               return t2.end();
-           }
+        NAPI.getIP(NET2.uuid, nic.ip, function (err, res) {
+            if (h.ifErr(t2, err, 'get IP')) {
+                t2.end();
+                return;
+            }
 
-           ip = res;
-           t2.equal(res.ip, nic.ip, 'IP');
-           t2.equal(res.belongs_to_uuid, params.belongs_to_uuid, 'IP');
-
-           return t2.end();
-       });
+            ip = res;
+            t2.equal(res.ip, nic.ip, 'IP');
+            t2.equal(res.belongs_to_uuid, params.belongs_to_uuid, 'IP');
+            t2.end();
+        });
     });
 
     t.test('update IP', function (t2) {
-       NAPI.updateIP(NET2.uuid, nic.ip, { belongs_to_uuid: other },
-           function (err, res) {
-           if (h.ifErr(t2, err, 'update IP')) {
-               return t2.end();
-           }
+        NAPI.updateIP(NET2.uuid, nic.ip, { belongs_to_uuid: other },
+            function (err, res) {
+            if (h.ifErr(t2, err, 'update IP')) {
+                t2.end();
+                return;
+            }
 
-           ip.belongs_to_uuid = other;
-           t2.deepEqual(res, ip, 'only belongs_to_uuid updated');
-
-           return t2.end();
-       });
+            ip.belongs_to_uuid = other;
+            t2.deepEqual(res, ip, 'only belongs_to_uuid updated');
+            t2.end();
+        });
     });
 
     t.test('confirm IP has new belongs_to_uuid', function (t2) {
-       NAPI.getIP(NET2.uuid, nic.ip, function (err, res) {
-           if (h.ifErr(t2, err, 'update IP')) {
-               return t2.end();
-           }
+        NAPI.getIP(NET2.uuid, nic.ip, function (err, res) {
+            if (h.ifErr(t2, err, 'update IP')) {
+                t2.end();
+                return;
+            }
 
-           t2.deepEqual(res, ip, 'IP unchanged');
-
-           return t2.end();
-       });
+            t2.deepEqual(res, ip, 'IP unchanged');
+            t2.end();
+        });
     });
 
     t.test('delete nic', function (t2) {
-       NAPI.deleteNic(nic.mac, function (err, res) {
-           if (h.ifErr(t2, err, 'delete nic')) {
-               return t2.end();
-           }
+        NAPI.deleteNic(nic.mac, function (err, _, req, res) {
+            if (h.ifErr(t2, err, 'delete nic')) {
+                t2.end();
+                return;
+            }
 
-           return t2.end();
-       });
+            t2.equal(res.statusCode, 204, '204 returned');
+            t2.end();
+        });
     });
 
     t.test('confirm nic deleted', function (t2) {
-       NAPI.getNic(nic.mac, function (err, res) {
-           t2.ok(err, 'error expected');
-           if (!err) {
-               return t2.end();
-           }
-           t2.equal(err.statusCode, 404, '404 returned');
+        NAPI.getNic(nic.mac, function (err, res) {
+            t2.ok(err, 'error expected');
+            if (!err) {
+                t2.end();
+                return;
+            }
 
-           return t2.end();
-       });
+            t2.equal(err.statusCode, 404, '404 returned');
+            t2.end();
+        });
     });
 
     t.test('confirm IP has new owner', function (t2) {
-       NAPI.getIP(NET2.uuid, nic.ip, function (err, res) {
-           if (h.ifErr(t2, err, 'get IP')) {
-               return t2.end();
-           }
+        NAPI.getIP(NET2.uuid, nic.ip, function (err, res) {
+            if (h.ifErr(t2, err, 'get IP')) {
+                t2.end();
+                return;
+            }
 
-           t2.deepEqual(res, ip, 'IP unchanged');
-           return t2.end();
-       });
+            t2.deepEqual(res, ip, 'IP unchanged');
+            t2.end();
+        });
     });
 });
 
@@ -3132,8 +3136,7 @@ test('primary uniqueness', function (t) {
 test('Listing Nics failures', function (t) {
     t.plan(common.badLimitOffTests.length);
 
-     for (var i = 0; i < common.badLimitOffTests.length; i++) {
-        var blot = common.badLimitOffTests[i];
+    common.badLimitOffTests.forEach(function (blot) {
         t.test(blot.bc_name, function (t2) {
             mod_nic.list(t2, {
                 params: blot.bc_params,
@@ -3141,7 +3144,7 @@ test('Listing Nics failures', function (t) {
                 expErr: blot.bc_experr
             });
         });
-    }
+    });
 });
 
 test('List all NICs', function (t) {

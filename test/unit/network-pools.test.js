@@ -990,8 +990,7 @@ test('List pools - filter with three networks', function (t) {
 test('List Network Pool failures', function (t) {
     t.plan(common.badLimitOffTests.length);
 
-     for (var i = 0; i < common.badLimitOffTests.length; i++) {
-        var blot = common.badLimitOffTests[i];
+    common.badLimitOffTests.forEach(function (blot) {
         t.test(blot.bc_name, function (t2) {
             mod_pool.list(t2, {
                 params: blot.bc_params,
@@ -999,8 +998,7 @@ test('List Network Pool failures', function (t) {
                 expErr: blot.bc_experr
             });
         });
-    }
-
+    });
 });
 
 

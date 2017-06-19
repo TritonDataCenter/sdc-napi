@@ -15,8 +15,13 @@
         "node": true
     },
     "rules": {
+        // Lint:
         "strict": [ "error", "global" ],
-        "consistent-return": "off",
-        "no-loop-func": "off"
+
+        // Style:
+        "func-style": [ "error", "declaration" ],
+
+        // Checks disabled as things get slowly cleaned up:
+        "consistent-return": "off"
     }
 }
