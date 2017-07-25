@@ -276,7 +276,7 @@ test('GET /networks (filtered)', function (t) {
 
 test('GET /networks?uuid=$existing_prefix', function (t) {
     var uuid = state.network.uuid;
-    var prefix = uuid.substring(0, 8) + "*";
+    var prefix = uuid.substring(0, 8) + '*';
     mod_net.list(t, {
         params: {uuid: prefix},
         present: [ state.network ]

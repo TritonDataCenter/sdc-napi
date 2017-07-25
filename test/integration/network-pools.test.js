@@ -157,7 +157,7 @@ test('GET /network_pools?uuid=badcafe*', function (t) {
 
 test('GET /network_pools?uuid=$existing_prefix', function (t) {
     var uuid = state.pools[0].uuid;
-    var prefix = uuid.substring(0, 8) + "*";
+    var prefix = uuid.substring(0, 8) + '*';
     /* Expect empty list */
     mod_pool.list(t, {
         params: {uuid: prefix},
