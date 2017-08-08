@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright 2016, Joyent, Inc.
+ * Copyright 2017, Joyent, Inc.
  */
 
 /*
@@ -18,6 +18,7 @@ var assert = require('assert-plus');
 var clone = require('clone');
 var common = require('../lib/common');
 var h = require('./helpers');
+var ip_common = require('../../lib/models/ip/common');
 var mod_err = require('../../lib/util/errors');
 var mod_ip = require('../lib/ip');
 var mod_server = require('../lib/server');
@@ -36,6 +37,7 @@ var MORAY_IPV4 = '10.0.2.15';
 var NON_MORAY_IPV4 = '10.0.2.115';
 var MORAY_IPV6 = 'fd00:3::40e';
 var NON_MORAY_IPV6 = 'fd00:3::34:20f3';
+var MORAY;
 var NAPI;
 var NETV4;
 var NETV6;
@@ -68,12 +70,14 @@ test('Initial setup', function (t) {
     var v6netParams = h.validIPv6NetworkParams();
 
     t.test('create client and server', function (t2) {
-        h.createClientAndServer(function (err, res) {
+        h.createClientAndServer(function (err, res, moray) {
             t2.ifError(err, 'server creation');
             t2.ok(res, 'client');
+            t2.ok(moray, 'moray');
             NAPI = res;
+            MORAY = moray;
 
-            return t2.end();
+            t2.end();
         });
     });
 
@@ -801,6 +805,79 @@ test('Update IPv6 - unassign (IP not in moray)', function (t) {
             network_uuid: NETV6.uuid,
             reserved: false
         }
+    });
+});
+
+
+test('NAPI-427: Test zero elision of IPv6 addresses', function (t) {
+    var ips = [
+        /*
+         * When NAPI switched from using ipaddr.js to ip6addr, the formatting
+         * of IPv6 addresses when there were multiple groups of zeros subtly
+         * changed. To ensure that it never changes again, these tests make
+         * sure that objects are inserted into Moray using ip6addr's format
+         * choices.
+         *
+         * This address has more zeros on the right side of the 1 than
+         * it does on its left side. ipaddr.js will choose to elide the
+         * first group that it sees on the left, while ip6addr will elide
+         * the larger group on the right.
+         */
+        [ 'fd00:3:0:0:1:0:0:0', 'fd00:3:0:0:1::' ],
+        /*
+         * This address has an equal number of zeros on both the left and
+         * right side of the two 1s. ipaddr.js and ip6addr will both elide
+         * the group on the left.
+         */
+        [ 'fd00:3:0:0:1:1:0:0', 'fd00:3::1:1:0:0' ],
+        /*
+         * This address has more zeros on the left side of the three 1s.
+         * Both ipaddr.js and ip6addr elide the group on the left.
+         */
+        [ 'fd00:3:0:0:1:1:1:0', 'fd00:3::1:1:1:0' ]
+    ];
+
+    var owner_uuid = mod_uuid.v4();
+    var belongs_to_uuid = mod_uuid.v4();
+
+    ips.forEach(function (pair) {
+        var msg = util.format('%s normalizes to %s', pair[0], pair[1]);
+
+        /*
+         * There are two things we want to check here: that the key format
+         * for these addresses remain the same, and that the addresses get
+         * normalized the same way on PUTs and GETs.
+         */
+        t.test(msg + ': create and get', function (t2) {
+            mod_ip.updateAndGet(t2, {
+                net: NETV6.uuid,
+                ip: pair[0],
+                params: {
+                    belongs_to_type: 'other',
+                    belongs_to_uuid: belongs_to_uuid,
+                    owner_uuid: owner_uuid,
+                    reserved: true
+                },
+                exp: {
+                    ip: pair[1],
+                    free: false,
+                    belongs_to_type: 'other',
+                    belongs_to_uuid: belongs_to_uuid,
+                    owner_uuid: owner_uuid,
+                    network_uuid: NETV6.uuid,
+                    reserved: true
+                }
+            });
+        });
+
+        t.test(msg + ': lookup in Moray', function (t2) {
+            MORAY.getObject(ip_common.bucketName(NETV6.uuid), pair[1],
+                function (err, res) {
+                t2.ifError(err, 'getObject() error');
+                t2.ok(res, 'result returned');
+                t2.end();
+            });
+        });
     });
 });
 

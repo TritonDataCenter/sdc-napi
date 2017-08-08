@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright (c) 2017, Joyent, Inc.
  */
 
 /*
@@ -126,11 +126,28 @@ function updateIP(t, opts, callback) {
 }
 
 
+/**
+ * Update an IP, compare the output, and then check that getting
+ * the address returns the same value.
+ */
+function updateAndGetIP(t, opts, callback) {
+    updateIP(t, opts, function (err, res) {
+        if (err) {
+            common.doneErr(err, t, callback);
+            return;
+        }
+
+        getIP(t, opts, callback);
+    });
+}
+
+
 
 module.exports = {
     get: getIP,
     freeIP: freeIPrecord,
     list: listIPs,
     search: searchIPs,
-    update: updateIP
+    update: updateIP,
+    updateAndGet: updateAndGetIP
 };
