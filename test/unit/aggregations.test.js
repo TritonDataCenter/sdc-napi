@@ -20,13 +20,13 @@ var clone = require('clone');
 var constants = require('../../lib/util/constants');
 var mod_aggr = require('../lib/aggr');
 var mod_err = require('../../lib/util/errors');
+var mod_mac = require('macaddr');
 var mod_nic = require('../lib/nic');
 var mod_nic_tag = require('../lib/nic-tag');
 var mod_server = require('../lib/server');
 var mod_uuid = require('node-uuid');
 var test = require('tape');
 var util = require('util');
-var util_mac = require('../../lib/util/mac');
 var vasync = require('vasync');
 
 
@@ -47,6 +47,10 @@ var uuids = [
     mod_uuid.v4()
 ];
 
+var MANY_NICS = [];
+for (var j = 0; j <= constants.MAX_AGGR_MACS; j++) {
+    MANY_NICS.push('1:2:3:4:5:' + j);
+}
 
 
 // --- Variables for invalid tests
@@ -65,6 +69,11 @@ var INVALID = {
     ],
 
     macs: [
+        [ MANY_NICS, util.format('maximum of %d MAC addresses supported',
+            constants.MAX_AGGR_MACS) ],
+        [ 'foobar', 'invalid MAC addresses', [ 'foobar' ] ],
+        [ '1:2:c:g:e:f', 'invalid MAC addresses', [ '1:2:c:g:e:f' ] ],
+        [ '1:2:c:b:e:f', 'unknown MAC addresses', [ '01:02:0c:0b:0e:0f' ] ],
         [ 5, macMsg ],
         [ {}, macMsg ],
         [ '', 'must specify at least one MAC address' ],
@@ -265,7 +274,7 @@ test('create', function (t) {
                 t2.ifError(err2, 'Getting aggregation should succeed');
                 t2.ok(morayObj, 'Got Moray object');
                 res.macs = params.macs.map(function (m) {
-                    return util_mac.aton(m);
+                    return mod_mac.parse(m).toLong();
                 });
 
                 t2.deepEqual(morayObj.value, res, 'Raw Moray object');
@@ -497,7 +506,7 @@ test('get', function (t) {
 
 
 test('list', function (t) {
-    t.plan(3 + common.badLimitOffTests.length);
+    t.plan(6 + common.badLimitOffTests.length);
 
     t.test('all', function (t2) {
         mod_aggr.list(t2, {}, function (err, list) {
@@ -561,8 +570,47 @@ test('list', function (t) {
         });
     });
 
-    for (var i = 0; i < common.badLimitOffTests.length; i++) {
-        var blot = common.badLimitOffTests[i];
+    t.test('macs filter: aggrs[0].macs[0]', function (t2) {
+        mod_aggr.list(t2, {
+            params: {
+                macs: state.aggrs[0].macs[0]
+            },
+            deepEqual: true,
+            present: [ state.aggrs[0] ]
+        });
+    });
+
+    t.test('macs filter: invalid mac address', function (t2) {
+        var invalid = [ '0:1:003:3:4:5' ];
+        var err = mod_err.invalidParam('macs', 'invalid MAC address');
+        err.invalid = invalid;
+        mod_aggr.list(t2, {
+            params: {
+                macs: invalid
+            },
+            expCode: 422,
+            expErr: h.invalidParamErr({
+                errors: [ err ]
+            })
+        });
+    });
+
+    t.test('macs filter: several invalid mac addresses', function (t2) {
+        var invalid = [ '0:1:003:3:4:5', 'foobar' ];
+        var err = mod_err.invalidParam('macs', 'invalid MAC addresses');
+        err.invalid = invalid;
+        mod_aggr.list(t2, {
+            params: {
+                macs: invalid
+            },
+            expCode: 422,
+            expErr: h.invalidParamErr({
+                errors: [ err ]
+            })
+        });
+    });
+
+    common.badLimitOffTests.forEach(function (blot) {
         t.test(blot.bc_name, function (t2) {
             mod_aggr.list(t2, {
                 params: blot.bc_params,
@@ -570,7 +618,7 @@ test('list', function (t) {
                 expErr: blot.bc_experr
             });
         });
-    }
+    });
 
     // XXX: filter by nic_tags_provided
 });

@@ -261,6 +261,7 @@ function listNics(t, opts, callback) {
  */
 function provisionNic(t, opts, callback) {
     common.assertArgs(t, opts, callback);
+    assert.uuid(opts.net, 'opts.net');
 
     var client = opts.client || mod_client.get();
     log.debug({ params: opts.params }, 'provisioning nic');

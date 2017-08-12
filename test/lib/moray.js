@@ -16,7 +16,7 @@
 
 var assert = require('assert-plus');
 var mod_ip = require('../../lib/models/ip');
-var util_mac = require('../../lib/util/mac');
+var mod_mac = require('macaddr');
 
 
 // --- Internals
@@ -68,9 +68,8 @@ function getIPs(moray, network, callback) {
  * Gets a NIC record from Moray.
  */
 function getNic(moray, mac, callback) {
-    var macNum = util_mac.aton(mac);
-    assert.number(macNum, 'Not a valid MAC address');
-    moray.getObject('napi_nics', macNum.toString(), extractValue(callback));
+    moray.getObject('napi_nics', mod_mac.parse(mac).toLong().toString(),
+        extractValue(callback));
 }
 
 

@@ -19,10 +19,10 @@ var clone = require('clone');
 var config = require('./config');
 var common = require('./common');
 var log = require('./log');
+var mod_mac = require('macaddr');
 var mod_moray = require('moray');
 var mod_portolan_moray = require('portolan-moray');
 var util_ip = require('../../lib/util/ip');
-var util_mac = require('../../lib/util/mac');
 var vasync = require('vasync');
 
 var doneErr = common.doneErr;
@@ -45,7 +45,7 @@ function toMorayObj(exp) {
 
     // Convert colon-delimited MAC addresses to numeric form
     if (exp.mac) {
-        exp.mac = util_mac.aton(exp.mac);
+        exp.mac = mod_mac.parse(exp.mac).toLong();
     }
 
     // Ensure IP addresses are in v6 notation
@@ -237,7 +237,7 @@ function overlayMapping(t, opts, callback) {
             log: log,
             moray: client,
             noCache: true,
-            vl2_mac: util_mac.aton(nic.mac),
+            vl2_mac: mod_mac.parse(nic.mac).toLong(),
             vl2_vnet_id: vnetID
         };
 

@@ -1641,6 +1641,6 @@ test('Listing Network failures', function (t) {
 
 // --- Teardown
 
-
+test('delete networks', mod_net.delAllCreated);
 
 test('Stop server', mod_server.close);

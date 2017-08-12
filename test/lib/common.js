@@ -559,6 +559,11 @@ function clearCreated(type) {
 }
 
 
+function resetCreated() {
+    CREATED = {};
+}
+
+
 /**
  * Assert the arguments to one of the helper functions are correct
  */
@@ -764,6 +769,7 @@ module.exports = {
     assertArgsList: assertArgsList,
     badLimitOffTests: badLimitOffTests,
     clearCreated: clearCreated,
+    resetCreated: resetCreated,
     commonErrors: commonErrors,
     createClient: createClient,
     doneErr: doneErr,

@@ -16,7 +16,8 @@
 'use strict';
 
 var path = require('path');
-var util_mac = require('../lib/util/mac');
+var mod_jsprim = require('jsprim');
+var mod_mac = require('macaddr');
 
 
 if (!process.argv[2]) {
@@ -24,4 +25,15 @@ if (!process.argv[2]) {
     process.exit(1);
 }
 
-console.log(util_mac.ntoa(process.argv[2]));
+var n = mod_jsprim.parseInteger(process.argv[2]);
+if (n instanceof Error) {
+    console.error('num2mac: ' + n.message);
+    process.exit(1);
+}
+
+try {
+    console.log(mod_mac.parse(n).toString());
+} catch (e) {
+    console.error('num2mac: ' + e.message);
+    process.exit(1);
+}

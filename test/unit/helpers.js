@@ -44,6 +44,7 @@ var NON_OBJECT_PARAMS = [
 function reset() {
     NET_NUM = 2;
     NET_IPS = {};
+    common.resetCreated();
 }
 
 

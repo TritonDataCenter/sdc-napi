@@ -22,6 +22,7 @@ var ip_common = require('../../lib/models/ip/common');
 var mod_err = require('../../lib/util/errors');
 var mod_ip = require('../lib/ip');
 var mod_jsprim = require('jsprim');
+var mod_mac = require('macaddr');
 var mod_moray = require('../lib/moray');
 var mod_net = require('../lib/net');
 var mod_nic = require('../lib/nic');
@@ -31,7 +32,6 @@ var mod_uuid = require('node-uuid');
 var test = require('tape');
 var util = require('util');
 var util_ip = require('../../lib/util/ip');
-var util_mac = require('../../lib/util/mac');
 var vasync = require('vasync');
 
 var extend = mod_jsprim.mergeObjects;
@@ -1034,7 +1034,7 @@ test('Provision nic: MAC retry', function (t) {
                 t2.ifError(err2, 'Should get NIC successfully');
                 t2.ok(morayObj, 'found moray object');
                 if (morayObj) {
-                    t2.equal(morayObj.mac, util_mac.aton(res.mac),
+                    t2.equal(morayObj.mac, mod_mac.parse(res.mac).toLong(),
                         'correct mac in moray object');
                 }
 
@@ -1152,7 +1152,7 @@ test('Provision nic: IP retry', function (t) {
                 t2.ifError(err2, 'Get should succeed');
                 t2.ok(morayObj, 'found moray object');
                 if (morayObj) {
-                    t2.equal(morayObj.mac, util_mac.aton(res.mac),
+                    t2.equal(morayObj.mac, mod_mac.parse(res.mac).toLong(),
                         'correct mac in moray object');
                 }
 
@@ -1221,7 +1221,7 @@ test('Provision nic: IP retry', function (t) {
                 t2.ifError(err2, 'Get should succeed');
                 t2.ok(morayObj, 'found moray object');
                 if (morayObj) {
-                    t2.equal(morayObj.mac, util_mac.aton(res.mac),
+                    t2.equal(morayObj.mac, mod_mac.parse(res.mac).toLong(),
                         'correct mac in moray object');
                 }
 
@@ -1566,6 +1566,66 @@ test('Get NIC with bad MAC address', function (t) {
 });
 
 
+test('Get NIC with different ways of writing MAC address', function (t) {
+    var exp;
+
+    t.plan(5);
+
+    t.test('Create NIC without leading zeros', function (t2) {
+        var params = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            owner_uuid: mod_uuid.v4()
+        };
+
+        mod_nic.create(t2, {
+            mac: 'a:b:c:d:e:f',
+            params: params,
+            partialExp: params
+        }, function (_, res) {
+            if (res) {
+                t2.equal(res.mac, '0a:0b:0c:0d:0e:0f',
+                    'normalized MAC address');
+                exp = res;
+            }
+
+            t2.end();
+        });
+    });
+
+    t.test('Get NIC with no separators', function (t2) {
+        NAPI.get({ path: '/nics/0a0b0c0d0e0f' }, function (err, res) {
+            t2.ifError(err, 'get NIC with colons in MAC address');
+            t2.deepEqual(res, exp, 'get result');
+            t2.end();
+        });
+    });
+
+    t.test('Get NIC with ":" separator', function (t2) {
+        NAPI.get({ path: '/nics/0a:0b:0c:0d:0e:0f' }, function (err, res) {
+            t2.ifError(err, 'get NIC with colons in MAC address');
+            t2.deepEqual(res, exp, 'get result');
+            t2.end();
+        });
+    });
+
+    t.test('Get NIC with "-" separator', function (t2) {
+        NAPI.get({ path: '/nics/0a-0b-0c-0d-0e-0f' }, function (err, res) {
+            t2.ifError(err, 'get NIC with colons in MAC address');
+            t2.deepEqual(res, exp, 'get result');
+            t2.end();
+        });
+    });
+
+    t.test('Get NIC with no leading zeros', function (t2) {
+        NAPI.get({ path: '/nics/a:b:c:d:e:f' }, function (err, res) {
+            t2.ifError(err, 'get NIC with colons in MAC address');
+            t2.deepEqual(res, exp, 'get result');
+            t2.end();
+        });
+    });
+});
+
 
 // --- Delete tests
 
@@ -1718,6 +1778,50 @@ test('Delete a NIC w/ an address on it', function (t) {
     });
 });
 
+
+test('NAPI-267: Networks referenced by NICs cannot be deleted', function (t) {
+    var net, nic;
+
+    t.test('Create network', function (t2) {
+        var params = h.validNetworkParams();
+
+        mod_net.create(t2, {
+            params: params,
+            partialExp: params
+        }, function (_, res) {
+            net = res;
+            t2.end();
+        });
+    });
+
+    t.test('Create NIC', function (t2) {
+        var params = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            owner_uuid: mod_uuid.v4()
+        };
+
+        mod_nic.provision(t2, {
+            net: net.uuid,
+            params: params,
+            partialExp: params
+        }, function (_, res) {
+            nic = res;
+            t2.end();
+        });
+    });
+
+    t.test('Attempt to delete network', function (t2) {
+        var err = new mod_err.InUseError(constants.msg.NIC_ON_NET,
+            [ mod_err.usedBy('nic', nic.mac) ]);
+
+        mod_net.del(t2, {
+            uuid: net.uuid,
+            expCode: 422,
+            expErr: err.body
+        });
+    });
+});
 
 
 // --- Update tests
