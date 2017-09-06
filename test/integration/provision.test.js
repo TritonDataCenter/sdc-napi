@@ -16,6 +16,7 @@
 
 var assert = require('assert-plus');
 var clone = require('clone');
+var config = require('../lib/config');
 var constants = require('../../lib/util/constants');
 var h = require('./helpers');
 var log = require('../lib/log');
@@ -43,7 +44,7 @@ var state = {
     nics: []
 };
 var uuids = {
-    admin: '',  // Loaded in setup below
+    admin: config.server.ufdsAdminUuid,
     a: '564d69b1-a178-07fe-b36f-dfe5fa3602e2',
     b: '91abd897-566a-4ae5-80d2-1ba103221bbc',
     c: 'e8e2deb9-2d68-4e4e-9aa6-4962c879d9b1',
@@ -337,7 +338,7 @@ function listIPs(t, opts) {
         t.deepEqual(res.map(function (i) {
             return i.belongs_to_uuid;
         }).sort(), d.belongsToExp.concat(
-            [h.ufdsAdminUuid, undefined, undefined]).sort(),
+            [config.server.ufdsAdminUuid, undefined, undefined]).sort(),
             'All belongs_to_uuids returned');
 
         return t.end();
@@ -580,16 +581,6 @@ function deleteAll(t) {
 
 
 test('setup', function (t) {
-    t.test('load UFDS admin UUID', function (t2) {
-        h.loadUFDSadminUUID(t2, function (adminUUID) {
-            if (adminUUID) {
-                uuids.admin = adminUUID;
-            }
-
-            return t2.end();
-        });
-    });
-
     t.test('nic tag', function (t2) {
         mod_tag.create(t2, { name: '<generate>', state: state });
     });

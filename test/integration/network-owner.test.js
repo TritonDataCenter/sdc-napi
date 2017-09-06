@@ -15,6 +15,7 @@
 'use strict';
 
 var common = require('../lib/common');
+var config = require('../lib/config');
 var constants = require('../../lib/util/constants');
 var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
@@ -41,7 +42,6 @@ var state = {
     noOwnerPools: [],
     testName: 'network-owner'
 };
-var ufdsAdminUuid;  // Loaded in setup below
 var noNicMACs = [];
 
 
@@ -149,20 +149,10 @@ function deleteNetworkPool(t, name, callback) {
 test('setup', function (t) {
     t.ok(owner, 'owner=' + owner);
     t.ok(owner2, 'owner2=' + owner2);
+    t.ok(config.server.ufdsAdminUuid, 'admin=' + config.server.ufdsAdminUuid);
 
     t.test('create test nic tag', function (t2) {
         h.createNicTag(t2, napi, state);
-    });
-
-    t.test('load UFDS admin UUID', function (t2) {
-        h.loadUFDSadminUUID(t2, function (adminUUID) {
-            if (adminUUID) {
-                ufdsAdminUuid = adminUUID;
-            }
-
-            t2.ok(ufdsAdminUuid, 'ufdsAdminUuid=' + ufdsAdminUuid);
-            return t2.end();
-        });
     });
 });
 
@@ -278,7 +268,7 @@ test('provision: invalid owner', function (t) {
 
 
 test('provision: admin owner_uuid', function (t) {
-    checkProvisionSuccess(ufdsAdminUuid, t);
+    checkProvisionSuccess(config.server.ufdsAdminUuid, t);
 });
 
 

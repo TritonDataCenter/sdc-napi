@@ -38,7 +38,7 @@ var extend = mod_jsprim.mergeObjects;
 
 
 
-var ADMIN_OWNER;    // Loaded in setup below
+var ADMIN_OWNER = config.server.ufdsAdminUuid;
 var CREATED = {};
 var OWNERS = [
     mod_uuid.v4(),
@@ -224,19 +224,7 @@ function checkEventLog(t, opts) {
 
 
 test('setup', function (t) {
-
-    t.test('load UFDS admin UUID', function (t2) {
-        h.loadUFDSadminUUID(t2, function (adminUUID) {
-            if (adminUUID) {
-                ADMIN_OWNER = adminUUID;
-            }
-
-            return t2.end();
-        });
-    });
-
     t.test('create default nic tag', mod_nic_tag.createDefault);
-
 });
 
 

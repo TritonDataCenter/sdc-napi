@@ -14,6 +14,7 @@
 
 'use strict';
 
+var config = require('../lib/config');
 var constants = require('../../lib/util/constants');
 var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
@@ -39,7 +40,7 @@ var state = {
     ts: {}
 };
 var uuids = {
-    admin: '',
+    admin: config.server.ufdsAdminUuid,
     a: '564d69b1-a178-07fe-b36f-dfe5fa3602e2',
     b: '91abd897-566a-4ae5-80d2-1ba103221bbc',
     c: 'e8e2deb9-2d68-4e4e-9aa6-4962c879d9b1',
@@ -78,18 +79,6 @@ test('setup', function (t) {
         });
     });
 });
-
-
-test('load UFDS admin UUID', function (t) {
-    h.loadUFDSadminUUID(t, function (adminUUID) {
-        if (adminUUID) {
-            uuids.admin = adminUUID;
-        }
-
-        return t.end();
-    });
-});
-
 
 
 // --- Tests

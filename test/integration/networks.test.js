@@ -14,6 +14,7 @@
 
 'use strict';
 
+var config = require('../lib/config');
 var constants = require('../../lib/util/constants');
 var fmt = require('util').format;
 var h = require('./helpers');
@@ -41,23 +42,10 @@ var NETS = [
     })
 ];
 var state = { };
-var ufdsAdminUuid;  // Loaded in setup below
 
 
 
 // --- Setup
-
-
-
-test('load UFDS admin UUID', function (t) {
-    h.loadUFDSadminUUID(t, function (adminUUID) {
-        if (adminUUID) {
-            ufdsAdminUuid = adminUUID;
-        }
-
-        return t.end();
-    });
-});
 
 
 test('create test nic tag', function (t) {
@@ -158,10 +146,10 @@ test('validate IPs created with network', function (t) {
     var ips = [ '192.0.2.1', '192.0.2.2'].reduce(function (arr, i) {
             arr.push({
                 ip: i,
-                belongs_to_uuid: ufdsAdminUuid,
+                belongs_to_uuid: config.server.ufdsAdminUuid,
                 belongs_to_type: 'other',
                 network_uuid: state.network.uuid,
-                owner_uuid: ufdsAdminUuid,
+                owner_uuid: config.server.ufdsAdminUuid,
                 reserved: true,
                 free: false
             });

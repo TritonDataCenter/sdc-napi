@@ -1,6 +1,8 @@
 {
   "//": "minimal NAPI config needed for unit tests",
 
+  "datacenter": "unit-test",
+  "macOUI": "010203",
   "overlay": {
       "enabled": true,
       "defaultOverlayMTU": 1400,

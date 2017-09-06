@@ -15,6 +15,7 @@
 'use strict';
 
 var common = require('../lib/common');
+var config = require('../lib/config');
 var h = require('./helpers');
 var mod_ip = require('../lib/ip');
 var mod_net = require('../lib/net');
@@ -39,7 +40,7 @@ var IPS = {
 var napi = h.createNAPIclient();
 var state = {};
 var uuids = {
-    admin: '',  // set in setup below
+    admin: config.server.ufdsAdminUuid,
     a: '564d69b1-a178-07fe-b36f-dfe5fa3602e2'
 };
 
@@ -50,17 +51,6 @@ var uuids = {
 
 
 test('setup', function (t) {
-    t.test('load UFDS admin UUID', function (t2) {
-        h.loadUFDSadminUUID(t2, function (adminUUID) {
-            if (adminUUID) {
-                uuids.admin = adminUUID;
-            }
-
-            return t2.end();
-        });
-    });
-
-
     t.test('create test nic tag', function (t2) {
         h.createNicTag(t2, napi, state);
     });

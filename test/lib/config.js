@@ -17,6 +17,7 @@
 var fmt = require('util').format;
 var fs = require('fs');
 var jsprim = require('jsprim');
+var validateConfig = require('../../lib/config').validate;
 
 
 
@@ -64,6 +65,8 @@ if (!jsprim.hasKey(CONFIG.server, 'moray')) {
 }
 
 CONFIG.moray = jsprim.deepCopy(CONFIG.server.moray);
+
+validateConfig(CONFIG.server);
 
 
 module.exports = CONFIG;

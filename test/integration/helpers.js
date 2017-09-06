@@ -29,7 +29,6 @@ var vasync = require('vasync');
 
 
 
-var ADMIN_UUID;
 // 198.18.0.0/15 is supposed to be used for benchmarking network devices,
 // according to RFC 2544, and therefore shouldn't be used for anything:
 var TEST_NET_FMT = '198.18.%d.%d';
@@ -354,30 +353,6 @@ function doneWithError(t, err, desc) {
 
 
 /**
- * Load the UFDS admin UUID - cheat by grabbing the first owner_uuid of the
- * admin network.
- */
-function loadUFDSadminUUID(t, callback) {
-    var client = createNAPIclient(t);
-
-    client.getNetwork('admin', function (err, res) {
-        if (common.ifErr(t, err, 'get admin network')) {
-            return t.end();
-        }
-
-        ADMIN_UUID = res.owner_uuids[0];
-        t.ok(ADMIN_UUID, 'admin UUID: ' + ADMIN_UUID);
-
-        if (callback) {
-            return callback(ADMIN_UUID);
-        }
-
-        return t.end();
-    });
-}
-
-
-/**
  * Asserts that substr is a substring or match for str. Similar to tap's
  * similar() (that's a little test humour for you).
  */
@@ -426,20 +401,10 @@ module.exports = {
     get lastNetPrefix() {
         return fmt(TEST_NET_PFX, NET_NUM - 1);
     },
-    loadUFDSadminUUID: loadUFDSadminUUID,
     randomMAC: common.randomMAC,
     reqOpts: common.reqOpts,
     saveTimestamps: saveTimestamps,
     similar: similar,
     timestampsAdvance: timestampsAdvance,
-    get ufdsAdminUuid() {
-        if (!ADMIN_UUID) {
-            throw new Error(
-                'UFDS admin UUID undefined! ' +
-                'Have you run helpers.loadUFDSadminUUID()?');
-        }
-
-        return ADMIN_UUID;
-    },
     validNetworkParams: validNetworkParams
 };
