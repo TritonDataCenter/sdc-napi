@@ -41,6 +41,7 @@ var napi = h.createNAPIclient();
 var state = {};
 var uuids = {
     admin: config.server.ufdsAdminUuid,
+    owner: 'c5897cd3-afc7-470d-bc32-dd88277742ac',
     a: '564d69b1-a178-07fe-b36f-dfe5fa3602e2'
 };
 
@@ -121,7 +122,7 @@ test('GET /networks/:uuid/ips/:ip (free IP)', function (t) {
 test('PUT /networks/:uuid/ips/:ip', function (t) {
     var params = {
         reserved: true,
-        owner_uuid: uuids.admin,
+        owner_uuid: uuids.owner,
         belongs_to_type: 'zone',
         belongs_to_uuid: uuids.a
     };
@@ -177,10 +178,39 @@ test('GET /networks/:uuid/ips', function (t) {
         reserved: false
     };
 
-    mod_ip.list(t, {
-        deepEqual: true,
-        net: state.networks[0].uuid,
-        present: [ before, state.ip, after, broadcastIP ]
+    t.test('no filters', function (t2) {
+        mod_ip.list(t2, {
+            deepEqual: true,
+            net: state.networks[0].uuid,
+            present: [ before, state.ip, after, broadcastIP ]
+        });
+    });
+
+    t.test('filter by owner_uuid', function (t2) {
+        mod_ip.list(t2, {
+            deepEqual: true,
+            net: state.networks[0].uuid,
+            params: { owner_uuid: uuids.owner },
+            present: [ state.ip ]
+        });
+    });
+
+    t.test('filter by belongs_to_type', function (t2) {
+        mod_ip.list(t2, {
+            deepEqual: true,
+            net: state.networks[0].uuid,
+            params: { belongs_to_type: 'other' },
+            present: [ broadcastIP ]
+        });
+    });
+
+    t.test('filter by belongs_to_uuid', function (t2) {
+        mod_ip.list(t2, {
+            deepEqual: true,
+            net: state.networks[0].uuid,
+            params: { belongs_to_uuid: uuids.admin },
+            present: [ broadcastIP ]
+        });
     });
 });
 
