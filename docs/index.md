@@ -510,12 +510,13 @@ Gets all of the IPs in use on that Logical Network.
 
 ### Inputs
 
-| Field            | Type            | Description                                                |
-| ---------------- | --------------- | ---------------------------------------------------------- |
-| belongs_to_type  | String          | The type that this belongs to (eg: 'zone', 'server')       |
-| belongs_to_uuid  | UUID            | The UUID of what this IP belongs to                        |
-| offset           | Integer         | Starting offset, see [Pagination](#pagination)             |
-| limit            | Integer         | Maximum number of responses, see [Pagination](#pagination) |
+| Field            | Type            | Description                                                   |
+| ---------------- | --------------- | ------------------------------------------------------------- |
+| belongs_to_type  | String          | The type that this belongs to (eg: 'zone', 'server', 'other') |
+| belongs_to_uuid  | UUID            | The UUID of what this IP belongs to                           |
+| owner_uuid       | UUID            | The UUID of the owner this IP belongs to                      |
+| offset           | Integer         | Starting offset, see [Pagination](#pagination)                |
+| limit            | Integer         | Maximum number of responses, see [Pagination](#pagination)    |
 
 ### Example
 
@@ -524,21 +525,19 @@ Gets all of the IPs in use on that Logical Network.
     [
       {
         "ip": "10.99.99.9",
-        "owner_uuid": "930896af-bf8c-48d4-885c-6573a94b1853",
-        "belongs_to_uuid": "d66d8047-5c23-42a1-a26a-60ee806f7edb",
+        "network_uuid": "1275886f-3fdf-456e-bba6-28e0e2eab58f",
+        "reserved": false,
         "belongs_to_type": "zone",
-        "netmask": "255.255.255.0",
-        "gateway": "10.99.99.7",
-        "nic": "c2:df:ef:11:48:48"
+        "belongs_to_uuid": "d66d8047-5c23-42a1-a26a-60ee806f7edb",
+        "owner_uuid": "930896af-bf8c-48d4-885c-6573a94b1853"
       },
       {
         "ip": "10.99.99.10",
-        "owner_uuid": "930896af-bf8c-48d4-885c-6573a94b1853",
+        "network_uuid": "1275886f-3fdf-456e-bba6-28e0e2eab58f",
+        "reserved": false,
         "belongs_to_uuid": "671819b2-5017-4337-8c85-e5658e632955",
         "belongs_to_type": "zone",
-        "netmask": "255.255.255.0",
-        "gateway": "10.99.99.7",
-        "nic": "c2:e0:04:1e:c7:8a"
+        "owner_uuid": "930896af-bf8c-48d4-885c-6573a94b1853"
       }
     ]
 
@@ -554,12 +553,11 @@ Gets a specific IP on a Logical Network.
 
     {
       "ip": "10.88.88.106",
-      "owner_uuid": "930896af-bf8c-48d4-885c-6573a94b1853",
+      "network_uuid": "b330e2a1-6260-41a8-8567-a8a011f202f1",
+      "reserved": false,
       "belongs_to_uuid": "0e56fe34-39a3-42d5-86c7-d719487f892b",
       "belongs_to_type": "zone",
-      "netmask": "255.255.255.0",
-      "gateway": "10.88.88.2",
-      "nic": "90:b8:d0:55:57:2f"
+      "owner_uuid": "930896af-bf8c-48d4-885c-6573a94b1853"
     }
 
 
@@ -573,7 +571,7 @@ Modifies a specific IP on a Logical Network.
 | --------------- | ------- | --------------------------------------------------------------------------------------------------- |
 | owner_uuid      | UUID    | IP Owner                                                                                            |
 | belongs_to_uuid | UUID    | The UUID of what this IP belongs to                                                                 |
-| belongs_to_type | String  | The type that this belongs to (eg: 'zone', 'server')                                                |
+| belongs_to_type | String  | The type that this belongs to (eg: 'zone', 'server', 'other')                                       |
 | reserved        | Boolean | Whether the IP address should be reserved                                                           |
 | unassign        | Boolean | When set, removes belongs_to_uuid and belongs_to_type, ignoring all other parameters in the request |
 | check_owner     | Boolean | If set to false, skips network ownership checks (optional)                                          |
@@ -689,7 +687,7 @@ List VLANs owned by a user.
 
 Create a new fabric VLAN.
 
-### Inputs
+## Inputs
 
 | Field              | Type             | Description                                                                            |
 | ------------------ | ---------------- | -------------------------------------------------------------------------------------- |
