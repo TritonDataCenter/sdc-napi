@@ -687,7 +687,7 @@ List VLANs owned by a user.
 
 Create a new fabric VLAN.
 
-## Inputs
+### Inputs
 
 | Field              | Type             | Description                                                                            |
 | ------------------ | ---------------- | -------------------------------------------------------------------------------------- |
