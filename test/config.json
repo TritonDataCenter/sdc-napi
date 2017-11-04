@@ -3,6 +3,7 @@
 
   "allowLinklocal": true,
   "datacenter": "unit-test",
+  "autoAllocSubnets": false,
   "macOUI": "010203",
   "overlay": {
       "enabled": true,

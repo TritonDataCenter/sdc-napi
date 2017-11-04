@@ -847,7 +847,12 @@ Create a new fabric network on a VLAN.
 ### Inputs
 
 The parameters to this endpoint are the same as to [CreateNetwork](#CreateNetwork),
-but with some fields removed:
+but with some fields removed, and others added. Note that for fabrics, a user
+can manually specify a subnet or ask NAPI to automatically choose one for them.
+This means that there are two separate sets of parameters that are mutually
+exclusive. The following are the allocation params: `[subnet,
+provision_start_ip, provision_end_ip]`. And these are the manual params:
+`[subnet_alloc, family, subnet_prefix]`.
 
 | Field              | Type             | Description                                                                               |
 | ------------------ | ---------------- | ----------------------------------------------------------------------------------------- |
@@ -856,6 +861,9 @@ but with some fields removed:
 | subnet             | CIDR             | Subnet                                                                                    |
 | provision_start_ip | IP               | First IP address to allow provisioning on                                                 |
 | provision_end_ip   | IP               | Last IP address to allow provisioning on                                                  |
+| subnet_alloc       | Boolean          | Automatically choose subnet                                                               |
+| family             | String           | Address family: only 'ipv4' supported                             |
+| subnet_prefix      | Number           | Number of prefix bits (only 24-bit prefixes supported)                        |
 | gateway            | IP               | Gateway IP address (Optional)                                                             |
 | internet_nat       | Boolean          | Provision a NAT zone on the gateway address (Optional) (default: true)                    |
 | resolvers          | Array of IPs     | Resolver IP addresses (Optional)                                                          |

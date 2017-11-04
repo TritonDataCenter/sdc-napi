@@ -182,8 +182,7 @@ test('Create network - missing parameters', function (t) {
 
         t.equal(err.statusCode, 422, 'status code');
         t.deepEqual(err.body, h.invalidParamErr({
-            errors: ['name', 'nic_tag', 'provision_end_ip',
-                'provision_start_ip', 'subnet', 'vlan_id'].map(function (name) {
+            errors: ['name', 'nic_tag', 'vlan_id'].map(function (name) {
                     return {
                         code: 'MissingParameter',
                         field: name,
@@ -207,8 +206,7 @@ test('Create network - missing and invalid parameters', function (t) {
 
         t.equal(err.statusCode, 422, 'status code');
         t.deepEqual(err.body, h.invalidParamErr({
-            errors: ['name', 'nic_tag', 'provision_end_ip',
-                'subnet', 'vlan_id'].map(function (name) {
+            errors: ['name', 'nic_tag', 'vlan_id'].map(function (name) {
                     return {
                         code: 'MissingParameter',
                         field: name,
@@ -384,6 +382,7 @@ test('Create network - invalid parameters', function (t) {
                     util.format('status code for: %s: %s',
                     data[0], typeof (data[1]) === 'object' ?
                     JSON.stringify(data[1]) : data[1]));
+
                 var invalidErr;
 
                 if (data.length === 3) {
