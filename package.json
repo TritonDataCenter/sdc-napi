@@ -1,7 +1,7 @@
 {
   "name": "napi",
   "description": "SmartDataCenter Networking API",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "author": "Joyent (joyent.com)",
   "private": true,
   "dependencies": {
@@ -15,7 +15,7 @@
     "jsprim": "1.4.0",
     "lomstream": "1.1.0",
     "macaddr": "0.0.1",
-    "moray": "2.0.1",
+    "moray": "git+https://github.com/joyent/node-moray#node6",
     "node-uuid": "1.4.7",
     "portolan-moray": "git+https://github.com/joyent/sdc-portolan-moray.git#7e2c4ca",
     "restify": "4.1.1",

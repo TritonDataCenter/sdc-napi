@@ -40,9 +40,9 @@ BASH_FILES	:= sbin/napid bin/napictl
 JSON_FILES  := package.json config.json.sample
 
 ifeq ($(shell uname -s),SunOS)
-	# Allow building on a SmartOS image other than sdc-smartos/1.6.3.
-	NODE_PREBUILT_IMAGE=fd2cc906-8938-11e3-beab-4359c665ac99
-	NODE_PREBUILT_VERSION=v0.10.32
+	# Allow building on other than image sdc-minimal-multiarch-lts@15.4.1.
+	NODE_PREBUILT_IMAGE=18b094b0-eb01-11e5-80c1-175dac7ddf02
+	NODE_PREBUILT_VERSION=v6.12.0
 	NODE_PREBUILT_TAG := zone
 endif
 
