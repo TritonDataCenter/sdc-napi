@@ -118,8 +118,6 @@ test('create invalid VLANs', function (t) {
         // vlan_id
         [ { vlan_id: -1 },
             mod_err.invalidParam('vlan_id', mod_err.msg.vlan) ],
-        [ { vlan_id: 1 },
-            mod_err.invalidParam('vlan_id', mod_err.msg.vlan) ],
         [ { vlan_id: 4095 },
             mod_err.invalidParam('vlan_id', mod_err.msg.vlan) ]
     ];
@@ -322,8 +320,6 @@ test('create invalid networks', function (t) {
 
         // vlan_id
         [ { vlan_id: -1 },
-            mod_err.invalidParam('vlan_id', mod_err.msg.vlan) ],
-        [ { vlan_id: 1 },
             mod_err.invalidParam('vlan_id', mod_err.msg.vlan) ],
         [ { vlan_id: 4095 },
             mod_err.invalidParam('vlan_id', mod_err.msg.vlan) ],
