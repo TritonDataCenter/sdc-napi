@@ -1145,7 +1145,10 @@ Adding a new primary NIC will remove the `primary` flag from the old one.
 
 Returns the nic with the given MAC address.
 
-**Note: this is the MAC address with all colons removed.**
+**Note: Older NAPI instances require the MAC address with all colons removed.**
+When writing software that needs to work with older NAPIs, make sure to remove
+the colons. ([sdc-clients](https://www.npmjs.com/package/sdc-clients) will
+handle this for you.)
 
 ### Example
 
@@ -1201,7 +1204,7 @@ Changes properties of the nic with the given MAC address.
 | underlay                 | Boolean                | Indicates this vnic is to be used as a server's underlay nic (optional)           |
 
 
-**Note: this is the MAC address with all colons removed.**
+**Note: software consumers should use the MAC address with all colons removed.**
 
 ### Example
 
@@ -1235,7 +1238,7 @@ Deletes the nic with the given MAC address, freeing any IPs that belong to
 that nic in the process. If the IP address is reserved, its reserved and
 owner_uuid properties will be preserved.
 
-**Note: this is the MAC address with all colons removed.**
+**Note: software consumers should use the MAC address with all colons removed.**
 
 ### Inputs
 
