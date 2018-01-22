@@ -464,7 +464,7 @@ Creates a new NIC, provisioning an IP and MAC address in the process. The
 | owner_uuid        | UUID                   | Nic Owner                                                                        |
 | cn_uuid           | UUID                   | The UUID of the CN this NIC is on (optional, unless on fabric)                  |
 | belongs_to_uuid   | UUID                   | The UUID of what this Nic belongs to                                             |
-| belongs_to_type   | String                 | The type that this belongs to (eg: 'zone', 'server')                             |
+| belongs_to_type   | String                 | The type that this belongs to (eg: 'zone', 'server', 'router')                             |
 | ip                | String                 | IP address to assign to the nic                                                  |
 | reserved          | Boolean                | Whether the IP address should be reserved                                        |
 | nic_tags_provided | Array of nic tag names | Nic tags this nic provides                                                       |
@@ -975,7 +975,7 @@ if it matches *all* of the input parameters.
 | ------------------------ | ---------------------- | -------------------------------------------------------------------------------- |
 | owner_uuid               | UUID                   | NIC Owner                                                                        |
 | belongs_to_uuid          | UUID                   | The UUID of what this NIC belongs to                                             |
-| belongs_to_type          | String                 | The type that the NIC belongs to (e.g., 'zone', 'server')                        |
+| belongs_to_type          | String                 | The type that the NIC belongs to (e.g., 'zone', 'server', 'router')              |
 | allow_dhcp_spoofing      | Boolean                | Whether the NIC is allowed to function as a DHCP server                          |
 | allow_ip_spoofing        | Boolean                | Whether the NIC is allowed to spoof IP addresses                                 |
 | allow_mac_spoofing       | Boolean                | Whether the NIC is allowed to spoof MAC addresses                                |
@@ -1101,7 +1101,7 @@ Creates a new nic.
 | mac                      | String                 | MAC address                                                                       |
 | owner_uuid               | UUID                   | Nic Owner                                                                         |
 | belongs_to_uuid          | UUID                   | The UUID of what this Nic belongs to                                              |
-| belongs_to_type          | String                 | The type that this belongs to (eg: 'zone', 'server')                              |
+| belongs_to_type          | String                 | The type that this belongs to (eg: 'zone', 'server', 'router')                    |
 | cn_uuid                  | UUID                   | The UUID of the CN this NIC is on (optional, unless on fabric)                    |
 | ip                       | String                 | IP address to assign to the nic                                                   |
 | network_uuid             | UUID                   | UUID of the network or network pool to provision an IP on                         |
@@ -1185,7 +1185,7 @@ Changes properties of the nic with the given MAC address.
 | ------------------------ | ---------------------- | --------------------------------------------------------------------------------- |
 | owner_uuid               | UUID                   | Nic Owner                                                                         |
 | belongs_to_uuid          | UUID                   | The UUID of what this Nic belongs to                                              |
-| belongs_to_type          | String                 | The type that this belongs to (eg: 'zone', 'server')                              |
+| belongs_to_type          | String                 | The type that this belongs to (eg: 'zone', 'server', 'router')                    |
 | cn_uuid                  | UUID                   | The UUID of the Compute Node a VM's nic is provisioned on (optional)              |
 | ip                       | String                 | IP address to assign to the nic                                                   |
 | network_uuid             | UUID                   | The network UUID the nic's IP should be on                                        |
