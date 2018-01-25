@@ -30,6 +30,7 @@ The Networking API allows for administering the following:
 - IPs
 - Nics
 - Link Aggregations
+- Router Objects
 
 NAPI itself is just a directory of the above - it does not handle communicating
 these changes to servers, which is the domain of
