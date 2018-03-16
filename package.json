@@ -18,7 +18,7 @@
     "mooremachine": "2.2.0",
     "moray": "3.4.2",
     "node-uuid": "1.4.7",
-    "portolan-moray": "git+https://github.com/joyent/sdc-portolan-moray.git#7e2c4ca",
+    "portolan-moray": "git+https://github.com/joyent/sdc-portolan-moray.git#vpc",
     "restify": "4.3.0",
     "restify-warden": "1.1.0",
     "sdc-clients": "9.2.0",
