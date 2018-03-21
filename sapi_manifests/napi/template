@@ -36,6 +36,9 @@
     },
     "url": "http://{{{WORKFLOW_SERVICE}}}"
   },
+{{#NAPI_PREFIXED_BUCKETS}}
+  "bucketPrefix": "{{{datacenter_name}}}_",
+{{/NAPI_PREFIXED_BUCKETS}}
   "initialNetworks": {
     "admin": {
       "vlan": 0,
