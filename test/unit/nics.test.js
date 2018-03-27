@@ -49,6 +49,7 @@ var NET2;
 var NET3;
 var NET4;
 var NET5;
+var NET6;
 var PROV_MAC_NET;
 
 
@@ -168,6 +169,20 @@ test('Initial setup', function (t) {
         }, function (_, res) {
             NET5 = res;
             NET5.num = num;
+
+            t2.end();
+        });
+    });
+
+    t.test('create net6', function (t2) {
+        num = h.NET_NUM;
+        var params = h.validNetworkParams();
+        mod_net.create(t2, {
+            params: params,
+            partialExp: params
+        }, function (_, res) {
+            NET6 = res;
+            NET6.num = num;
 
             t2.end();
         });
@@ -857,9 +872,15 @@ test('Provision nic: exceed IP retries', function (t) {
     };
 
     var startIP = h.nextProvisionableIP(PROV_MAC_NET, true);
+    var range = [];
+    for (var i = 0; i < constants.IP_PROVISION_GAP_LENGTH; i++) {
+        range.push(util_ip.ipAddrPlus(util_ip.toIPAddr(startIP), i).toString());
+    }
+
     var ips = [];
-    for (var i = 0; i < constants.IP_PROVISION_RETRIES + 2; i++) {
-        ips.push(util_ip.ipAddrPlus(util_ip.toIPAddr(startIP), i).toString());
+    var dlen = constants.IP_PROVISION_RETRIES + 1;
+    while (ips.length !== dlen) {
+        ips = ips.concat(range.slice(0, dlen - ips.length));
     }
 
     t.test('Count NICs before provision attempt', function (t2) {
@@ -900,6 +921,9 @@ test('Provision nic: exceed IP retries', function (t) {
             batch: [ ]
         }, 'no more batch errors left');
 
+        // Reset in case we didn't hit everything:
+        MORAY.setMockErrors({ });
+
         mod_moray.countNics(MORAY, function (err4, numNicsAfter) {
             t2.ifError(err4, 'Counting NICs should succeed');
             t2.equal(numNicsAfter, numNicsBefore,
@@ -908,22 +932,37 @@ test('Provision nic: exceed IP retries', function (t) {
         });
     });
 
-    ips.forEach(function (ip) {
-        t.test('Confirm that the IP is free: ' + ip, function (t2) {
-            NAPI.getIP(PROV_MAC_NET.uuid, ip, function (err2, res) {
-                if (h.ifErr(t2, err2, 'getIP error')) {
-                    t2.end();
-                    return;
-                }
+    function checkIP(t2, barrier, ip) {
+        var prefix = ip + ': ';
 
-                t2.equal(res.free, true, 'IP has been freed');
-                mod_moray.getIP(MORAY, PROV_MAC_NET.uuid,
-                    PROV_MAC_NET.provision_start_ip, function (err3, ipRec) {
-                    t2.ok(err3, 'Getting IP should fail');
-                    t2.ok(!ipRec, 'IP record does not exist in moray');
-                    t2.end();
-                });
+        barrier.start(ip);
+
+        NAPI.getIP(PROV_MAC_NET.uuid, ip, function (err2, res) {
+            if (h.ifErr(t2, err2, prefix + 'getIP error')) {
+                t2.end();
+                return;
+            }
+
+            t2.equal(res.free, true, prefix + 'IP has been freed');
+            mod_moray.getIP(MORAY, PROV_MAC_NET.uuid,
+                PROV_MAC_NET.provision_start_ip, function (err3, ipRec) {
+                t2.ok(err3, prefix + 'Getting IP should fail');
+                t2.ok(!ipRec, prefix + 'IP record does not exist in moray');
+
+                barrier.done(ip);
             });
+        });
+    }
+
+    t.test('Confirm that unused IPs are free', function (t2) {
+        var barrier = vasync.barrier();
+
+        range.forEach(function (ip) {
+            checkIP(t2, barrier, ip);
+        });
+
+        barrier.on('drain', function () {
+            t2.end();
         });
     });
 });
@@ -1292,6 +1331,39 @@ test('Provision NIC: Retry after QueryTimeoutErrors', function (t) {
             batch: [ ]
         }, 'no more batch errors left');
         t2.end();
+    });
+});
+
+
+test('Provision many NICs concurrently - same network', function (t) {
+    var barrier = vasync.barrier();
+    var concurrency = 100;
+
+    function createNIC(n) {
+        var name = 'nic-prov-' + n;
+        var params = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            owner_uuid: mod_uuid.v4()
+        };
+
+        barrier.start(name);
+
+        mod_nic.provision(t, {
+            net: NET6.uuid,
+            params: params,
+            partialExp: params
+        }, function () {
+            barrier.done(name);
+        });
+    }
+
+    for (var i = 0; i < concurrency; ++i) {
+        createNIC(i);
+    }
+
+    barrier.on('drain', function () {
+        t.end();
     });
 });
 

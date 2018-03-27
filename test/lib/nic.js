@@ -158,28 +158,31 @@ function delAllCreatedNics(t) {
 
     var created = common.allCreated('nics');
     if (created.length === 0) {
-        t.ok(true, 'No nics created');
-        return t.end();
+        t.pass('No nics created');
+        t.end();
+        return;
     }
 
     common.clearCreated('nics');
 
-    mod_vasync.forEachParallel({
-        inputs: created,
-        func: function _delOne(nic, cb) {
-            var delOpts = {
-                mightNotExist: true,
-                continueOnErr: true,
-                exp: {},
-                params: nic,
-                mac: nic.mac
-            };
+    var q = mod_vasync.queue(function _delOne(nic, cb) {
+        var delOpts = {
+            mightNotExist: true,
+            continueOnErr: true,
+            exp: {},
+            params: nic,
+            mac: nic.mac
+        };
 
-            delNic(t, delOpts, cb);
-        }
-    }, function () {
-        return t.end();
+        delNic(t, delOpts, cb);
+    }, 100);
+
+    q.on('end', function () {
+        t.end();
     });
+
+    q.push(created);
+    q.close();
 }
 
 
