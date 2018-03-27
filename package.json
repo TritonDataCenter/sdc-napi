@@ -27,7 +27,7 @@
     "verror": "1.9.0"
   },
   "devDependencies": {
-    "moray-sandbox": "0.1.1",
+    "moray-sandbox": "0.1.3",
     "faucet": "0.0.1",
     "istanbul": "^0.4.0",
     "eslint": "2.13.1",

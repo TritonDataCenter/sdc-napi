@@ -9,3 +9,4 @@ data.json
 /docs/media
 /docs/*.html
 /docs/*.json
+.*.s[a-w][a-z]
