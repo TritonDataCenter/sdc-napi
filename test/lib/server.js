@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright 2017, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 /*
@@ -16,6 +16,7 @@
 
 var common = require('./common');
 var config = require('./config');
+var mod_jsprim = require('jsprim');
 var mod_log = require('./log');
 var moray_sandbox = require('moray-sandbox');
 var mod_client = require('./client');
@@ -144,6 +145,8 @@ function createTestServer(opts, callback) {
         component: 'test-server'
     });
 
+    var napi_config = mod_jsprim.mergeObjects(config.server, opts.config || {});
+
     function startWithMoray(err, moray) {
         if (err) {
             callback(err);
@@ -151,7 +154,7 @@ function createTestServer(opts, callback) {
         }
 
         var server = new NAPI({
-            config: config.server,
+            config: napi_config,
             log: log_child
         });
         SERVER = server;
