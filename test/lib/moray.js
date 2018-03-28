@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright 2017, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 /*
@@ -17,6 +17,7 @@
 var assert = require('assert-plus');
 var mod_ip = require('../../lib/models/ip');
 var mod_mac = require('macaddr');
+var models = require('../../lib/models');
 
 
 // --- Internals
@@ -68,8 +69,10 @@ function getIPs(moray, network, callback) {
  * Gets a NIC record from Moray.
  */
 function getNic(moray, mac, callback) {
-    moray.getObject('napi_nics', mod_mac.parse(mac).toLong().toString(),
-        extractValue(callback));
+    var bucket = models.nic.bucket().name;
+    var key = mod_mac.parse(mac).toLong().toString();
+
+    moray.getObject(bucket, key, extractValue(callback));
 }
 
 
@@ -77,8 +80,9 @@ function getNic(moray, mac, callback) {
  * Counts all NIC records in Moray.
  */
 function countNics(moray, callback) {
+    var bucket = models.nic.bucket().name;
     var count = 0;
-    var res = moray.findObjects('napi_nics', '(mac=*)', { limit: 1 });
+    var res = moray.findObjects(bucket, '(mac=*)', { limit: 1 });
     res.on('error', callback);
     res.on('record', function (r) {
         count = r._count;

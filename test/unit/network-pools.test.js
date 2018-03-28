@@ -26,6 +26,7 @@ var mod_tag = require('../lib/nic-tag');
 var mod_pool = require('../lib/pool');
 var mod_server = require('../lib/server');
 var mod_uuid = require('node-uuid');
+var models = require('../../lib/models');
 var repeat = require('../../lib/util/common').repeat;
 var test = require('tape');
 var util = require('util');
@@ -722,7 +723,7 @@ test('Update pool: remove owner_uuids', function (t) {
             delete POOLS[1].owner_uuids;
             t2.deepEqual(res, POOLS[1], 'owner_uuids removed');
 
-            MORAY.getObject('napi_network_pools', POOLS[1].uuid,
+            MORAY.getObject(models.network_pool.bucket().name, POOLS[1].uuid,
                 function (err2, morayObj) {
                 t2.ifError(err2, 'Getting pool should succeed');
                 t2.ok(!morayObj.value.hasOwnProperty('owner_uuids'),
@@ -754,7 +755,7 @@ test('Update pool: remove owner_uuids', function (t) {
             POOLS[1].owner_uuids = params.owner_uuids.sort();
             t2.deepEqual(res, POOLS[1], 'owner_uuids added');
 
-            MORAY.getObject('napi_network_pools', POOLS[1].uuid,
+            MORAY.getObject(models.network_pool.bucket().name, POOLS[1].uuid,
                 function (err2, morayObj) {
                 t2.ifError(err2, 'Getting pool should succeed');
                 t2.ok(morayObj, 'got moray object');

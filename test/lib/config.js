@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 /*
@@ -62,6 +62,10 @@ if (!jsprim.hasKey(CONFIG.server, 'moray')) {
         logLevel: process.env.LOG_LEVEL || 'fatal',
         port: process.env.MORAY_PORT || 2020
     };
+}
+
+if (jsprim.hasKey(process.env, 'NAPI_BUCKET_PREFIX')) {
+    CONFIG.server.bucketPrefix = process.env.NAPI_BUCKET_PREFIX;
 }
 
 CONFIG.moray = jsprim.deepCopy(CONFIG.server.moray);

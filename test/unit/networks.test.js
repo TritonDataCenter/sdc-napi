@@ -28,6 +28,7 @@ var mod_nic = require('../lib/nic');
 var mod_server = require('../lib/server');
 var mod_test_err = require('../lib/err');
 var mod_uuid = require('node-uuid');
+var models = require('../../lib/models');
 var test = require('tape');
 var util = require('util');
 var vasync = require('vasync');
@@ -1512,7 +1513,8 @@ test('Update network - unset owner_uuids', function (t) {
 
     t.test('moray state after create', function (t2) {
         exp = networks[0];
-        MORAY.getObject('napi_networks', exp.uuid, function (err, obj) {
+        MORAY.getObject(models.network.bucket().name, exp.uuid,
+            function (err, obj) {
             t2.ifError(err, 'Getting network shouldn\'t fail');
             t2.ok(obj, 'Have Moray obj');
 
@@ -1563,7 +1565,8 @@ test('Update network - unset owner_uuids', function (t) {
 
     t.test('moray state after update', function (t2) {
         exp = networks[0];
-        MORAY.getObject('napi_networks', exp.uuid, function (err, obj) {
+        MORAY.getObject(models.network.bucket().name, exp.uuid,
+            function (err, obj) {
             t2.ifError(err, 'Getting network shouldn\'t fail');
             t2.ok(obj, 'Have Moray obj');
 
@@ -1618,7 +1621,8 @@ test('Update network - unset owner_uuids', function (t) {
 
     t.test('moray state after empty array create', function (t2) {
         exp = networks[1];
-        MORAY.getObject('napi_networks', exp.uuid, function (err, obj) {
+        MORAY.getObject(models.network.bucket().name, exp.uuid,
+            function (err, obj) {
             t2.ifError(err, 'Getting network shouldn\'t fail');
             t2.ok(obj, 'Have Moray obj');
 
@@ -1655,7 +1659,8 @@ test('Update network - unset owner_uuids', function (t) {
 
     t.test('NAPI-186: owner_uuids=",," should be okay', function (t2) {
         // The string ',,' should be okay to return from Moray.
-        MORAY.getObject('napi_networks', exp.uuid, function (gErr, res) {
+        MORAY.getObject(models.network.bucket().name, exp.uuid,
+            function (gErr, res) {
             if (h.ifErr(t2, gErr, 'getObject() error')) {
                 t2.end();
                 return;
@@ -1664,7 +1669,7 @@ test('Update network - unset owner_uuids', function (t) {
             delete res.value.owner_uuids_arr;
             res.value.owner_uuids = ',,';
 
-            MORAY.putObject('napi_networks', exp.uuid, res.value,
+            MORAY.putObject(models.network.bucket().name, exp.uuid, res.value,
                 function (pErr) {
                 t2.ifError(pErr, 'Putting new network object should succeed');
 
@@ -1690,7 +1695,8 @@ test('Update network - unset owner_uuids', function (t) {
 
     t.test('owner_uuids_arr=[] should be okay', function (t2) {
         // An empty array should be okay to return from Moray.
-        MORAY.getObject('napi_networks', exp.uuid, function (gErr, res) {
+        MORAY.getObject(models.network.bucket().name, exp.uuid,
+            function (gErr, res) {
             if (h.ifErr(t2, gErr, 'getObject() error')) {
                 t2.end();
                 return;
@@ -1699,7 +1705,7 @@ test('Update network - unset owner_uuids', function (t) {
             res.value.owner_uuids_arr = [];
             exp.owner_uuids = [];
 
-            MORAY.putObject('napi_networks', exp.uuid, res.value,
+            MORAY.putObject(models.network.bucket().name, exp.uuid, res.value,
                 function (pErr) {
                 t2.ifError(pErr, 'Putting new network object should succeed');
 

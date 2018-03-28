@@ -29,6 +29,7 @@ var mod_nic = require('../lib/nic');
 var mod_nicTag = require('../lib/nic-tag');
 var mod_server = require('../lib/server');
 var mod_uuid = require('node-uuid');
+var models = require('../../lib/models');
 var test = require('tape');
 var util = require('util');
 var util_ip = require('../../lib/util/ip');
@@ -809,7 +810,7 @@ test('Provision nic: exceed MAC retries', function (t) {
         for (var i = 0; i < constants.MAC_RETRIES + 1; i++) {
             var fakeErr = new Error('Already exists');
             fakeErr.name = 'EtagConflictError';
-            fakeErr.context = { bucket: 'napi_nics' };
+            fakeErr.context = { bucket: models.nic.bucket().name };
             errs.push(fakeErr);
         }
         MORAY.setMockErrors({ batch: errs });
@@ -1057,7 +1058,7 @@ test('Provision nic: MAC retry', function (t) {
 
         var fakeErr = new Error('Already exists');
         fakeErr.name = 'EtagConflictError';
-        fakeErr.context = { bucket: 'napi_nics' };
+        fakeErr.context = { bucket: models.nic.bucket().name };
 
         MORAY.setMockErrors({ batch: [ fakeErr, fakeErr ] });
 
@@ -1120,7 +1121,7 @@ test('Provision nic: MAC retry', function (t) {
 
         var fakeErr = new Error('Already exists');
         fakeErr.name = 'EtagConflictError';
-        fakeErr.context = { bucket: 'napi_nics' };
+        fakeErr.context = { bucket: models.nic.bucket().name };
 
         MORAY.setMockErrors({ batch: [ fakeErr, fakeErr ] });
 

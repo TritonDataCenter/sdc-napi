@@ -25,6 +25,7 @@ var mod_nic = require('../lib/nic');
 var mod_nic_tag = require('../lib/nic-tag');
 var mod_server = require('../lib/server');
 var mod_uuid = require('node-uuid');
+var models = require('../../lib/models');
 var test = require('tape');
 var util = require('util');
 var vasync = require('vasync');
@@ -269,7 +270,7 @@ test('create', function (t) {
                 return t2.end();
             }
 
-            MORAY.getObject('napi_aggregations', exp.id,
+            MORAY.getObject(models.aggr.bucket().name, exp.id,
                 function (err2, morayObj) {
                 t2.ifError(err2, 'Getting aggregation should succeed');
                 t2.ok(morayObj, 'Got Moray object');

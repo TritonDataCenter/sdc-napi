@@ -19,6 +19,7 @@ var common = require('../lib/common');
 var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
 var mod_server = require('../lib/server');
+var models = require('../../lib/models');
 var constants = require('../../lib/util/constants');
 var test = require('tape');
 
@@ -84,8 +85,13 @@ test('Create nic tag', function (t) {
         }
 
         t.equal(res.statusCode, 200, 'status code');
-        MORAY.getObject('napi_nic_tags', 'newtagname', function (mErr, added) {
-            t.ifError(mErr, 'Getting NIC tag should succeed');
+        MORAY.getObject(models.nic_tag.bucket().name, 'newtagname',
+            function (mErr, added) {
+            if (h.ifErr(t, mErr, 'Getting NIC tag should succeed')) {
+                t.end();
+                return;
+            }
+
             var expObj = {
                 name: 'newtagname',
                 uuid: added.value.uuid,
@@ -194,7 +200,7 @@ test('Create nic tag - with MTU', function (t) {
         }
 
         t.equal(res.statusCode, 200, 'status code - MTU');
-        MORAY.getObject('napi_nic_tags', 'newtagnamemtu',
+        MORAY.getObject(models.nic_tag.bucket().name, 'newtagnamemtu',
             function (mErr, added) {
             t.ifError(mErr, 'Getting NIC tag should succeed');
             var expObj = {
@@ -286,8 +292,13 @@ test('Create admin nic tag - with default MTU', function (t) {
         }
 
         t.equal(res.statusCode, 200, 'status code');
-        MORAY.getObject('napi_nic_tags', 'admin', function (mErr, added) {
-            t.ifError(mErr, 'Getting NIC tag should succeed');
+        MORAY.getObject(models.nic_tag.bucket().name, 'admin',
+            function (mErr, added) {
+            if (h.ifErr(t, mErr, 'Getting NIC tag should succeed')) {
+                t.end();
+                return;
+            }
+
             var expObj = {
                 name: 'admin',
                 uuid: added.value.uuid,
