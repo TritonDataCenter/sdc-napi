@@ -26,6 +26,7 @@ var mod_uuid = require('node-uuid');
 var test = require('tape');
 var util = require('util');
 var vasync = require('vasync');
+var constants = require('../../lib/util/constants');
 
 
 
@@ -716,6 +717,26 @@ test('Update IP - free (IP not in moray)', function (t) {
     });
 });
 
+test('Update IPv4 - unassign and free (IP in moray)', function (t) {
+    var params = {
+        belongs_to_type: 'server',
+        belongs_to_uuid: mod_uuid.v4(),
+        owner_uuid: mod_uuid.v4()
+    };
+
+    NAPI.updateIP(NETV4.uuid, '10.0.2.34', params, function (err) {
+        t.ifError(err);
+        var uf_params = { unassign: 'true', free: 'true' };
+        NAPI.updateIP(NETV4.uuid, '10.0.2.34', uf_params,
+            function (err2, _, req, res) {
+                t.ok(err2, 'Expecting error');
+                t.deepEqual(err2.body.errors[0], {field: 'unassign',
+                    code: 'InvalidParameter',
+                    message: constants.FREE_UNASSIGN_MSG});
+                t.end();
+            });
+    });
+});
 
 test('Update IPv4 - unassign (IP in moray)', function (t) {
     var params = {
