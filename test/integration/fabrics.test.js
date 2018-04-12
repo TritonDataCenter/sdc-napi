@@ -859,7 +859,8 @@ test('provision server nics', function (t) {
         });
     });
 
-    t.test('REAL_NETS[0]: fail to provision underlay NIC', function (t2) {
+    t.test('REAL_NETS[0]: fail to provision underlay NIC (bad belongs_to_type)',
+        function (t2) {
         mod_nic.provision(t2, {
             fillInMissing: true,
             net: REAL_NETS[0].uuid,
@@ -948,6 +949,46 @@ test('provision server nics', function (t) {
 
     // XXX: disallow provisioning fabric networks on the underlay nic tag!
 
+});
+
+
+test('Convert normal server NIC into underlay NIC', function (t) {
+    var server = mod_uuid.v4();
+    var nic;
+
+    t.test('Provision server NIC', function (t2) {
+        mod_nic.provision(t2, {
+            fillInMissing: true,
+            net: REAL_NETS[0].uuid,
+            params: {
+                belongs_to_type: 'server',
+                belongs_to_uuid: server,
+                owner_uuid: ADMIN_OWNER
+            },
+            exp: mod_net.addNetParams(REAL_NETS[0], {
+                belongs_to_type: 'server',
+                belongs_to_uuid: server,
+                owner_uuid: ADMIN_OWNER
+            })
+        });
+    });
+
+    t.test('Update server NIC to underlay=true', function (t2) {
+        nic = mod_nic.lastCreated();
+        t.ok(nic, 'have last created nic');
+        t.ok(!nic.underlay, 'nic is not underlay=true');
+
+        mod_nic.update(t2, {
+            mac: nic.mac,
+            ignore: [ 'modified_timestamp' ],
+            params: {
+                underlay: true
+            },
+            exp: mod_jsprim.mergeObjects(nic, {
+                underlay: true
+            })
+        });
+    });
 });
 
 
