@@ -11,9 +11,11 @@
   "fluentd_host": "{{{experimental_fluentd_host}}}",
 {{/experimental_fluentd_host}}
   "moray": {
-    "host": "{{{MORAY_SERVICE}}}",
+    "srvDomain": "{{{MORAY_SERVICE}}}",
     "logLevel": "info",
-    "port": 2020
+    "cueballOptions": {
+        "resolvers": [ "{{{BINDER_SERVICE}}}" ]
+    }
   },
 {{#fabric_cfg}}
   "overlay": {

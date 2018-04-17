@@ -118,7 +118,16 @@ function setupMoray(log, callback) {
             return;
         }
 
-        pg.spawnMoray(callback);
+        pg.spawnMoray(function (err, moray) {
+            if (err) {
+                callback(err);
+                return;
+            }
+
+            moray.on('connect', function afterConnect() {
+                callback(null, moray);
+            });
+        });
     });
 }
 
@@ -147,32 +156,18 @@ function createTestServer(opts, callback) {
         });
         SERVER = server;
 
-        server.initialDataLoaded = true;
         server.moray = moray;
 
-        server.on('connected', function _afterConnect() {
-            log_child.debug('server connected');
-            server.init();
-        });
-
-        server.on('initialized', function _afterReady() {
-            log_child.debug('server initialized');
+        server.on('initialized', function _afterConnect() {
+            log_child.debug('server running');
 
             var client = common.createClient(SERVER.info().url);
             mod_client.set(client);
             callback(null, { server: SERVER, client: client, moray: moray });
         });
 
-        server.start(function _afterStart(startErr) {
+        server.start(function _afterStart() {
             log_child.debug('server started');
-            if (startErr) {
-                callback(startErr);
-                return;
-            }
-
-            // This is normally emitted when the moray client connects, but
-            // we took care of setting the Moray client to the mock ourselves:
-            server.emit('connected');
         });
     }
 

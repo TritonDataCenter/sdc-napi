@@ -47,25 +47,8 @@ try {
     exitOnError(err);
 }
 
-server.on('connected', function _afterConnect() {
-    server.init(function () {
-        log.info('Server init complete');
-    });
-});
-
-server.on('initialized', function _afterReady() {
-    server.doMigrations(function (err) {
-        if (err) {
-            log.error(err, 'Error migrating data');
-            return;
-        }
-
-        log.info('Migrations complete');
-
-        server.loadInitialData(function () {
-            log.info('Initial data loaded');
-        });
-    });
+server.on('initialized', function _afterConnect() {
+    log.info('Server init complete');
 });
 
 server.start(function _afterStart() {

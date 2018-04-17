@@ -19,6 +19,7 @@ var clone = require('clone');
 var config = require('./config');
 var common = require('./common');
 var log = require('./log');
+var mod_jsprim = require('jsprim');
 var mod_mac = require('macaddr');
 var mod_moray = require('moray');
 var mod_portolan_moray = require('portolan-moray');
@@ -156,12 +157,9 @@ function getMorayClient(callback) {
     assert.func(callback, 'callback');
 
     mod_portolan_moray.initConsumer({}, function _afterInit() {
-        MORAY_CLIENT = mod_moray.createClient({
-            host: config.moray.host,
-            log: log,
-            port: config.moray.port
-        });
-
+        MORAY_CLIENT = mod_moray.createClient(mod_jsprim.mergeObjects({
+            log: log
+        }, config.moray));
 
         MORAY_CLIENT.once('error', callback);
 
