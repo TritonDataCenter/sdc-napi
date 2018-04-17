@@ -1,6 +1,7 @@
 {
   "//": "minimal NAPI config needed for unit tests",
 
+  "allowLinklocal": true,
   "datacenter": "unit-test",
   "macOUI": "010203",
   "overlay": {

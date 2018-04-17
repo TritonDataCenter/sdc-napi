@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright 2017, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 /*
@@ -24,6 +24,7 @@ var mod_ip = require('../../lib/models/ip');
 var mod_jsprim = require('jsprim');
 var mod_moray = require('../lib/moray');
 var mod_net = require('../lib/net');
+var mod_nic = require('../lib/nic');
 var mod_server = require('../lib/server');
 var mod_test_err = require('../lib/err');
 var mod_uuid = require('node-uuid');
@@ -91,55 +92,82 @@ test('Initial setup', function (t) {
 
 
 test('Create network', function (t) {
+    var num = h.NET_NUM;
+    var network = null;
     var params = h.validNetworkParams({
-        gateway: '10.0.2.1',
+        gateway: util.format('10.0.%d.1', num),
+        provision_start_ip: util.format('10.0.%d.3', num),
         resolvers: ['8.8.8.8', '10.0.2.2'],
         routes: {
+            '10.0.5.0/24': 'linklocal',
             '10.0.1.0/24': '10.0.2.2',
             '10.0.3.1': '10.0.2.2'
         }
     });
 
-    NAPI.createNetwork(params, function (err, obj, req, res) {
-        if (h.ifErr(t, err, 'network create')) {
-            t.end();
-            return;
-        }
+    t.test('create network', function (t2) {
+        mod_net.createAndGet(t2, {
+            params: params,
+            exp: mod_jsprim.mergeObjects(params, {
+                family: 'ipv4',
+                netmask: '255.255.255.0',
+                vlan_id: 0
+            })
+        });
+    });
 
-        t.equal(res.statusCode, 200, 'status code');
+    t.test('check ips', function (t2) {
+        network = mod_net.lastCreated();
 
-        params.family = 'ipv4';
-        params.uuid = obj.uuid;
-        params.netmask = '255.255.255.0';
-        params.vlan_id = 0;
+        vasync.forEachParallel({
+            inputs: ['10.0.2.1', '10.0.2.2', '10.0.2.255'],
+            func: function _compareIP(ip, cb) {
+                NAPI.getIP(network.uuid, ip, function (gErr, res) {
+                    if (h.ifErr(t2, gErr, 'getIP() error')) {
+                        cb();
+                        return;
+                    }
 
-        t.deepEqual(obj, params, 'response: network ' + params.uuid);
+                    t2.deepEqual(res, {
+                        belongs_to_type: 'other',
+                        belongs_to_uuid: CONF.ufdsAdminUuid,
+                        free: false,
+                        ip: ip,
+                        network_uuid: network.uuid,
+                        owner_uuid: CONF.ufdsAdminUuid,
+                        reserved: true
+                    }, util.format('IP %s params', ip));
 
-        NAPI.getNetwork(obj.uuid, function (err2, obj2) {
-            t.ifError(err2);
+                    cb();
+                });
+            }
+        }, function () {
+            t2.end();
+        });
+    });
 
-            t.deepEqual(obj2, obj, 'get response');
-            vasync.forEachParallel({
-                inputs: ['10.0.2.1', '10.0.2.2', '10.0.2.255'],
-                func: function _compareIP(ip, cb) {
-                    NAPI.getIP(obj.uuid, ip, function (err3, res3) {
-                        t.ifError(err3);
-                        t.deepEqual(res3, {
-                            belongs_to_type: 'other',
-                            belongs_to_uuid: CONF.ufdsAdminUuid,
-                            free: false,
-                            ip: ip,
-                            network_uuid: obj.uuid,
-                            owner_uuid: CONF.ufdsAdminUuid,
-                            reserved: true
-                        }, util.format('IP %s params', ip));
+    t.test('create nic on network', function (t2) {
+        var nicparams = {
+            belongs_to_uuid: network.uuid,
+            belongs_to_type: 'zone',
+            owner_uuid: CONF.ufdsAdminUuid,
+            network_uuid: network.uuid,
+            primary: true,
+            state: 'running'
+        };
 
-                        return cb();
-                    });
-                }
-            }, function () {
-                return t.end();
-            });
+        mod_nic.create(t2, {
+            mac: '01:02:03:03:02:01',
+            params: nicparams,
+            exp: mod_net.addNetParams(network,
+                mod_jsprim.mergeObjects(nicparams, {
+                    ip: h.nextProvisionableIP(network),
+                    routes: {
+                        '10.0.5.0/24': 'macs[01:02:03:03:02:01]',
+                        '10.0.1.0/24': '10.0.2.2',
+                        '10.0.3.1': '10.0.2.2'
+                    }
+                }))
         });
     });
 });
@@ -396,14 +424,18 @@ test('Create network - mixed networks', function (t) {
         ['resolvers', ['2001:4860:4860::8888', '8.8.4.4'], ['8.8.4.4'],
             util.format(constants.SUBNET_RESOLVER_MISMATCH, 'ipv6')],
 
-        ['routes', { '10.0.1.0/24': bad_dst }, [ '10.0.1.0/24' ],
+        ['routes', { '10.0.1.0/24': bad_dst }, [ '10.0.1.0/24', bad_dst ],
+            constants.SUBNET_ROUTE_DST_NEXTHOP_MISMATCH],
+
+        ['routes', { '10.0.1.0/24': '10.0.0.2' }, [ '10.0.1.0/24' ],
             util.format(constants.SUBNET_ROUTE_DST_MISMATCH, 'ipv6')],
 
-        ['routes', { '10.0.1.0/24': '10.0.0.2' }, [ '10.0.1.0/24', '10.0.0.2' ],
+        ['routes', { '10.0.1.0/24': 'linklocal' }, [ '10.0.1.0/24' ],
             util.format(constants.SUBNET_ROUTE_DST_MISMATCH, 'ipv6')],
 
-        ['routes', { '2001:db8::/32': '10.0.0.1' }, [ '10.0.0.1' ],
-            util.format(constants.SUBNET_ROUTE_DST_MISMATCH, 'ipv6')],
+        ['routes', { '2001:db8::/32': '10.0.0.1' },
+            [ '2001:db8::/32', '10.0.0.1' ],
+            constants.SUBNET_ROUTE_DST_NEXTHOP_MISMATCH],
 
         ['provision_start_ip', '10.0.0.3',
             constants.msg.PROV_START_TYPE_MISMATCH ],
@@ -454,6 +486,84 @@ test('Create network - mixed networks', function (t) {
     });
 });
 
+test('Update IPv6 network - mixed address families', function (t) {
+    // NET_NUM will be the next network number used by h.validNetworkParams():
+    var num = h.NET_NUM.toString(16);
+    var params = h.validIPv6NetworkParams();
+    var network = null;
+    var bad_dst = util.format('fc00:%s::2', num);
+
+    var invalid = [
+        ['gateway', '10.0.0.1',
+            util.format(constants.SUBNET_GATEWAY_MISMATCH, 'ipv6')],
+
+        ['resolvers', ['8.8.8.8', '8.8.4.4'], ['8.8.8.8', '8.8.4.4'],
+            util.format(constants.SUBNET_RESOLVER_MISMATCH, 'ipv6')],
+
+        ['resolvers', ['2001:4860:4860::8888', '8.8.4.4'], ['8.8.4.4'],
+            util.format(constants.SUBNET_RESOLVER_MISMATCH, 'ipv6')],
+
+        ['routes', { '10.0.1.0/24': bad_dst }, [ '10.0.1.0/24', bad_dst ],
+            constants.SUBNET_ROUTE_DST_NEXTHOP_MISMATCH],
+
+        ['routes', { '10.0.1.0/24': '10.0.0.2' }, [ '10.0.1.0/24' ],
+            util.format(constants.SUBNET_ROUTE_DST_MISMATCH, 'ipv6')],
+
+        ['routes', { '10.0.1.0/24': 'linklocal' }, [ '10.0.1.0/24' ],
+            util.format(constants.SUBNET_ROUTE_DST_MISMATCH, 'ipv6')],
+
+        ['routes', { '2001:db8::/32': '10.0.0.1' },
+            [ '2001:db8::/32', '10.0.0.1' ],
+            constants.SUBNET_ROUTE_DST_NEXTHOP_MISMATCH],
+
+        ['provision_start_ip', '10.0.0.3',
+            constants.msg.PROV_START_TYPE_MISMATCH ],
+
+        ['provision_end_ip', '10.0.0.253',
+            constants.msg.PROV_END_TYPE_MISMATCH ]
+    ];
+
+    function attemptUpdate(data, cb) {
+        var invalidErr;
+
+        if (data.length === 3) {
+            invalidErr = mod_err.invalidParam(data[0], data[2]);
+        } else {
+            invalidErr = mod_err.invalidParam(data[0], data[3]);
+            invalidErr.invalid = data[2];
+        }
+
+        var toUpdate = { uuid: network.uuid };
+        toUpdate[data[0]] = data[1];
+
+        mod_net.update(t, {
+            params: toUpdate,
+            expCode: 422,
+            expErr: h.invalidParamErr({
+                errors: [ invalidErr ],
+                message: 'Invalid parameters'
+            })
+        }, function (_) {
+            cb();
+        });
+    }
+
+    NAPI.createNetwork(params, function (err, res) {
+        if (h.ifErr(t, err, 'createNetwork() error')) {
+            t.end();
+            return;
+        }
+
+        network = res;
+
+        vasync.forEachPipeline({
+            inputs: invalid,
+            func: attemptUpdate
+        }, function () {
+            t.end();
+        });
+    });
+});
 
 
 test('Create fabric network - automatic gateway assignment', function (t) {
@@ -1638,6 +1748,8 @@ test('Listing Network failures', function (t) {
 
 
 // --- Teardown
+
+test('delete nics', mod_nic.delAllCreated);
 
 test('delete networks', mod_net.delAllCreated);
 
