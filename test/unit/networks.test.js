@@ -300,7 +300,6 @@ test('Create network - invalid parameters', function (t) {
 
         ['vlan_id', 'a', constants.VLAN_MSG],
         ['vlan_id', '-1', constants.VLAN_MSG],
-        ['vlan_id', '1', constants.VLAN_MSG],
         ['vlan_id', '4095', constants.VLAN_MSG],
 
         ['provision_start_ip', fmt('10.0.%d.254', num - 1), MSG.start_outside],
