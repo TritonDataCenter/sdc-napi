@@ -7,6 +7,7 @@
   "dependencies": {
     "assert-plus": "1.0.0",
     "bunyan": "1.8.10",
+    "changefeed": "git+https://github.com/joyent/node-sdc-changefeed.git#moray-client-option",
     "clone": "1.0.2",
     "cmdln": "3.0.2",
     "dashdash": "1.7.3",
