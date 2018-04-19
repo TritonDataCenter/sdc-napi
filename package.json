@@ -7,6 +7,7 @@
   "dependencies": {
     "assert-plus": "1.0.0",
     "bunyan": "1.8.12",
+    "changefeed": "~1.5.0",
     "clone": "1.0.2",
     "cmdln": "3.0.2",
     "dashdash": "1.7.3",
