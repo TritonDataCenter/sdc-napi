@@ -794,6 +794,25 @@ test('Create IPv4 fabric network - non-private subnet', function (t) {
     });
 });
 
+test('Create IPv4 fabric network - non-private subnet', function (t) {
+    mod_net.create(t, {
+        params: h.validNetworkParams({
+            fabric: true,
+            owner_uuids: [ mod_uuid.v4() ],
+            provision_start_ip: '192.168.0.1',
+            provision_end_ip: '192.168.0.254',
+            subnet: '192.168.0.0/15'
+        }),
+        expCode: 422,
+        expErr: h.invalidParamErr({
+            errors: [
+                mod_err.invalidParam('subnet', constants.PRIV_RANGE_ONLY)
+            ]
+        })
+    });
+});
+
+
 
 test('Create IPv6 fabric network - non-private subnet', function (t) {
     mod_net.create(t, {
