@@ -17,6 +17,7 @@
 var constants = require('../../lib/util/constants');
 var helpers = require('./helpers');
 var mod_err = require('../../lib/util/errors');
+var mod_net = require('../lib/net');
 var mod_nic = require('../lib/nic');
 var mod_server = require('../lib/server');
 var mod_uuid = require('node-uuid');
@@ -544,6 +545,26 @@ test('pool update', function (t) {
     });
 });
 
+
+
+// --- Network get tests
+
+
+test('provisionable_by network: other owner', function (t) {
+    mod_net.get(t, {
+        params: {
+            uuid: nets[0].uuid,
+            params: {
+                provisionable_by: mod_uuid.v4()
+            }
+        },
+        expCode: 403,
+        expErr: {
+            code: 'NotAuthorized',
+            message: constants.msg.NET_OWNER
+        }
+    });
+});
 
 
 // --- Nic provision tests

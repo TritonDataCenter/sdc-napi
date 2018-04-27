@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 /*
@@ -196,7 +196,7 @@ function listTags(t, opts, callback) {
 
     log.debug({ params: params }, 'list nic tags');
 
-    client.listNicTags(params, common.reqOpts(t, opts.desc),
+    client.listNicTags(params, common.reqOpts(t, opts),
         common.afterAPIlist.bind(null, t, opts, callback));
 }
 
@@ -214,7 +214,7 @@ function updateTag(t, opts, callback) {
     opts.type = TYPE;
     opts.reqType = 'update';
 
-    client.updateNicTag(name, opts.params, common.reqOpts(t, opts.desc),
+    client.updateNicTag(name, opts.params, common.reqOpts(t, opts),
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 

@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 /*
@@ -62,7 +62,6 @@ function createFabricNet(t, opts, callback) {
     common.assertArgs(t, opts, callback);
 
     var client = opts.client || mod_client.get();
-    var desc = opts.desc || '';
     var params = clone(opts.params);
     var owner = params.owner_uuid;
     var vlan = params.vlan_id;
@@ -103,7 +102,7 @@ function createFabricNet(t, opts, callback) {
         }
     }
 
-    client.createFabricNetwork(owner, vlan, params, common.reqOpts(t, desc),
+    client.createFabricNetwork(owner, vlan, params, common.reqOpts(t, opts),
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 
@@ -220,7 +219,7 @@ function getFabricNet(t, opts, callback) {
     delete params.uuid;
     delete params.vlan_id;
 
-    client.getFabricNetwork(owner, vlan, net, params, common.reqOpts(t),
+    client.getFabricNetwork(owner, vlan, net, params, common.reqOpts(t, opts),
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 

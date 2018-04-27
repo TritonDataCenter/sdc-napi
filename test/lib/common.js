@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright 2017, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 /*
@@ -308,11 +308,22 @@ function addToState(opts, type, obj) {
     opts.state[type].push(newObj);
 }
 
+function requestHeaders(opts) {
+    var headers = opts.headers || {};
+
+    headers['x-request-id'] = mod_uuid.v4();
+
+    if (opts.etag) {
+        headers['If-Match'] = opts.etag;
+    }
+
+    return headers;
+}
 
 /**
  * Shared test code for after API methods are called
  */
-function afterAPIcall(t, opts, callback, err, obj, _, res) {
+function afterAPIcall(t, opts, callback, err, obj, req, res) {
     var desc = opts.desc ? (' ' + opts.desc) : '';
     assert.string(opts.reqType, 'opts.reqType');
     assert.string(opts.type, 'opts.type');
@@ -330,11 +341,13 @@ function afterAPIcall(t, opts, callback, err, obj, _, res) {
             t.deepEqual(obj, {}, 'body (error expected)' + desc);
         }
 
-        return done(err, null, opts, t, callback);
+        done(err, null, req, res, opts, t, callback);
+        return;
     }
 
     if (ifErr(t, err, type + desc)) {
-        return done(err, null, opts, t, callback);
+        done(err, null, req, res, opts, t, callback);
+        return;
     }
 
     t.equal(res.statusCode, 200, 'status code' + desc);
@@ -400,7 +413,7 @@ function afterAPIcall(t, opts, callback, err, obj, _, res) {
         addToState(opts, opts.type + 's', obj);
     }
 
-    return done(null, obj, opts, t, callback);
+    done(null, obj, req, res, opts, t, callback);
 }
 
 
@@ -421,29 +434,32 @@ function afterAPIdelete(t, opts, callback, err, obj, req, res) {
             t.deepEqual(err.body, opts.expErr, 'error body');
         }
 
-        return done(err, null, opts, t, callback);
+        done(err, null, req, res, opts, t, callback);
+        return;
     }
 
     // mightNotExist allows for calling mod_whatever.dellAllCreated() when
     // some of the created objects were actually deleted during the test:
     if (opts.mightNotExist && err && err.restCode === 'ResourceNotFound') {
-        return done(null, obj, opts, t, callback);
+        done(null, obj, req, res, opts, t, callback);
+        return;
     }
 
     if (ifErr(t, err, type + desc)) {
-        return done(err, null, opts, t, callback);
+        done(err, null, req, res, opts, t, callback);
+        return;
     }
 
     t.equal(res.statusCode, 204, type + 'status code' + desc);
 
-    return done(null, obj, opts, t, callback);
+    done(null, obj, req, res, opts, t, callback);
 }
 
 
 /**
  * Shared test code for after API list methods are called
  */
-function afterAPIlist(t, opts, callback, err, obj, _, res) {
+function afterAPIlist(t, opts, callback, err, obj, req, res) {
     assert.string(opts.type, 'opts.type');
     assert.string(opts.id, 'opts.id');
     assert.optionalArray(opts.present, 'opts.present');
@@ -460,11 +476,13 @@ function afterAPIlist(t, opts, callback, err, obj, _, res) {
             t.deepEqual(err.body, opts.expErr, type + 'error body' + desc);
         }
 
-        return done(err, null, opts, t, callback);
+        done(err, null, req, res, opts, t, callback);
+        return;
     }
 
     if (ifErr(t, err, type + desc)) {
-        return done(err, null, opts, t, callback);
+        done(err, null, req, res, opts, t, callback);
+        return;
     }
 
     t.equal(res.statusCode, 200, 'status code' + desc);
@@ -542,7 +560,7 @@ function afterAPIlist(t, opts, callback, err, obj, _, res) {
         }
     }
 
-    return done(null, obj, opts, t, callback);
+    done(null, obj, req, res, opts, t, callback);
 }
 
 
@@ -575,6 +593,7 @@ function assertArgs(t, opts, callback) {
     assert.optionalObject(opts.partialExp, 'opts.partialExp');
     assert.ok(opts.exp || opts.partialExp || opts.expErr,
         'one of exp, expErr, partialExp required');
+    assert.optionalString(opts.etag, 'opts.etag');
     assert.optionalObject(opts.params, 'opts.params');
     assert.optionalObject(opts.state, 'opts.state');
     assert.optionalFunc(callback, 'callback');
@@ -621,12 +640,13 @@ function createClient(url, t) {
 /**
  * Finish a test
  */
-function done(err, res, opts, t, callback) {
+function done(err, obj, req, res, opts, t, callback) {
     if (callback) {
-        return callback(opts.continueOnErr ? null : err, res);
+        callback(opts.continueOnErr ? null : err, obj, req, res);
+        return;
     }
 
-    return t.end();
+    t.end();
 }
 
 
@@ -742,11 +762,27 @@ function randomMAC() {
 /**
  * Generate request opts
  */
-function requestOpts(t, desc) {
-    var reqId = mod_uuid.v4();
-    t.ok(reqId, fmt('req ID: %s%s', reqId, (desc ? ': ' + desc : '')));
+function requestOpts(t, opts) {
+    assert.object(t, 't');
 
-    return { headers: { 'x-request-id': reqId } };
+    var desc;
+    if (typeof (opts) === 'undefined') {
+        desc = '';
+        opts = {};
+    } else if (typeof (opts) === 'string') {
+        desc = ': ' + opts;
+        opts = {};
+    } else {
+        assert.object(opts, 'opts');
+        desc = opts.desc ? ': ' + opts.desc : '';
+    }
+
+    var headers = requestHeaders(opts);
+    var reqId = headers['x-request-id'];
+
+    t.ok(reqId, fmt('req ID: %s%s', reqId, desc));
+
+    return { headers: headers };
 }
 
 
@@ -779,6 +815,7 @@ module.exports = {
     lastCreated: lastCreated,
     missingParamErr: missingParamErr,
     randomMAC: randomMAC,
+    reqHeaders: requestHeaders,
     reqOpts: requestOpts,
     uuidSort: uuidSort
 };

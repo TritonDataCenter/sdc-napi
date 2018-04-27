@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2017, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 /*
@@ -51,6 +51,7 @@ function freeIPrecord(net, ip) {
  */
 function getIP(t, opts, callback) {
     var client = opts.client || mod_client.get();
+    var params = opts.params || {};
 
     common.assertArgs(t, opts, callback);
     assert.string(opts.net, 'opts.net');
@@ -59,7 +60,7 @@ function getIP(t, opts, callback) {
     opts.type = TYPE;
     opts.reqType = 'get';
 
-    client.getIP(opts.net, opts.ip, opts.params || {},
+    client.getIP(opts.net, opts.ip, params, common.reqOpts(t, opts),
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 
@@ -88,7 +89,7 @@ function listIPs(t, opts, callback) {
 
     log.debug({ params: params, net: opts.net }, 'list IPs');
 
-    client.listIPs(opts.net, params, common.reqOpts(t, opts.desc),
+    client.listIPs(opts.net, params, common.reqOpts(t, opts),
         common.afterAPIlist.bind(null, t, opts, callback));
 }
 
@@ -121,7 +122,7 @@ function updateIP(t, opts, callback) {
     opts.type = TYPE;
     opts.reqType = 'update';
 
-    client.updateIP(opts.net, opts.ip, opts.params,
+    client.updateIP(opts.net, opts.ip, opts.params, common.reqOpts(t, opts),
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 

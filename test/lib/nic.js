@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright 2017, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 /*
@@ -86,7 +86,7 @@ function createNic(t, opts, callback) {
     opts.reqType = 'create';
 
 
-    client.createNic(mac, clone(opts.params),
+    client.createNic(mac, clone(opts.params), common.reqOpts(t, opts),
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 
@@ -96,12 +96,15 @@ function createNic(t, opts, callback) {
  * that nic.
  */
 function createAndGetNic(t, opts, callback) {
-    createNic(t, opts, function (err, res) {
+    createNic(t, opts, function (err, _, req, res) {
         if (err) {
-            return doneErr(err, t, callback);
+            doneErr(err, t, callback);
+            return;
         }
 
-        return getNic(t, opts, callback);
+        opts.etag = res.headers['etag'];
+
+        getNic(t, opts, callback);
     });
 }
 
@@ -201,7 +204,7 @@ function delNic(t, opts, callback) {
     opts.id = opts.mac;
     opts.type = TYPE;
 
-    client.deleteNic(opts.mac, params, common.reqOpts(t),
+    client.deleteNic(opts.mac, params, common.reqOpts(t, opts),
         common.afterAPIdelete.bind(null, t, opts, callback));
 }
 
@@ -210,6 +213,8 @@ function delNic(t, opts, callback) {
  * Get a nic and compare the output
  */
 function getNic(t, opts, callback) {
+    common.assertArgs(t, opts, callback);
+
     var client = opts.client || mod_client.get();
 
     assert.object(t, 't');
@@ -222,7 +227,8 @@ function getNic(t, opts, callback) {
 
     opts.type = TYPE;
     opts.reqType = 'get';
-    client.getNic(opts.mac, common.afterAPIcall.bind(null, t, opts, callback));
+    client.getNic(opts.mac, common.reqOpts(t, opts),
+        common.afterAPIcall.bind(null, t, opts, callback));
 }
 
 
@@ -254,7 +260,7 @@ function listNics(t, opts, callback) {
 
     log.debug({ params: params }, 'list networks');
 
-    client.listNics(params, common.reqOpts(t, opts.desc),
+    client.listNics(params, common.reqOpts(t, opts),
         common.afterAPIlist.bind(null, t, opts, callback));
 }
 
@@ -276,7 +282,7 @@ function provisionNic(t, opts, callback) {
         opts.fillIn = [ 'ip', 'mac', 'primary', 'state' ];
     }
 
-    client.provisionNic(opts.net, opts.params, common.reqOpts(t),
+    client.provisionNic(opts.net, opts.params, common.reqOpts(t, opts),
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 
@@ -292,7 +298,7 @@ function updateNic(t, opts, callback) {
     opts.type = TYPE;
     opts.reqType = 'update';
 
-    client.updateNic(opts.mac, opts.params, common.reqOpts(t),
+    client.updateNic(opts.mac, opts.params, common.reqOpts(t, opts),
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 
