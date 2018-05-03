@@ -563,10 +563,28 @@ test('setup', function (t) {
                     t.end();
                     return;
                 }
-                NAPI = res;
+                NAPI = res.client;
                 t2.ok(NAPI, 'have NAPI client object');
                 t2.end();
             });
+        });
+    });
+
+
+    t.test('server ping should no longer be initializing', function (t2) {
+        NAPI.ping(function (err, status) {
+            t2.ifError(err, 'ping() error');
+            t2.deepEqual(status, {
+                config: {
+                    fabrics_enabled: true
+                },
+                healthy: true,
+                services: {
+                    moray: 'online'
+                },
+                status: 'OK'
+            });
+            t2.end();
         });
     });
 });
