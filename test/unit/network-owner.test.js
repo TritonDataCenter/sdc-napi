@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright 2017, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 /*
@@ -551,7 +551,7 @@ test('pool update', function (t) {
 
 
 test('nic provision', function (t) {
-    t.plan(8);
+    t.plan(9);
 
     t.test('on network pool with same owner_uuid', function (t2) {
         return provisionNic(pools[0].uuid, { owner_uuid: owner }, t2,
@@ -568,7 +568,7 @@ test('nic provision', function (t) {
     });
 
 
-    t.test('with a different owner_uuid', function (t2) {
+    t.test('with a different owner_uuid (nets[0])', function (t2) {
         mod_nic.provision(t2, {
             net: nets[0].uuid,
             params: {
@@ -586,6 +586,24 @@ test('nic provision', function (t) {
         });
     });
 
+
+    t.test('with a different owner_uuid (pools[0])', function (t2) {
+        mod_nic.provision(t2, {
+            net: pools[0].uuid,
+            params: {
+                belongs_to_type: 'zone',
+                belongs_to_uuid: mod_uuid.v4(),
+                owner_uuid: mod_uuid.v4()
+            },
+            expCode: 422,
+            expErr: helpers.invalidParamErr({
+                errors: [
+                    mod_err.invalidParam('owner_uuid',
+                        constants.OWNER_MATCH_MSG)
+                ]
+            })
+        });
+    });
 
     t.test('with a different owner_uuid and no network_uuid', function (t2) {
         mod_nic.create(t2, {
