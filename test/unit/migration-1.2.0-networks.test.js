@@ -576,7 +576,8 @@ test('setup', function (t) {
             t2.ifError(err, 'ping() error');
             t2.deepEqual(status, {
                 config: {
-                    fabrics_enabled: true
+                    fabrics_enabled: true,
+                    subnet_alloc_enabled: false
                 },
                 healthy: true,
                 services: {

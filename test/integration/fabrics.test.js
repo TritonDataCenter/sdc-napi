@@ -37,7 +37,7 @@ var extend = mod_jsprim.mergeObjects;
 // --- Globals
 
 
-var client = h.createNAPIclient();
+var client;
 
 var subnet_alloc_enabled;
 var ADMIN_OWNER = config.server.ufdsAdminUuid;
@@ -265,10 +265,16 @@ function checkEventLog(t, opts) {
 
 
 test('setup', function (t) {
+    client = h.createNAPIclient();
+
     t.test('create default nic tag', mod_nic_tag.createDefault);
     t.test('is-alloc-enabled', function (t2) {
         client.ping(function (err, res) {
-            t2.ok(err === null);
+            if (h.ifErr(t2, err, 'ping() error')) {
+                t2.end();
+                return;
+            }
+
             subnet_alloc_enabled = res.config.subnet_alloc_enabled;
             t2.end();
         });
