@@ -2,6 +2,7 @@
   "port": 80,
   "datacenter": "{{{datacenter_name}}}",
   "logLevel": "{{{NAPI_LOG_LEVEL}}}",
+  "autoAllocSubnets": false,
   "useNetAgent": true,
   "macOUI": "{{{napi_mac_prefix}}}",
 {{#NAPI_ALLOW_LINKLOCAL}}

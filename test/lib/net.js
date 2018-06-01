@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 /*
@@ -90,7 +90,7 @@ function createNet(t, opts, callback) {
         }
     }
 
-    client.createNetwork(params, common.reqOpts(t, opts.desc),
+    client.createNetwork(params, common.reqOpts(t, opts),
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 
@@ -101,17 +101,20 @@ function createNet(t, opts, callback) {
  */
 function createAndGet(t, opts, callback) {
     opts.reqType = 'create';
-    createNet(t, opts, function (err, res) {
+    createNet(t, opts, function (err, net, _, res) {
         if (err) {
-            return doneErr(err, t, callback);
+            doneErr(err, t, callback);
+            return;
         }
 
         if (!opts.params.uuid) {
-            opts.params.uuid = res.uuid;
+            opts.params.uuid = net.uuid;
         }
 
-        opts.params.uuid = res.uuid;
-        return getNet(t, opts, callback);
+        opts.params.uuid = net.uuid;
+        opts.etag = res.headers['etag'];
+
+        getNet(t, opts, callback);
     });
 }
 
@@ -130,7 +133,7 @@ function delNet(t, opts, callback) {
     opts.type = TYPE;
     opts.id = opts.uuid;
 
-    client.deleteNetwork(opts.uuid, params,
+    client.deleteNetwork(opts.uuid, params, common.reqOpts(t, opts),
         common.afterAPIdelete.bind(null, t, opts, callback));
 }
 
@@ -172,9 +175,13 @@ function delAllCreatedNets(t) {
  */
 function getNet(t, opts, callback) {
     common.assertArgs(t, opts, callback);
+    assert.object(opts.params, 'opts.params');
 
     var client = opts.client || mod_client.get();
-    var params = opts.params || {};
+    var params = {
+        params: opts.params.params || {},
+        headers: common.reqHeaders(opts)
+    };
 
     opts.reqType = 'get';
     opts.type = TYPE;
@@ -215,7 +222,7 @@ function listNets(t, opts, callback) {
 
     log.debug({ params: params }, 'list networks');
 
-    client.listNetworks(params, common.reqOpts(t, opts.desc),
+    client.listNetworks(params, common.reqOpts(t, opts),
         common.afterAPIlist.bind(null, t, opts, callback));
 }
 
@@ -239,7 +246,7 @@ function updateNet(t, opts, callback) {
     opts.type = TYPE;
     opts.reqType = 'update';
 
-    client.updateNetwork(opts.params.uuid, opts.params,
+    client.updateNetwork(opts.params.uuid, opts.params, common.reqOpts(t, opts),
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 
@@ -249,12 +256,15 @@ function updateNet(t, opts, callback) {
  * that network.
  */
 function updateAndGet(t, opts, callback) {
-    updateNet(t, opts, function (err, res) {
+    updateNet(t, opts, function (err, _, req, res) {
         if (err) {
-            return doneErr(err, t, callback);
+            doneErr(err, t, callback);
+            return;
         }
 
-        return getNet(t, opts, callback);
+        opts.etag = res.headers['etag'];
+
+        getNet(t, opts, callback);
     });
 }
 

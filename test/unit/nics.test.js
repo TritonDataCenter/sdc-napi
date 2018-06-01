@@ -2891,6 +2891,83 @@ test('Delete nic - IP ownership changed underneath', function (t) {
 });
 
 
+test('Delete NIC - EtagConflictError on Moray delete', function (t) {
+    var mac = '02:04:06:08:10:12';
+    var params = {
+        belongs_to_type: 'zone',
+        belongs_to_uuid: mod_uuid.v4(),
+        owner_uuid: mod_uuid.v4()
+    };
+    var nic;
+    var etag;
+
+    t.test('create nic', function (t2) {
+        NAPI.createNic(mac, params, function (err, obj, _, res) {
+            if (h.ifErr(t2, err, 'create new nic')) {
+                t2.end();
+                return;
+            }
+
+            nic = obj;
+            etag = res.headers['etag'];
+
+            t2.end();
+        });
+    });
+
+    t.test('delete nic encounts EtagConflictError', function (t2) {
+        var fakeErr = new Error('Already exists');
+        fakeErr.name = 'EtagConflictError';
+        fakeErr.context = {
+            bucket: models.nic.bucket().name,
+            key: mod_mac.parse(mac).toLong(),
+            expected: etag,
+            actual: 'foo'
+        };
+
+        MORAY.setMockErrors({ batch: [ fakeErr ] });
+
+        mod_nic.del(t2, {
+            mac: nic.mac,
+            etag: etag,
+            expCode: 412,
+            expErr: {
+                code: 'PreconditionFailed',
+                message: fmt('if-match \'%s\' didn\'t match etag \'foo\'', etag)
+            }
+        }, function (_) {
+            // Make sure we actually hit all of the errors:
+            t2.deepEqual(MORAY.getMockErrors(), {
+                batch: [ ]
+            }, 'no more batch errors left');
+
+            // Reset moray errors
+            MORAY.setMockErrors({ });
+
+            t2.end();
+        });
+    });
+
+    t.test('delete nic', function (t2) {
+        mod_nic.del(t2, {
+            mac: nic.mac,
+            etag: etag
+        });
+    });
+
+    t.test('confirm nic deleted', function (t2) {
+        mod_nic.get(t2, {
+            mac: nic.mac,
+            expCode: 404,
+            expErr: {
+                code: 'ResourceNotFound',
+                message: 'nic not found'
+            }
+        });
+    });
+});
+
+
 test('NAPI-407: Concurrent deletes should fail with 404s', function (t) {
     var params = {
         belongs_to_type: 'zone',

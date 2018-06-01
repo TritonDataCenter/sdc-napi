@@ -37,10 +37,14 @@ var extend = mod_jsprim.mergeObjects;
 // --- Globals
 
 
+var client;
 
+var subnet_alloc_enabled;
 var ADMIN_OWNER = config.server.ufdsAdminUuid;
 var CREATED = {};
 var OWNERS = [
+    mod_uuid.v4(),
+    mod_uuid.v4(),
     mod_uuid.v4(),
     mod_uuid.v4(),
     mod_uuid.v4()
@@ -74,8 +78,21 @@ var VLANS = [
         name: mod_vlan.randomName(),
         owner_uuid: OWNERS[2],
         vlan_id: 44
+    },
+
+    {
+        name: mod_vlan.randomName(),
+        owner_uuid: OWNERS[3],
+        vlan_id: 45
+    },
+
+    {
+        name: mod_vlan.randomName(),
+        owner_uuid: OWNERS[4],
+        vlan_id: 46
     }
 ];
+
 // Real (non-fabric networks):
 var REAL_NETS = [
     h.validNetworkParams({ nic_tag: UNDERLAY_NIC_TAG }),
@@ -159,9 +176,33 @@ var NETS = [
         owner_uuid: VLANS[3].owner_uuid,
         provision_start_ip: '172.16.1.1',
         provision_end_ip: '172.16.3.254'
+    },
+
+    // 5: Used for testing subnet alloc
+    {
+        vlan_id: VLANS[4].vlan_id,
+        subnet_alloc: true,
+        subnet_prefix: 24,
+        family: 'ipv4',
+        // Also double-check that the MTU is correct:
+        mtu: OVERLAY_MTU,
+        name: mod_fabric_net.generateName(),
+        owner_uuid: VLANS[4].owner_uuid
+    },
+    // 6: Used for testing subnet alloc
+    {
+        vlan_id: VLANS[5].vlan_id,
+        subnet_alloc: true,
+        subnet_prefix: 24,
+        family: 'ipv4',
+        // Also double-check that the MTU is correct:
+        mtu: OVERLAY_MTU,
+        name: mod_fabric_net.generateName(),
+        owner_uuid: VLANS[5].owner_uuid
     }
 
 ];
+
 var VMS = [
     mod_uuid.v4(),
     mod_uuid.v4(),
@@ -224,7 +265,20 @@ function checkEventLog(t, opts) {
 
 
 test('setup', function (t) {
+    client = h.createNAPIclient();
+
     t.test('create default nic tag', mod_nic_tag.createDefault);
+    t.test('is-alloc-enabled', function (t2) {
+        client.ping(function (err, res) {
+            if (h.ifErr(t2, err, 'ping() error')) {
+                t2.end();
+                return;
+            }
+
+            subnet_alloc_enabled = res.config.subnet_alloc_enabled;
+            t2.end();
+        });
+    });
 });
 
 
@@ -321,6 +375,39 @@ test('create VLANs', function (t) {
         });
     });
 
+    if (subnet_alloc_enabled) {
+        t.test('create vlan: 4', function (t2) {
+            mod_vlan.createAndGet(t2, {
+                params: extend(VLANS[4], {
+                    // Specify at least owner_uuid and vlan_id - these are
+                    // required by mod_vlan.delAllCreated() in the test
+                    // teardown.
+                    fields: [ 'name', 'owner_uuid', 'vlan_id' ]
+                }),
+                exp: {
+                    name: VLANS[4].name,
+                    owner_uuid: VLANS[4].owner_uuid,
+                    vlan_id: VLANS[4].vlan_id
+                }
+            });
+        });
+
+        t.test('create vlan: 5', function (t2) {
+            mod_vlan.createAndGet(t2, {
+                params: extend(VLANS[5], {
+                    // Specify at least owner_uuid and vlan_id - these are
+                    // required by mod_vlan.delAllCreated() in the test
+                    // teardown.
+                    fields: [ 'name', 'owner_uuid', 'vlan_id' ]
+                }),
+                exp: {
+                    name: VLANS[5].name,
+                    owner_uuid: VLANS[5].owner_uuid,
+                    vlan_id: VLANS[5].vlan_id
+                }
+            });
+        });
+    }
 });
 
 
@@ -544,6 +631,51 @@ test('create network', function (t) {
             fillIn: [ 'vnet_id' ],
             params: newNet4,
             exp: newNet4
+        });
+    });
+
+    if (!subnet_alloc_enabled) {
+        return;
+    }
+
+    t.test('create network: 5', function (t2) {
+        mod_fabric_net.createAndGet(t2, {
+            params: extend(NETS[5], {
+                // mod_fabric_net.delAllCreated() needs uuid, owner_uuid and
+                // vlan_id in order to delete the network:
+                fields: [ 'name', 'owner_uuid', 'subnet', 'uuid',
+                    'vlan_id' ]
+            }),
+            partialExp: {
+                name: NETS[5].name,
+                owner_uuid: NETS[5].owner_uuid,
+                // uuid gets filled in by createAndGet()
+                vlan_id: NETS[5].vlan_id
+            }
+        }, function (_err, res) {
+            t.ok(typeof (res.subnet) !== 'undefined', 'Subnet present');
+            t2.end();
+        });
+    });
+
+    t.test('create network: 6', function (t2) {
+        mod_fabric_net.createAndGet(t2, {
+            params: extend(NETS[6], {
+                // mod_fabric_net.delAllCreated() needs uuid, owner_uuid and
+                // vlan_id in order to delete the network:
+                fields: [ 'name', 'owner_uuid', 'subnet', 'uuid',
+                    'vlan_id' ]
+            }),
+            partialExp: {
+                name: NETS[6].name,
+                owner_uuid: NETS[6].owner_uuid,
+                // uuid gets filled in by createAndGet()
+                vlan_id: NETS[6].vlan_id
+            }
+        }, function (_err, res) {
+            t.ok(typeof (res.subnet) !== 'undefined', 'Subnet present');
+            t2.end();
+            t.end();
         });
     });
 

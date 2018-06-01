@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright 2017, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 /*
@@ -17,6 +17,7 @@
 var constants = require('../../lib/util/constants');
 var helpers = require('./helpers');
 var mod_err = require('../../lib/util/errors');
+var mod_net = require('../lib/net');
 var mod_nic = require('../lib/nic');
 var mod_server = require('../lib/server');
 var mod_uuid = require('node-uuid');
@@ -546,12 +547,32 @@ test('pool update', function (t) {
 
 
 
+// --- Network get tests
+
+
+test('provisionable_by network: other owner', function (t) {
+    mod_net.get(t, {
+        params: {
+            uuid: nets[0].uuid,
+            params: {
+                provisionable_by: mod_uuid.v4()
+            }
+        },
+        expCode: 403,
+        expErr: {
+            code: 'NotAuthorized',
+            message: constants.msg.NET_OWNER
+        }
+    });
+});
+
+
 // --- Nic provision tests
 
 
 
 test('nic provision', function (t) {
-    t.plan(8);
+    t.plan(9);
 
     t.test('on network pool with same owner_uuid', function (t2) {
         return provisionNic(pools[0].uuid, { owner_uuid: owner }, t2,
@@ -568,7 +589,7 @@ test('nic provision', function (t) {
     });
 
 
-    t.test('with a different owner_uuid', function (t2) {
+    t.test('with a different owner_uuid (nets[0])', function (t2) {
         mod_nic.provision(t2, {
             net: nets[0].uuid,
             params: {
@@ -586,6 +607,24 @@ test('nic provision', function (t) {
         });
     });
 
+
+    t.test('with a different owner_uuid (pools[0])', function (t2) {
+        mod_nic.provision(t2, {
+            net: pools[0].uuid,
+            params: {
+                belongs_to_type: 'zone',
+                belongs_to_uuid: mod_uuid.v4(),
+                owner_uuid: mod_uuid.v4()
+            },
+            expCode: 422,
+            expErr: helpers.invalidParamErr({
+                errors: [
+                    mod_err.invalidParam('owner_uuid',
+                        constants.OWNER_MATCH_MSG)
+                ]
+            })
+        });
+    });
 
     t.test('with a different owner_uuid and no network_uuid', function (t2) {
         mod_nic.create(t2, {

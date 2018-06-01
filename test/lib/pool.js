@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright 2017, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 /*
@@ -19,6 +19,7 @@ var clone = require('clone');
 var common = require('./common');
 var log = require('./log');
 var mod_client = require('./client');
+var mod_jsprim = require('jsprim');
 var util = require('util');
 
 var doneRes = common.doneRes;
@@ -64,7 +65,7 @@ function create(t, opts, callback) {
         opts.exp.name = name;
     }
 
-    client.createNetworkPool(name, clone(opts.params),
+    client.createNetworkPool(name, clone(opts.params), common.reqOpts(t, opts),
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 
@@ -75,19 +76,22 @@ function create(t, opts, callback) {
  */
 function createAndGet(t, opts, callback) {
     opts.reqType = 'create';
-    create(t, opts, function (err, res) {
+    create(t, opts, function (err, pool, _, res) {
         if (err) {
-            return doneErr(err, t, callback);
+            doneErr(err, t, callback);
+            return;
         }
 
-        opts.uuid = res.uuid;
+        opts.uuid = pool.uuid;
         if (opts.exp && !opts.params.uuid) {
             // We were assigned a UUID by NAPI, so add that to the
             // expected params
-            opts.exp.uuid = res.uuid;
+            opts.exp.uuid = pool.uuid;
         }
 
-        return get(t, opts, callback);
+        opts.etag = res.headers['etag'];
+
+        get(t, opts, callback);
     });
 }
 
@@ -106,7 +110,7 @@ function del(t, opts, callback) {
     opts.id = opts.uuid;
     var params = opts.params || {};
 
-    client.deleteNetworkPool(opts.uuid, params,
+    client.deleteNetworkPool(opts.uuid, params, common.reqOpts(t, opts),
         common.afterAPIdelete.bind(null, t, opts, callback));
 }
 
@@ -169,6 +173,9 @@ function get(t, opts, callback) {
         params.params = opts.params;
     }
 
+    params.headers =
+        mod_jsprim.mergeObjects(common.reqHeaders(opts), params.headers);
+
     client.getNetworkPool(opts.uuid, params,
         common.afterAPIcall.bind(null, t, opts, callback));
 }
@@ -224,7 +231,7 @@ function update(t, opts, callback) {
 
     opts.type = 'pool';
     opts.reqType = 'update';
-    client.updateNetworkPool(opts.uuid, opts.params,
+    client.updateNetworkPool(opts.uuid, opts.params, common.reqOpts(t, opts),
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 
@@ -234,12 +241,15 @@ function update(t, opts, callback) {
  * that nic.
  */
 function updateAndGet(t, opts, callback) {
-    update(t, opts, function (err, res) {
+    update(t, opts, function (err, _, req, res) {
         if (err) {
-            return doneErr(err, t, callback);
+            doneErr(err, t, callback);
+            return;
         }
 
-        return get(t, opts, callback);
+        opts.etag = res.headers['etag'];
+
+        get(t, opts, callback);
     });
 }
 

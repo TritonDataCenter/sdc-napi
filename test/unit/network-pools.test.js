@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright 2017, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 /*
@@ -1104,7 +1104,7 @@ test('Provision NIC on pool: Retry after QueryTimeoutErrors', function (t) {
     var params = {
         belongs_to_type: 'zone',
         belongs_to_uuid: mod_uuid.v4(),
-        owner_uuid: mod_uuid.v4()
+        owner_uuid: constants.UFDS_ADMIN_UUID
     };
 
     var fakeErr = new Error('Timed out');

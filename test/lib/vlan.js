@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 /*
@@ -58,7 +58,7 @@ function createVLAN(t, opts, callback) {
         opts.desc = JSON.stringify(opts.params);
     }
 
-    client.createFabricVLAN(owner, params, common.reqOpts(t, opts.desc),
+    client.createFabricVLAN(owner, params, common.reqOpts(t, opts),
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 
@@ -99,7 +99,7 @@ function delVLAN(t, opts, callback) {
     log.debug({ opts: opts, owner: owner, vlan: vlan, params: params },
         'deleting VLAN');
 
-    client.deleteFabricVLAN(owner, vlan, params,
+    client.deleteFabricVLAN(owner, vlan, params, common.reqOpts(t, opts),
         common.afterAPIdelete.bind(null, t, opts, callback));
 }
 
@@ -152,7 +152,7 @@ function getVLAN(t, opts, callback) {
     delete params.owner_uuid;
     delete params.vlan_id;
 
-    client.getFabricVLAN(owner, vlan, params,
+    client.getFabricVLAN(owner, vlan, params, common.reqOpts(t, opts),
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 
@@ -183,7 +183,7 @@ function listVLANs(t, opts, callback) {
 
     log.debug({ params: params }, 'list vlans');
 
-    client.listFabricVLANs(owner, params,
+    client.listFabricVLANs(owner, params, common.reqOpts(t, opts),
         common.afterAPIlist.bind(null, t, opts, callback));
 }
 
@@ -211,7 +211,7 @@ function updateVLAN(t, opts, callback) {
 
     opts.type = TYPE;
     opts.reqType = 'update';
-    client.updateFabricVLAN(owner, vlan, params,
+    client.updateFabricVLAN(owner, vlan, params, common.reqOpts(t, opts),
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 

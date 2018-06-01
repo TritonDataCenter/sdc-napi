@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 /*
@@ -20,9 +20,10 @@ var log = require('./log');
 var mod_client = require('./client');
 var util = require('util');
 
-var doneRes = common.doneRes;
-var doneErr = common.doneErr;
 
+// --- Globals
+
+var TYPE = 'aggr';
 
 
 // --- Exports
@@ -44,10 +45,10 @@ function create(t, opts, callback) {
     assert.object(opts.params, 'opts.params');
 
     log.debug({ params: opts.params }, 'creating aggr');
-    opts.type = 'aggr';
+    opts.type = TYPE;
     opts.reqType = 'create';
 
-    client.createAggr(opts.params,
+    client.createAggr(opts.params, common.reqOpts(t, opts),
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 
@@ -56,34 +57,19 @@ function create(t, opts, callback) {
  * Delete an aggregation
  */
 function del(t, opts, callback) {
-    var client = opts.client || mod_client.get();
-    var desc = opts.desc ? (' ' + opts.desc) : '';
-
     assert.object(t, 't');
+    assert.object(opts, 'opts');
     assert.string(opts.id, 'opts.id');
 
+    var client = opts.client || mod_client.get();
+    var params = opts.params || {};
+
     log.debug({ aggrId: opts.id }, 'delete aggr');
+    opts.id = opts.id;
+    opts.type = TYPE;
 
-    client.deleteAggr(opts.id, function (err, obj, _, res) {
-        if (opts.expErr) {
-            t.ok(err, 'expected error');
-            if (err) {
-                var code = opts.expCode || 422;
-                t.equal(err.statusCode, code, 'status code');
-                t.deepEqual(err.body, opts.expErr, 'error body');
-            }
-
-            return doneErr(err, t, callback);
-        }
-
-        if (common.ifErr(t, err, 'delete aggr: ' + opts.id + desc)) {
-            return doneErr(err, t, callback);
-        }
-
-        t.equal(res.statusCode, 204, 'delete status code: ' + opts.id);
-
-        return doneRes(obj, t, callback);
-    });
+    client.deleteAggr(opts.id, params, common.reqOpts(t, opts),
+        common.afterAPIdelete.bind(null, t, opts, callback));
 }
 
 
@@ -104,9 +90,9 @@ function get(t, opts, callback) {
     log.debug({ aggrId: opts.id }, 'get aggr');
 
     opts.reqType = 'get';
-    opts.type = 'aggr';
+    opts.type = TYPE;
 
-    client.getAggr(opts.id,
+    client.getAggr(opts.id, common.reqOpts(t, opts),
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 
@@ -131,9 +117,9 @@ function list(t, opts, callback) {
     log.debug({ params: params }, 'list aggrs');
 
     opts.reqType = 'list';
-    opts.type = 'aggr';
+    opts.type = TYPE;
 
-    client.listAggrs(params,
+    client.listAggrs(params, common.reqOpts(t, opts),
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 
@@ -156,9 +142,9 @@ function update(t, opts, callback) {
     log.debug({ aggrId: opts.id, params: opts.params }, 'updating aggr');
 
     opts.reqType = 'update';
-    opts.type = 'aggr';
+    opts.type = TYPE;
 
-    client.updateAggr(opts.id, opts.params,
+    client.updateAggr(opts.id, opts.params, common.reqOpts(t, opts),
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 
