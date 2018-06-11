@@ -1,6 +1,10 @@
 {
   "port": 80,
   "datacenter": "{{{datacenter_name}}}",
+  "serviceName": "{{SERVICE_NAME}}",
+  "instanceUuid": "{{auto.ZONENAME}}",
+  "serverUuid": "{{auto.SERVER_UUID}}",
+  "adminIp": "{{auto.ADMIN_IP}}",
   "logLevel": "{{{NAPI_LOG_LEVEL}}}",
   "autoAllocSubnets": false,
   "useNetAgent": true,

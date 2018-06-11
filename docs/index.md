@@ -10,7 +10,7 @@ markdown2extras: tables, code-friendly, fenced-code-blocks
 -->
 
 <!--
-    Copyright 2017, Joyent, Inc.
+    Copyright 2018, Joyent, Inc.
 -->
 
 # Networking API (NAPI)
@@ -1693,6 +1693,10 @@ there is no more need to call the API.
 
 If an invalid limit or offset is specified, then a 400-series error will
 be generated with a detailed message describing the error.
+
+# Metrics
+
+NAPI exposes metrics via [node-triton-metrics](https://github.com/joyent/node-triton-metrics) on `http://<ADMIN_IP>:8881/metrics.`
 
 # Changelog
 
