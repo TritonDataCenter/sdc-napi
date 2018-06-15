@@ -3,6 +3,10 @@
 
   "allowLinklocal": true,
   "datacenter": "unit-test",
+  "serviceName": "napi",
+  "instanceUuid": "09f64a09-7bef-c977-91cf-dd25fa5474e8",
+  "serverUuid": "09f64a09-7bef-c977-91cf-dd25fa5474e8",
+  "adminIp": "127.0.0.1",
   "autoAllocSubnets": false,
   "macOUI": "010203",
   "overlay": {
