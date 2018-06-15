@@ -283,11 +283,18 @@ function updateFabricNetwork(t, opts, callback) {
     common.assertArgs(t, opts, callback);
 
     var client = opts.client || mod_client.get();
+    var params = clone(opts.params);
+    var owner = params.owner_uuid;
+    var vlan = params.vlan_id;
+    var network = params.uuid;
 
     opts.type = TYPE;
     opts.reqType = 'update';
 
-    client.updateFabricNetwork(opts.uuid, opts.params,
+    delete params.owner_uuid;
+    delete params.uuid;
+
+    client.updateFabricNetwork(owner, vlan, network, params,
         common.afterAPIcall.bind(null, t, opts, callback));
 }
 

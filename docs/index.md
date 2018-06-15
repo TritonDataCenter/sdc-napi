@@ -954,6 +954,29 @@ All parameters are optional.
       "netmask": "255.255.255.0"
     }
 
+## UpdateFabricNetwork (PUT /fabrics/:owner_uuid/vlans/:vlan_id/networks/:network_uuid)
+
+Update a fabric network.
+
+### Inputs
+
+All parameters are optional.
+
+| Field              | Type             | Description                                                                               |
+| ------------------ | ---------------- | ----------------------------------------------------------------------------------------- |
+| name               | String           | Network name                                                                              |
+| vlan_id            | Number           | Network ID                                                                                |
+| provision_start_ip | IP               | First IP address to allow provisioning on                                                 |
+| provision_end_ip   | IP               | Last IP address to allow provisioning on                                                  |
+| gateway            | IP               | Gateway IP address (Optional)                                                             |
+| internet_nat       | Boolean          | Provision a NAT zone on the gateway address (Optional) (default: true)                    |
+| resolvers          | Array of IPs     | Resolver IP addresses (Optional)                                                          |
+| routes             | Routes Object    | Static routes for hosts on this network (Optional)                                        |
+| description        | String           | Description (Optional)                                                                    |
+| fields             | Array of Strings | Properties to return - see [Fields](#fabric-network-fields) above for the list (Optional) |
+
+### Example
+
 ## DeleteFabricNetwork (DELETE /fabrics/:owner_uuid/vlans/:vlan_id/networks/:network_uuid)
 
 Delete a fabric network.
