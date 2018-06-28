@@ -954,6 +954,54 @@ All parameters are optional.
       "netmask": "255.255.255.0"
     }
 
+## UpdateFabricNetwork (PUT /fabrics/:owner_uuid/vlans/:vlan_id/networks/:network_uuid)
+
+Update a fabric network.
+
+### Inputs
+
+All parameters are optional. Note that `gateway` and `vlan_id` are immutable fields.
+
+| Field              | Type             | Description                                                                               |
+| ------------------ | ---------------- | ----------------------------------------------------------------------------------------- |
+| name               | String           | Network name                                                                              |
+| vlan_id            | Number           | Network ID (immutable)                                                                    |
+| provision_start_ip | IP               | First IP address to allow provisioning on                                                 |
+| provision_end_ip   | IP               | Last IP address to allow provisioning on                                                  |
+| gateway            | IP               | Gateway IP address (immutable)                                                            |
+| internet_nat       | Boolean          | Provision a NAT zone on the gateway address (default: true)                               |
+| resolvers          | Array of IPs     | Resolver IP addresses                                                                     |
+| routes             | Routes Object    | Static routes for hosts on this network                                                   |
+| description        | String           | Description                                                                               |
+| fields             | Array of Strings | Properties to return - see [Fields](#fabric-network-fields) above for the list            |
+
+### Example
+
+    PUT /fabrics/cd1cc2a9-e6ad-4c1c-a6bc-acd14e0d4d11/vlans/44/networks/4944e6d9-d3ee-462c-b5a6-1c953551ffcf
+        description='Updated fabric network description'
+
+    {
+      "mtu": 1400,
+      "nic_tag": "sdc_overlay",
+      "name": "web",
+      "provision_end_ip": "10.0.1.254",
+      "provision_start_ip": "10.0.1.2",
+      "vlan_id": 44,
+      "family": "ipv4",
+      "subnet": "10.0.1.0/24",
+      "uuid": "4944e6d9-d3ee-462c-b5a6-1c953551ffcf",
+      "fabric": true,
+      "vnet_id": 7757106,
+      "gateway_provisioned": false,
+      "resolvers": [
+        "8.8.8.8"
+      ],
+      "gateway": "10.0.1.1",
+      "description": "Updated fabric network description",
+      "owner_uuid": "cd1cc2a9-e6ad-4c1c-a6bc-acd14e0d4d11",
+      "netmask": "255.255.255.0"
+    }
+
 ## DeleteFabricNetwork (DELETE /fabrics/:owner_uuid/vlans/:vlan_id/networks/:network_uuid)
 
 Delete a fabric network.

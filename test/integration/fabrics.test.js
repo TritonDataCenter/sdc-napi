@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright 2017, Joyent, Inc.
+ * Copyright 2018, Joyent, Inc.
  */
 
 /*
@@ -682,24 +682,114 @@ test('create network', function (t) {
 });
 
 
-//
-// XXX: add me later
-//  test('update networks', function (t) {
-//      t.test('resize subnet', function (t2) {
-//          mod_fabric_net.update(t2, {
-//              fillInMissing: true,
-//              params: {
-//                  uuid: NETS[3].uuid,
-//                  vlan_id: NETS[3].vlan_id,
-//                  owner_uuid: NETS[3].owner_uuid,
-//                  provision_start_ip: '192.168.0.1',
-//                  provision_end_ip: '192.168.0.250'
-//              },
-//              exp: NETS[3]
-//          });
-//      });
-//  });
-//
+test('update networks', function (t) {
+    t.test('update NETS[0] routes', function (t2) {
+        mod_fabric_net.update(t2, {
+            fillInMissing: true,
+            params: {
+                uuid: NETS[0].uuid,
+                vlan_id: NETS[0].vlan_id,
+                owner_uuid: NETS[0].owner_uuid,
+                routes: {
+                    '172.16.0.0/24': '10.2.1.1'
+                }
+            },
+            partialExp: {
+                routes: {
+                    '172.16.0.0/24': '10.2.1.1'
+                }
+            }
+        });
+    });
+    t.test('standardize NETS[0] network', function (t2) {
+        mod_fabric_net.update(t2, {
+            fillInMissing: true,
+            params: {
+                uuid: NETS[0].uuid,
+                vlan_id: NETS[0].vlan_id,
+                owner_uuid: NETS[0].owner_uuid,
+                routes: NETS[0].routes
+            },
+            exp: NETS[0]
+        });
+    });
+    t.test('rename NETS[3] name', function (t2) {
+        mod_fabric_net.update(t2, {
+            fillInMissing: true,
+            params: {
+                uuid: NETS[3].uuid,
+                vlan_id: NETS[3].vlan_id,
+                owner_uuid: NETS[3].owner_uuid,
+                name: NETS[3].name + '-name'
+            },
+            exp: extend(NETS[3], { name: NETS[3].name + '-name' })
+        });
+    });
+
+    t.test('resize NETS[3] subnet', function (t2) {
+        mod_fabric_net.update(t2, {
+            fillInMissing: true,
+            params: {
+                uuid: NETS[3].uuid,
+                vlan_id: NETS[3].vlan_id,
+                owner_uuid: NETS[3].owner_uuid,
+                name: NETS[3].name,
+                provision_start_ip: '192.168.0.1',
+                provision_end_ip: '192.168.0.250'
+            },
+            exp: extend(NETS[3], {
+                provision_start_ip: '192.168.0.1',
+                provision_end_ip: '192.168.0.250'
+            })
+        });
+    });
+    t.test('standardize NETS[3] to pass remaining tests', function (t2) {
+        mod_fabric_net.update(t2, {
+            fillInMissing: true,
+            params: {
+                uuid: NETS[3].uuid,
+                vlan_id: NETS[3].vlan_id,
+                owner_uuid: NETS[3].owner_uuid,
+                name: NETS[3].name,
+                provision_start_ip: '192.168.0.2',
+                provision_end_ip: '192.168.0.254'
+            },
+            exp: extend(NETS[3], {
+                provision_start_ip: '192.168.0.2',
+                provision_end_ip: '192.168.0.254'
+            })
+        });
+    });
+    t.test('update NETS[2]: incorrect owner (OWNERS[1])', function (t2) {
+        mod_fabric_net.update(t2, {
+            params: {
+                vlan_id: VLANS[1].vlan_id,
+                uuid: NETS[2].uuid,
+                owner_uuid: OWNERS[1]
+            },
+            expCode: 404,
+            expErr: {
+                code: 'ResourceNotFound',
+                message: 'network not found'
+            }
+        });
+    });
+    t.test('update NETS[0] network invalid fields', function (t2) {
+        mod_fabric_net.update(t2, {
+            fillInMissing: true,
+            params: {
+                uuid: NETS[0].uuid,
+                vlan_id: NETS[0].vlan_id,
+                owner_uuid: NETS[0].owner_uuid,
+                routes: NETS[0].routes,
+                provision_start_ip: 'Invalid IP'
+            },
+            expErr: mod_err.invalidParam(
+                'provision_start_ip', 'invalid IP address')
+        });
+    });
+});
+
 
 
 test('list networks', function (t) {

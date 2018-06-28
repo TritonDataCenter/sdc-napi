@@ -21,7 +21,7 @@
     "portolan-moray": "git+https://github.com/joyent/sdc-portolan-moray.git#7e2c4ca",
     "restify": "4.3.0",
     "restify-warden": "1.1.0",
-    "sdc-clients": "9.2.0",
+    "sdc-clients": "11.1.0",
     "tape": "4.5.1",
     "trace-event": "1.3.0",
     "triton-metrics": "0.1.1",
