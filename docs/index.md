@@ -58,6 +58,29 @@ properties from the IP (including **reserved**, **belongs_to_uuid**, and
 **belongs_to_type**).  This therefore makes the IP available for automatic
 provisioning again.
 
+# Ping NAPI
+
+## Ping (GET /ping)
+
+This endpoint gives us a general status report from NAPI. It indicates if NAPI
+is fully initialized, and if so, which features are enabled.
+
+### Example
+
+```
+GET /ping
+{
+  "config": {
+      "fabrics_enabled": true,
+      "subnet_alloc_enabled": false
+  },
+  "healthy": true,
+  "services": {
+    "moray": "online"
+  },
+  "status": "OK"
+}
+```
 
 # Nic Tags
 
@@ -1695,6 +1718,20 @@ In the example above, the node will boot with one aggregation, aggr0, with
 
 **Note: changes to aggregations will only take effect at the next reboot
 of the Compute Node that hosts them.**
+
+# Internal Endpoints
+
+These endpoints are intended for use by developers and/or other internal
+components of the Triton stack.
+
+## RunGC (GET /manage/gc)
+
+If NAPI has been executed with the correct CLI options, a developer can use this
+endpoint to tell the node.js runtime to garbage collect allocated objects. If
+NAPI does not have access to the node GC, it will return an error. Otherwise it
+will run the GC and return heap usage statistics from before and after the GC
+run. This endpoint is usually used for getting memory usage information or
+forcing a GC run to help determine whether there's a memory leak.
 
 
 # Pagination
