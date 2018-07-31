@@ -863,6 +863,48 @@ test('list networks', function (t) {
 
 });
 
+test('network owner checks', function (t) {
+    t.test('get NETS[2]: correct owner (OWNERS[0])', function (t2) {
+        mod_fabric_net.get(t2, {
+            params: {
+                vlan_id: VLANS[1].vlan_id,
+                uuid: NETS[2].uuid,
+                owner_uuid: OWNERS[0]
+            },
+            exp: NETS[2]
+        });
+    });
+
+    t.test('get NETS[2]: incorrect owner (OWNERS[1])', function (t2) {
+        mod_fabric_net.get(t2, {
+            params: {
+                vlan_id: VLANS[1].vlan_id,
+                uuid: NETS[2].uuid,
+                owner_uuid: OWNERS[1]
+            },
+            expCode: 404,
+            expErr: {
+                code: 'ResourceNotFound',
+                message: 'network not found'
+            }
+        });
+    });
+
+    t.test('delete NETS[2]: incorrect owner (OWNERS[1])', function (t2) {
+        mod_fabric_net.del(t2, {
+            params: {
+                vlan_id: VLANS[1].vlan_id,
+                uuid: NETS[2].uuid,
+                owner_uuid: OWNERS[1]
+            },
+            expCode: 404,
+            expErr: {
+                code: 'ResourceNotFound',
+                message: 'network not found'
+            }
+        });
+    });
+});
 
 /*
  * Test that we can create the same network (particularly with the same name)
