@@ -5,7 +5,7 @@
 #
 
 #
-# Copyright 2017, Joyent, Inc.
+# Copyright 2018, Joyent, Inc.
 #
 
 #
@@ -41,7 +41,7 @@ JSON_FILES  := package.json config.json.sample
 ifeq ($(shell uname -s),SunOS)
 	# Allow building on a SmartOS image other than sdc-*-multiarch 15.4.1.
 	NODE_PREBUILT_IMAGE=18b094b0-eb01-11e5-80c1-175dac7ddf02
-	NODE_PREBUILT_VERSION=v0.10.48
+	NODE_PREBUILT_VERSION=v6.14.3
 	NODE_PREBUILT_TAG := zone
 endif
 
@@ -78,7 +78,7 @@ CLEAN_FILES += ./node_modules/tape
 
 .PHONY: test
 test: $(ISTANBUL) $(FAUCET)
-	$(ISTANBUL) cover --print none test/unit/run.js | $(FAUCET)
+	$(NODE) $(ISTANBUL) cover --print none test/unit/run.js | $(FAUCET)
 
 #
 # Packaging targets
