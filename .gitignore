@@ -1,8 +1,10 @@
 smf/manifests/napi.xml
+/bits
 /build
 /coverage
+/make_stamps
 node_modules
-napi-pkg-*.tar.bz2
+napi-pkg-*.tar.gz
 config.json
 data.json
 # built docs (ignore for now)
