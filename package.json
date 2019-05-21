@@ -11,7 +11,6 @@
     "clone": "1.0.2",
     "cmdln": "3.0.2",
     "dashdash": "1.7.3",
-    "effluent-logger": "git+https://github.com/joshwilsdon/effluent-logger.git#d662f161a07f94045ad2afb45442931511c40e51",
     "ip6addr": "0.2.2",
     "jsprim": "1.4.0",
     "lomstream": "1.1.0",
