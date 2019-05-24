@@ -17,6 +17,7 @@
 var bunyan = require('bunyan');
 var napi = require('./lib/napi');
 var restify = require('restify');
+var tritonTracer = require('triton-tracer');
 
 
 var log = bunyan.createLogger({
@@ -25,6 +26,10 @@ var log = bunyan.createLogger({
     serializers: restify.bunyan.serializers
 });
 
+// Init tracing now that we have a logger.
+tritonTracer.init({
+    log: log
+});
 
 function exitOnError(err) {
     if (err) {
