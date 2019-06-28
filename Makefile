@@ -5,7 +5,7 @@
 #
 
 #
-# Copyright (c) 2019, Joyent, Inc.
+# Copyright 2019 Joyent, Inc.
 #
 
 #
@@ -41,10 +41,9 @@ BASH_FILES	:= sbin/napid bin/napictl
 JSON_FILES  := package.json config.json.sample
 
 ifeq ($(shell uname -s),SunOS)
-	# sdc-*-multiarch 15.4.1.
-	NODE_PREBUILT_IMAGE=18b094b0-eb01-11e5-80c1-175dac7ddf02
+	NODE_PREBUILT_IMAGE=c2c31b00-1d60-11e9-9a77-ff9f06554b0f
 	NODE_PREBUILT_VERSION=v6.17.0
-	NODE_PREBUILT_TAG := zone
+	NODE_PREBUILT_TAG := zone64
 endif
 
 ENGBLD_USE_BUILDIMAGE	= true
@@ -67,7 +66,8 @@ RELEASE_TARBALL := $(NAME)-pkg-$(STAMP).tar.gz
 PKGDIR          := $(TOP)/$(BUILD)/pkg
 INSTDIR         := $(PKGDIR)/root/opt/smartdc/napi
 
-BASE_IMAGE_UUID = 04a48d7d-6bb5-4e83-8c3b-e60a99e0f48f
+# our base image is triton-origin-x86_64-18.4.0
+BASE_IMAGE_UUID = a9368831-958e-432d-a031-f8ce6768d190
 BUILDIMAGE_NAME = $(NAME)
 BUILDIMAGE_DESC	= SDC NAPI
 AGENTS		= amon config registrar
