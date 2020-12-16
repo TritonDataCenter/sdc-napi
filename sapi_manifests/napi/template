@@ -37,6 +37,17 @@
   },
 {{/fabric_cfg}}
   "ufdsAdminUuid": "{{{ufds_admin_uuid}}}",
+{{#vpc_cfg}}
+  "vpc": {
+      "enabled": true,
+      "defaultUserVPCQuota": {{{default_user_vpc_quota}}}
+  },
+{{//vpc_cfg}}
+{{^vpc_cfg}}
+  "vpc": {
+      "enabled": false,
+  },
+{{#vpc_cfg}}
   "wfapi": {
     "forceReplace": true,
     "retry": {

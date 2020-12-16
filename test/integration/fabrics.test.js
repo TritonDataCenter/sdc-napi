@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright 2019 Joyent, Inc.
+ * Copyright 2021 Joyent, Inc.
  */
 
 /*
@@ -617,6 +617,7 @@ test('create network', function (t) {
     t.test('get network: 4', function (t2) {
         var newNet4 = extend(mod_fabric_net.lastCreated(), {
             fabric: true,
+            vpc: false,
             family: 'ipv4',
             internet_nat: false,
             mtu: OVERLAY_MTU,

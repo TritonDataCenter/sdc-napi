@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2018, Joyent, Inc.
+ * Copyright 2021 Joyent, Inc.
  */
 
 /*
@@ -90,6 +90,10 @@ function createFabricNet(t, opts, callback) {
 
         if (!opts.exp.hasOwnProperty('fabric')) {
             opts.exp.fabric = true;
+        }
+
+        if (!opts.exp.hasOwnProperty('vpc')) {
+            opts.exp.vpc = false;
         }
 
         if (!opts.exp.hasOwnProperty('internet_nat')) {

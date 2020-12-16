@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2018, Joyent, Inc.
+ * Copyright 2021 Joyent, Inc.
  */
 
 /*
@@ -86,7 +86,7 @@ var BUCKETS = {
 };
 
 var VERSIONS = {
-    networks: 4,
+    networks: 5,
     nics: 3,
     nictags: 1
 };
@@ -617,7 +617,8 @@ test('networks', function (t) {
                 subnet: '10.88.88.0/24',
                 subnet_start: '10.88.88.0',
                 subnet_type: 'ipv4',
-                v: VERSIONS.networks
+                v: VERSIONS.networks,
+                vpc: false
             })
         });
     });
@@ -643,7 +644,8 @@ test('networks', function (t) {
                 subnet: '10.99.99.0/24',
                 subnet_start: '10.99.99.0',
                 subnet_type: 'ipv4',
-                v: VERSIONS.networks
+                v: VERSIONS.networks,
+                vpc: false
             })
         });
     });

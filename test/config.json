@@ -16,6 +16,10 @@
       "overlayNicTag": "sdc_overlay",
       "underlayNicTag": "sdc_underlay"
   },
+  "vpc":{
+      "enabled": true,
+      "defaultUserVPCQuota": 5
+  },
   "port": 0,
   "ufdsAdminUuid": "aaaaaaaa-aaaa-aaaa-aaaa-000000000000"
 }

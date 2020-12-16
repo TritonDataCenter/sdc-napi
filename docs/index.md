@@ -10,7 +10,7 @@ markdown2extras: tables, code-friendly, fenced-code-blocks
 -->
 
 <!--
-    Copyright 2018, Joyent, Inc.
+    Copyright 2021 Joyent, Inc.
 -->
 
 # Networking API (NAPI)
@@ -1718,6 +1718,73 @@ In the example above, the node will boot with one aggregation, aggr0, with
 
 **Note: changes to aggregations will only take effect at the next reboot
 of the Compute Node that hosts them.**
+
+# VPC
+
+## Overview
+
+These endpoints manage VPCs. VPCs are the evolution of fabrics, but enable
+additional features not found in fabrics.
+
+## CreateVPC (POST /vpc)
+
+Create a VPC.
+
+### Inputs
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| owner_uuid | UUID | The owner of this VPC. Required |
+| ip4_cidr | String | The IPv4 CIDR network that will contain all networks in the VPC in network/mask form. Required. |
+| ip6_cidr | String | The IPv6 equivalent of ipv4_cidr for dual-stack VPCs. Optional. Mostly a placeholder for now. |
+| is_default | boolean | Is this the default VPC. Optional. Placeholder for now. |
+| description | String | Description of the VPC. Optional. |
+| quota | Integer | The maximum number of VPCs to allow for this user. Optional. |
+
+Note that the quota value is not stored in the VPC object. It is merely used to
+compare the current number of VPCs for `owner_uuid` and reject the creation
+request if the current number of VPCs in use exceeds the quota. If not given,
+the SAPI default is used instead. Typically, this is either omitted (to fallback
+to the SAPI default), or if a specific account has been given a non-default
+VPC quota in UFDS, CloudAPI will pass that value on to NAPI. NAPI doesn't
+examine UFDS directly for a quota to allow operators to be able to explicitly
+create VPCs for users while bypassing any quota checks.
+
+## ListVPCs (GET /vpc)
+
+List VPCs.
+
+## GetVPC (GET /vpc/:vpc_uuid)
+
+Get a specific VPC.
+
+## UpdateVPC (PUT /vpc/:vpc_uuid)
+
+Update a VPC. Basically you can change the description.
+
+## DeleteVPC (DELETE /vpc/:vpc_uuid)
+
+## CreateVPCNetwork (POST /vpc/:vpc_uuid/networks)
+
+Create a VPC network. This works just like creating a fabric network, except
+the vlan_id is optional. If not given, one is automatically assigned.
+Additionally, the network subnet must not overlap with any other network in
+the VPC, and it must be a subset of the CIDR value given during VPC creation.
+
+## ListVPCNetworks (GET /vpc/:vpc_uuid/networks)
+
+This works just like listing fabric networks. The networks are limited to
+the ones that reside in the given VPC.
+
+## GetVPCNetwork (GET /vpc/:vpc_uuid/networks/:network_uuid)
+
+This works just like getting a fabric networks, except `network_uuid` must
+reside in the given VPC.
+
+## DeleteVPC (DELETE /vpc/:vpc_uuid/networks/:network_uuid)
+
+This works just like deleteing a fabric network, except `network_uuid` must
+reside in the given VPC.
 
 # Internal Endpoints
 
