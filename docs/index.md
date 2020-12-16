@@ -10,7 +10,7 @@ markdown2extras: tables, code-friendly, fenced-code-blocks
 -->
 
 <!--
-    Copyright 2018, Joyent, Inc.
+    Copyright 2020 Joyent, Inc.
 -->
 
 # Networking API (NAPI)
@@ -1261,7 +1261,10 @@ of the nic occurred prior to NAPI implementing support for the timestamps.
 
 ## UpdateNic (PUT /nics/:mac_address)
 
-Changes properties of the nic with the given MAC address.
+Changes properties of the nic with the given MAC address. Note: if the nic
+is in an aggregation, you can only add IPs to the first nic in the aggregation.
+Attempting to provision IPs on any other nic in the aggregation will result
+in an error.
 
 | Field                    | Type                   | Description                                                                       |
 | ------------------------ | ---------------------- | --------------------------------------------------------------------------------- |
@@ -1605,7 +1608,13 @@ Returns an aggregation.
 
 ## CreateAggregation (POST /aggregations)
 
-Creates an aggregation.
+Creates an aggregation. The resulting aggregation will use the MAC address of
+the first NIC (`macs[0]`) as the MAC address of the aggregation. The NICs
+corresponding to the values of MACs must already exist. Aggregation creation
+will fail if any IPs have been provisioned on any NICs but the first NIC
+in the aggregation (corresponding to `macs[0]`) unless the `force` option
+is given. If the `force` option is supplied, any IPs provisioned on any NICs
+but the first MAC will be released for reuse.
 
 ### Inputs
 
@@ -1615,6 +1624,7 @@ Creates an aggregation.
 | lacp_mode         | String                 | aggregation LACP mode: can be active, passive or off (default: off)                    |
 | macs              | Array of Strings       | MAC addresses of links in the aggregation (**required**)                               |
 | nic_tags_provided | Array of nic tag names | nic tags that this aggregation provides (same parameter as in [CreateNic](#CreateNic)) |
+| force             | boolean                | Force creation of aggr (optional). |
 
 ### Example
 
@@ -1642,7 +1652,10 @@ Creates an aggregation.
 
 ## UpdateAggregation (PUT /aggregations/:id)
 
-Updates an aggregation.
+Updates an aggregation. As with creating an aggregation, one cannot add a NIC
+with an IP already provisioned on it to an aggregation without the `force`
+option. If the `force` option is provided (and `true`), it will release any
+IPs on those NICs when added to an aggregation.
 
 ### Inputs
 
@@ -1651,6 +1664,7 @@ Updates an aggregation.
 | lacp_mode         | String                 | aggregation LACP mode: can be active, passive or off (default: off)                    |
 | macs              | Array of Strings       | MAC addresses of links in the aggregation                                              |
 | nic_tags_provided | Array of nic tag names | nic tags that this aggregation provides (same parameter as in [CreateNic](#CreateNic)) |
+| force             | Boolean                | Force links into an aggregation, even if they have IPs provisioned |
 
 ### Example
 
