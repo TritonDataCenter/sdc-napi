@@ -5,7 +5,7 @@
 #
 
 #
-# Copyright 2019 Joyent, Inc.
+# Copyright 2022 Joyent, Inc.
 #
 
 #
@@ -30,8 +30,7 @@ EXTRA_DOC_DEPS	= deps/restdown-brand-remora/.git
 DOC_FILES	 = index.md
 JS_FILES	:= $(shell ls *.js) $(shell find lib test -name '*.js') \
 	bin/ip2num bin/num2ip bin/mac2num bin/num2mac
-JSL_CONF_NODE	= tools/jsl.node.conf
-JSL_FILES_NODE	= $(JS_FILES)
+ESLINT_FILES   = $(JS_FILES)
 JSSTYLE_FILES	= $(JS_FILES)
 JSSTYLE_FLAGS	= -o indent=2,doxygen,unparenthesized-return=0,strict-indent=true
 ESLINT		= ./node_modules/.bin/eslint
@@ -41,15 +40,17 @@ BASH_FILES	:= sbin/napid bin/napictl
 JSON_FILES  := package.json config.json.sample
 
 ifeq ($(shell uname -s),SunOS)
-	NODE_PREBUILT_IMAGE=c2c31b00-1d60-11e9-9a77-ff9f06554b0f
-	NODE_PREBUILT_VERSION=v6.17.0
-	NODE_PREBUILT_TAG := zone64
+	NODE_PREBUILT_IMAGE=a7199134-7e94-11ec-be67-db6f482136c2
+	NODE_PREBUILT_VERSION=v6.17.1
+	NODE_PREBUILT_TAG=zone64
 endif
 
 ENGBLD_USE_BUILDIMAGE	= true
 ENGBLD_REQUIRE		:= $(shell git submodule update --init deps/eng)
 include ./deps/eng/tools/mk/Makefile.defs
 TOP ?= $(error Unable to access eng.git submodule Makefiles.)
+
+BUILD_PLATFORM  = 20210826T002459Z
 
 ifeq ($(shell uname -s),SunOS)
 	include ./deps/eng/tools/mk/Makefile.node_prebuilt.defs
@@ -66,8 +67,8 @@ RELEASE_TARBALL := $(NAME)-pkg-$(STAMP).tar.gz
 PKGDIR          := $(TOP)/$(BUILD)/pkg
 INSTDIR         := $(PKGDIR)/root/opt/smartdc/napi
 
-# our base image is triton-origin-x86_64-18.4.0
-BASE_IMAGE_UUID = a9368831-958e-432d-a031-f8ce6768d190
+# our base image is triton-origin-x86_64-21.4.0
+BASE_IMAGE_UUID = 502eeef2-8267-489f-b19c-a206906f57ef
 BUILDIMAGE_NAME = $(NAME)
 BUILDIMAGE_DESC	= SDC NAPI
 AGENTS		= amon config registrar
