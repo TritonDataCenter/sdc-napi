@@ -6,19 +6,21 @@
 
 <!--
     Copyright 2019 Joyent, Inc.
+    Copyright 2024 MNX Cloud, Inc.
 -->
 
 # sdc-napi
 
-This repository is part of the Joyent Triton project. See the [contribution
-guidelines](https://github.com/joyent/triton/blob/master/CONTRIBUTING.md)
+This repository is part of the Triton Data Center project. See the [contribution
+guidelines](https://github.com/TritonDataCenter/triton/blob/master/CONTRIBUTING.md)
 and general documentation at the main
-[Triton project](https://github.com/joyent/triton) page.
+[Triton project](https://github.com/TritonDataCenter/triton) page.
 
 The SDC Networking API (NAPI) manages networking-related data for SDC. This
 includes the provisioning of MAC addresses for new Virtual Nics (vnics) and
 IP addresses for subnets. For more information on the objects that NAPI
-manages, see [docs/index.md](https://github.com/joyent/sdc-napi/blob/master/docs/index.md).
+manages, see
+[docs/index.md](https://github.com/TritonDataCenter/sdc-napi/blob/master/docs/index.md).
 
 The contents of this repo are bundled up into an image that is then provisioned
 as the napi zone in SDC.
@@ -52,7 +54,7 @@ as the napi zone in SDC.
 
 ## Getting started
 
-    git clone git@github.com:joyent/sdc-napi.git
+    git clone git@github.com:TritonDataCenter/sdc-napi.git
     make
 
 To update the docs, edit "docs/index.md", then check that

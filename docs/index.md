@@ -11,6 +11,7 @@ markdown2extras: tables, code-friendly, fenced-code-blocks
 
 <!--
     Copyright 2018, Joyent, Inc.
+    Copyright 2024 MNX Cloud, Inc.
 -->
 
 # Networking API (NAPI)
@@ -33,8 +34,8 @@ The Networking API allows for administering the following:
 
 NAPI itself is just a directory of the above - it does not handle communicating
 these changes to servers, which is the domain of
-[VMAPI](https://mo.joyent.com/docs/vmapi/master) and
-[CNAPI](https://mo.joyent.com/docs/cnapi/master).
+[VMAPI](https://github.com/TritonDataCenter/sdc-vmapi) and
+[CNAPI](https://github.com/TritonDataCenter/sdc-cnapi).
 
 
 ## IP and Nic Provisioning
@@ -650,15 +651,15 @@ pieces of data:
 2. The IP address of that Compute Node on the underlay network
 
 These lookups are handled by the
-[portolan](https://github.com/joyent/sdc-portolan) service, which looks up the
-data in [moray](https://github.com/joyent/moray) buckets.  NAPI populates these
+[portolan](https://github.com/TritonDataCenter/sdc-portolan) service, which looks up the
+data in [moray](https://github.com/TritonDataCenter/moray) buckets.  NAPI populates these
 tables.
 
 To cover item #1 above, set the `cn_uuid` property when calling the
 [CreateNic](#CreateNic) or [UpdateNic](#UpdateNic) endpoints.  This is
 currently done by the provision workflow in
-[VMAPI](https://github.com/joyent/sdc-vmapi), and kept up to date by
-[net-agent](https://github.com/joyent/sdc-net-agent) on the Compute Node.
+[VMAPI](https://github.com/TritonDataCenter/sdc-vmapi), and kept up to date by
+[net-agent](https://github.com/TritonDataCenter/sdc-net-agent) on the Compute Node.
 
 To cover item #2 above, set the `underlay` property on a server's vnic when
 calling the [CreateNic](#CreateNic) or [UpdateNic](#UpdateNic) endpoints.
@@ -1781,7 +1782,7 @@ be generated with a detailed message describing the error.
 
 # Metrics
 
-NAPI exposes metrics via [node-triton-metrics](https://github.com/joyent/node-triton-metrics) on `http://<ADMIN_IP>:8881/metrics.`
+NAPI exposes metrics via [node-triton-metrics](https://github.com/TritonDataCenter/node-triton-metrics) on `http://<ADMIN_IP>:8881/metrics.`
 
 # Changelog
 
